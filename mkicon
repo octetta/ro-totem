@@ -1,0 +1,32 @@
+#!/bin/bash
+
+SOURCE="rototem.png"
+ICONSET="rototem.iconset"
+mkdir -p "$ICONSET"
+
+# Define the standard macOS icon sizes up to 256x256
+# Format: "width height filename"
+SIZES=(
+    "16 16 icon_16x16.png"
+    "32 32 icon_16x16@2x.png"
+    "32 32 icon_32x32.png"
+    "64 64 icon_32x32@2x.png"
+    "128 128 icon_128x128.png"
+    "256 256 icon_128x128@2x.png"
+    "256 256 icon_256x256.png"
+)
+
+echo "Resizing images..."
+for entry in "${SIZES[@]}"; do
+    read -r W H NAME <<< "$entry"
+    # sips will preserve the alpha channel if the source has it
+    sips -z "$H" "$W" "$SOURCE" --out "$ICONSET/$NAME" > /dev/null
+done
+
+echo "Packing into rototem.icns..."
+iconutil -c icns "$ICONSET"
+
+# Clean up the temporary folder
+rm -rf "$ICONSET"
+
+echo "Success. Move rototem.icns to rototem.app/Contents/Resources/"

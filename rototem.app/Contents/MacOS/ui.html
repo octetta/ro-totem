@@ -1,0 +1,11 @@
+<!DOCTYPE html>
+<html>
+<body>
+  <p id="sentence">It works !</p>
+  <button onclick="window.external.invoke('Hi')">Callback</button>
+  <input type="file" id="dirPicker" webkitdirectory style="display:none;" />
+  <button type="button" onclick="document.getElementById('dirPicker').click()">
+  Select Directory
+  </button>
+  <button id="reload-btn" onclick="location.reload()">reload</button>
+</body></html>
