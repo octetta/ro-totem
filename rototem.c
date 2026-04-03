@@ -2,12 +2,40 @@
 /* don't forget to define WEBVIEW_WINAPI,WEBVIEW_GTK or WEBVIEW_COCAO */
 #include "webview.h"
 
+#include <arpa/inet.h>
+#include <sys/socket.h>
+#include <unistd.h> // Required for close()
+#include <string.h>
+
+void udp_send(const char *ip, int port, const char *msg) {
+    int s = socket(AF_INET, SOCK_DGRAM, 0);
+    if (s < 0) return;
+
+    struct sockaddr_in addr = {
+        .sin_family = AF_INET,
+        .sin_port = htons(port),
+        .sin_addr.s_addr = inet_addr(ip)
+    };
+
+    sendto(s, msg, strlen(msg), 0, (struct sockaddr*)&addr, sizeof(addr));
+    
+    close(s); // Properly release the file descriptor
+}
+
+float vol[3] = {0};
+float mvol = -20.0;
+float frq[3] = {0};
+
 static int wavepointer = 300;
+#define ADDR "127.0.0.1"
+#define PORT 60440
 static void doit(struct webview *w, const char *arg) {
-  printf("Callback called with '%s'\n", arg);
+  printf("called with '%s'\n", arg);
+  char out[1024];
   switch (arg[0]) {
     case '!':
-      webview_eval(w, "alert('hello');");
+      //webview_eval(w, "alert('hello');");
+      udp_send(ADDR, PORT, &arg[1]);
       break;
     case '$':
       printf("udp to skred {%s}\n", &arg[1]);
@@ -17,10 +45,51 @@ static void doit(struct webview *w, const char *arg) {
         char res[1024];
         webview_dialog(w, WEBVIEW_DIALOG_TYPE_OPEN, WEBVIEW_DIALOG_FLAG_DIRECTORY, "sel", "", res, sizeof(res));
         if (1) {
-          char out[1024];
           sprintf(out, "assign('%s','{%s}');", "dir", res);
           webview_eval(w, out);
         }
+      }
+      break;
+    case '-':
+      if (arg[1] >= '0' && arg[1] <= '3') {
+        int vint = arg[1] - '0';
+        vol[vint] -= 1.0;
+        sprintf(out, "v%da%g", vint, vol[vint]);
+        udp_send(ADDR, PORT, out);
+      }
+      break;
+    case '[':
+      if (arg[1] >= '0' && arg[1] <= '3') {
+        int vint = arg[1] - '0';
+        frq[vint] /= 2.0;
+        sprintf(out, "v%df%g", vint, frq[vint]);
+      }
+      break;
+    case ']':
+      if (arg[1] >= '0' && arg[1] <= '3') {
+        int vint = arg[1] - '0';
+        frq[vint] *= 2.0;
+        sprintf(out, "v%df%g", vint, frq[vint]);
+      }
+      break;
+    case '(':
+      {
+        mvol -= 1.0;
+        sprintf(out, "V%g", mvol);
+      }
+      break;
+    case ')':
+      {
+        mvol += 1.0;
+        sprintf(out, "V%g", mvol);
+      }
+      break;
+    case '+':
+      if (arg[1] >= '0' && arg[1] <= '3') {
+        int vint = arg[1] - '0';
+        vol[vint] += 1.0;
+        sprintf(out, "v%da%g", vint, vol[vint]);
+        udp_send(ADDR, PORT, out);
       }
       break;
     case '>':
@@ -29,11 +98,12 @@ static void doit(struct webview *w, const char *arg) {
         char res[1024];
         webview_dialog(w, WEBVIEW_DIALOG_TYPE_OPEN, WEBVIEW_DIALOG_FLAG_FILE, "sel", "", res, sizeof(res));
         if (1) {
-          char out[1024];
-          sprintf(out, "{%s} /ws%d v0 w%d a0B1f440l1", res, wavepointer, wavepointer);
+          int vint = arg[2] - '0';
+          sprintf(out, "{%s} /ws%d v%d w%d a0 B1 f440 t1 0 1 1", res, wavepointer, vint, wavepointer);
           wavepointer++;
           if (wavepointer > 999) wavepointer = 0;
           printf("# to skred -> %s\n", out);
+          udp_send(ADDR, PORT, out);
           sprintf(out, "assign('%s','{%s}');", voice, res);
           webview_eval(w, out);
         }
@@ -48,6 +118,7 @@ static void doit(struct webview *w, const char *arg) {
 #define FILE_URL "file://"
 
 int main(int argc, char *argv[]) {
+  for (int i=0; i<3; i++) frq[i] = 440.0;
   {
     char path[PATH_MAX];
     size_t size;
