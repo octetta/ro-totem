@@ -8,6 +8,7 @@
 #include <string.h>
 
 void udp_send(const char *ip, int port, const char *msg) {
+    printf("# UDP SEND %s %d %s\n", ip, port, msg);
     int s = socket(AF_INET, SOCK_DGRAM, 0);
     if (s < 0) return;
 
@@ -22,9 +23,9 @@ void udp_send(const char *ip, int port, const char *msg) {
     close(s); // Properly release the file descriptor
 }
 
-float vol[3] = {0};
+float vol[4] = {0};
 float mvol = -20.0;
-float frq[3] = {0};
+float frq[4] = {0};
 
 static int wavepointer = 300;
 #define ADDR "127.0.0.1"
@@ -48,14 +49,6 @@ static void doit(struct webview *w, const char *arg) {
           sprintf(out, "assign('%s','{%s}');", "dir", res);
           webview_eval(w, out);
         }
-      }
-      break;
-    case '-':
-      if (arg[1] >= '0' && arg[1] <= '3') {
-        int vint = arg[1] - '0';
-        vol[vint] -= 1.0;
-        sprintf(out, "v%da%g", vint, vol[vint]);
-        udp_send(ADDR, PORT, out);
       }
       break;
     case '[':
@@ -96,6 +89,14 @@ static void doit(struct webview *w, const char *arg) {
         udp_send(ADDR, PORT, out);
       }
       break;
+    case '-':
+      if (arg[1] >= '0' && arg[1] <= '3') {
+        int vint = arg[1] - '0';
+        vol[vint] -= 1.0;
+        sprintf(out, "v%da%g", vint, vol[vint]);
+        udp_send(ADDR, PORT, out);
+      }
+      break;
     case '>':
       if (arg[1] == 'v') {
         const char *voice = &arg[1];
@@ -122,7 +123,7 @@ static void doit(struct webview *w, const char *arg) {
 #define FILE_URL "file://"
 
 int main(int argc, char *argv[]) {
-  for (int i=0; i<3; i++) frq[i] = 440.0;
+  for (int i=0; i<4; i++) frq[i] = 440.0;
   {
     char path[PATH_MAX];
     size_t size;
