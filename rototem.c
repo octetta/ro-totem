@@ -63,6 +63,7 @@ static void doit(struct webview *w, const char *arg) {
         int vint = arg[1] - '0';
         frq[vint] /= 2.0;
         sprintf(out, "v%df%g", vint, frq[vint]);
+        udp_send(ADDR, PORT, out);
       }
       break;
     case ']':
@@ -70,18 +71,21 @@ static void doit(struct webview *w, const char *arg) {
         int vint = arg[1] - '0';
         frq[vint] *= 2.0;
         sprintf(out, "v%df%g", vint, frq[vint]);
+        udp_send(ADDR, PORT, out);
       }
       break;
     case '(':
       {
         mvol -= 1.0;
         sprintf(out, "V%g", mvol);
+        udp_send(ADDR, PORT, out);
       }
       break;
     case ')':
       {
         mvol += 1.0;
         sprintf(out, "V%g", mvol);
+        udp_send(ADDR, PORT, out);
       }
       break;
     case '+':
