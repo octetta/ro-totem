@@ -8,7 +8,9 @@
 #include <string.h>
 
 void udp_send(const char *ip, int port, const char *msg) {
-    printf("# UDP SEND %s %d %s\n", ip, port, msg);
+    char out[1024];
+    sprintf(out, ";%s;", msg);
+    printf("# UDP SEND %s %d %s\n", ip, port, out);
     int s = socket(AF_INET, SOCK_DGRAM, 0);
     if (s < 0) return;
 
@@ -55,7 +57,7 @@ static void doit(struct webview *w, const char *arg) {
       if (arg[1] >= '0' && arg[1] <= '3') {
         int vint = arg[1] - '0';
         frq[vint] /= 2.0;
-        sprintf(out, "v%df%g", vint, frq[vint]);
+        sprintf(out, "v%d f%g", vint, frq[vint]);
         udp_send(ADDR, PORT, out);
       }
       break;
@@ -63,7 +65,7 @@ static void doit(struct webview *w, const char *arg) {
       if (arg[1] >= '0' && arg[1] <= '3') {
         int vint = arg[1] - '0';
         frq[vint] *= 2.0;
-        sprintf(out, "v%df%g", vint, frq[vint]);
+        sprintf(out, "v%d f%g", vint, frq[vint]);
         udp_send(ADDR, PORT, out);
       }
       break;
@@ -85,7 +87,7 @@ static void doit(struct webview *w, const char *arg) {
       if (arg[1] >= '0' && arg[1] <= '3') {
         int vint = arg[1] - '0';
         vol[vint] += 1.0;
-        sprintf(out, "v%da%g", vint, vol[vint]);
+        sprintf(out, "v%d a%g", vint, vol[vint]);
         udp_send(ADDR, PORT, out);
       }
       break;
@@ -93,7 +95,7 @@ static void doit(struct webview *w, const char *arg) {
       if (arg[1] >= '0' && arg[1] <= '3') {
         int vint = arg[1] - '0';
         vol[vint] -= 1.0;
-        sprintf(out, "v%da%g", vint, vol[vint]);
+        sprintf(out, "v%d a%g", vint, vol[vint]);
         udp_send(ADDR, PORT, out);
       }
       break;
@@ -123,7 +125,10 @@ static void doit(struct webview *w, const char *arg) {
 #define FILE_URL "file://"
 
 int main(int argc, char *argv[]) {
-  for (int i=0; i<4; i++) frq[i] = 440.0;
+  for (int i=0; i<4; i++) {
+    frq[i] = 440.0;
+    vol[i] = 0.0;
+  }
   {
     char path[PATH_MAX];
     size_t size;
