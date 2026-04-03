@@ -1,11 +1,81 @@
 <!DOCTYPE html>
 <html>
+
+<script>
+
+function assign(id, value) {
+    const element = document.getElementById(id);
+    if (element) {
+        element.textContent = value;
+    } else {
+        console.warn(`Element with ID "${id}" not found.`);
+    }
+}
+
+</script>
+
+<style>
+.row {
+    display: flex;          /* Align children horizontally */
+    align-items: center;    /* Center them vertically relative to each other */
+    gap: 10px;              /* Spacing between button and text */
+    margin-bottom: 4px;     /* Spacing between rows */
+}
+
+.mono {
+    font-family: monospace;
+    padding: 4px 8px;
+    flex-grow: 1;           /* Optional: Makes the div take up remaining space */
+    min-width: 0;           /* Prevents long paths from breaking the layout */
+    overflow: hidden;
+    text-overflow: ellipsis; /* Adds "..." if the path is too long */
+    white-space: nowrap;
+}
+</style>
+
 <body>
   <p id="sentence">It works !</p>
-  <button onclick="window.external.invoke('Hi')">Callback</button>
-  <input type="file" id="dirPicker" webkitdirectory style="display:none;" />
-  <button type="button" onclick="document.getElementById('dirPicker').click()">
-  Select Directory
-  </button>
-  <button id="reload-btn" onclick="location.reload()">reload</button>
+  <button onclick="window.external.invoke('Hi')">call</button>
+
+  <hr>
+
+  <div class="row">
+  <button onclick="window.external.invoke('@')">dir</button>
+  <div id="dir" class="mono">{}</div>
+  </div>
+  <button onclick="window.external.invoke('!allgo')">all go</button>
+  <button onclick="window.external.invoke('!allno')">all no</button>
+  
+  <div class="row">
+  <button onclick="window.external.invoke('>v0')">v0</button>
+  <div id="v0" class="mono">{}</div>
+  </div>
+  <button onclick="window.external.invoke('!go0')">0 go</button>
+  <button onclick="window.external.invoke('!no0')">0 no</button>
+  
+  <div class="row">
+  <button onclick="window.external.invoke('>v1')">v1</button>
+  <div id="v1" class="mono">{}</div>
+  </div>
+  <button onclick="window.external.invoke('!go1')">1 go</button>
+  <button onclick="window.external.invoke('!no1')">1 no</button>
+  
+  <div class="row">
+  <button onclick="window.external.invoke('>v2')">v2</button>
+  <div id="v2" class="mono">{}</div>
+  </div>
+  <button onclick="window.external.invoke('!go2')">2 go</button>
+  <button onclick="window.external.invoke('!no2')">2 no</button>
+  
+  <div class="row">
+  <button onclick="window.external.invoke('>v3')">v3</button>
+  <div id="v3" class="mono">{}</div>
+  </div>
+  <button onclick="window.external.invoke('!go3')">3 go</button>
+  <button onclick="window.external.invoke('!no3')">3 no</button>
+  
+  <hr>
+  
+  <button id="reload-btn" onclick="location.reload()">reload</button><br>
+
 </body></html>

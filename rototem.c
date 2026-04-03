@@ -2,7 +2,8 @@
 /* don't forget to define WEBVIEW_WINAPI,WEBVIEW_GTK or WEBVIEW_COCAO */
 #include "webview.h"
 
-static void invoke_cb(struct webview *w, const char *arg) {
+static int wavepointer = 300;
+static void doit(struct webview *w, const char *arg) {
   printf("Callback called with '%s'\n", arg);
   switch (arg[0]) {
     case '!':
@@ -11,6 +12,33 @@ static void invoke_cb(struct webview *w, const char *arg) {
     case '$':
       printf("udp to skred {%s}\n", &arg[1]);
       break;
+    case '@':
+      {
+        char res[1024];
+        webview_dialog(w, WEBVIEW_DIALOG_TYPE_OPEN, WEBVIEW_DIALOG_FLAG_DIRECTORY, "sel", "", res, sizeof(res));
+        if (1) {
+          char out[1024];
+          sprintf(out, "assign('%s','{%s}');", "dir", res);
+          webview_eval(w, out);
+        }
+      }
+      break;
+    case '>':
+      if (arg[1] == 'v') {
+        const char *voice = &arg[1];
+        char res[1024];
+        webview_dialog(w, WEBVIEW_DIALOG_TYPE_OPEN, WEBVIEW_DIALOG_FLAG_FILE, "sel", "", res, sizeof(res));
+        if (1) {
+          char out[1024];
+          sprintf(out, "{%s} /ws%d v0 w%d a0B1f440l1", res, wavepointer, wavepointer);
+          wavepointer++;
+          if (wavepointer > 999) wavepointer = 0;
+          printf("# to skred -> %s\n", out);
+          sprintf(out, "assign('%s','{%s}');", voice, res);
+          webview_eval(w, out);
+        }
+      }
+      break;
     default:
       printf("unknown {%s}\n", &arg[1]);
       break;
@@ -18,12 +46,27 @@ static void invoke_cb(struct webview *w, const char *arg) {
 }
 
 #define FILE_URL "file://"
+
 int main(int argc, char *argv[]) {
+  {
+    char path[PATH_MAX];
+    size_t size;
+    #ifdef __APPLE__
+    _NSGetExecutablePath(path, &size);
+    #elif __linux__
+    readlink("/proc/self/exe", path, size);
+    #endif
+    printf("# exe{%s}\n", path);
+    char real_path[PATH_MAX];
+    realpath(path, real_path);
+    printf("# exe{%s}\n", real_path);
+  }
   char path[PATH_MAX];
   realpath("ui.html", path);
   char url[PATH_MAX + sizeof(FILE_URL)];
   snprintf(url, sizeof(url), FILE_URL "%s", path);
-  printf("{%s} {%s}\n", path, url);
+  printf("# url{%s}\n", url);
+  printf("# path{%s}\n", path);
   struct webview webview;
   int r;
   memset(&webview, 0, sizeof(webview));
@@ -44,7 +87,7 @@ int main(int argc, char *argv[]) {
   webview.height = 600;
   webview.resizable = 1;
   webview.debug = 1;
-  webview.external_invoke_cb = &invoke_cb;
+  webview.external_invoke_cb = &doit;
   printf("before init\n");
   r = webview_init(&webview);
   int n = 0;
