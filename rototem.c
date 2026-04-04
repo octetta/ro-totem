@@ -111,7 +111,15 @@ static void doit(struct webview *w, const char *arg) {
           if (wavepointer > 999) wavepointer = 0;
           printf("# to skred -> %s\n", out);
           udp_send(ADDR, PORT, out);
-          sprintf(out, "assign('%s','{%s}');", voice, res);
+          int len = strlen(res);
+          char *ptr = res;
+          for (int i=len; i>0; i--) {
+            if (ptr[i-1] == '/') {
+              ptr += i;
+              break;
+            }
+          }
+          sprintf(out, "assign('%s','{%s}');", voice, ptr);
           webview_eval(w, out);
         }
       }
