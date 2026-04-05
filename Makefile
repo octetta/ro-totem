@@ -9,7 +9,7 @@ ASSETS = assets
 all: bundle
 
 rototem_bin: rototem.c
-	gcc -ObjC -DOBJC_OLD_DISPATCH_PROTOTYPES=1 rototem.c \
+	gcc -g -ObjC -DOBJC_OLD_DISPATCH_PROTOTYPES=1 rototem.c \
 		-DWEBVIEW_COCOA=1 -framework WebKit -framework CoreFoundation \
 		-o rototem_bin
 
