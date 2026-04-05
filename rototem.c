@@ -110,6 +110,13 @@ float frq[4] = {0};
 static int wavepointer = 300;
 #define ADDR "127.0.0.1"
 #define PORT 60472 // trevor's rototem port
+
+void addLog(struct webview *w, char *out) {
+  char res[4096];
+  sprintf(res, "addLog('%s')", out);
+  webview_eval(w, res);
+}
+
 static void doit(struct webview *w, const char *arg) {
   printf("called with '%s'\n", arg);
   char out[1024];
@@ -185,6 +192,7 @@ static void doit(struct webview *w, const char *arg) {
         if (1) {
           int vint = arg[2] - '0';
           sprintf(out, "{%s} /ws%d v%d w%d a0 B1 f440 t1 0 1 1", res, wavepointer, vint, wavepointer);
+          addLog(w, out);
           wavepointer++;
           if (wavepointer > 999) wavepointer = 0;
           printf("# to skred -> %s\n", out);
@@ -249,7 +257,7 @@ get_resource_path("mini-skred", bin_path);
   int r;
   memset(&webview, 0, sizeof(webview));
   webview.url = html_path;
-  webview.title = "rototem early easter egg release";
+  webview.title = "rototem easter 2026";
   webview.width = 884;  // window.innerWidth
   webview.height = 700; // window.innerHeight
   webview.resizable = 1;

@@ -425,6 +425,7 @@ button.addEventListener("click", () => {
 
     function skode(s) {
         if (s.length > 0) {
+            addLog(s);
             window.external.invoke("!;" + s + ";");
         }
     }
