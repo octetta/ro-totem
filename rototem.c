@@ -257,7 +257,7 @@ get_resource_path("mini-skred", bin_path);
   int r;
   memset(&webview, 0, sizeof(webview));
   webview.url = html_path;
-  webview.title = "rototem easter 2026";
+  webview.title = "ro-totem easter 2026";
   webview.width = 884;  // window.innerWidth
   webview.height = 700; // window.innerHeight
   webview.resizable = 1;

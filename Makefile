@@ -1,9 +1,9 @@
 # Define paths
-APP_NAME = rototem.app
+APP_NAME = ro-totem.app
 CONTENTS = $(APP_NAME)/Contents
 MACOS    = $(CONTENTS)/MacOS
 RESOURCES = $(CONTENTS)/Resources
-SHARE    = rototem-easter-2026.zip
+SHARE    = ro-totem-easter-2026.zip
 ASSETS = assets
 
 all: bundle
