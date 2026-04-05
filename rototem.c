@@ -2,6 +2,84 @@
 /* don't forget to define WEBVIEW_WINAPI,WEBVIEW_GTK or WEBVIEW_COCAO */
 #include "webview.h"
 
+////
+
+#include <CoreFoundation/CoreFoundation.h>
+#include <limits.h>
+#include <stdio.h>
+
+void get_resource_path(const char *filename, char *out_path) {
+    CFBundleRef mainBundle = CFBundleGetMainBundle();
+    CFURLRef resourcesURL = CFBundleCopyResourcesDirectoryURL(mainBundle);
+    char path[PATH_MAX];
+    
+    if (CFURLGetFileSystemRepresentation(resourcesURL, true, (UInt8 *)path, PATH_MAX)) {
+        snprintf(out_path, PATH_MAX, "%s/%s", path, filename);
+    }
+    
+    CFRelease(resourcesURL);
+}
+
+////
+
+#include <spawn.h>
+#include <stdio.h>
+#include <unistd.h>
+
+typedef struct {
+    pid_t pid;
+    FILE *to_child;   // stdin of helper
+    FILE *from_child; // stdout of helper
+} HelperProcess;
+
+HelperProcess launch_line_buffered_helper(const char *path, char **argv) {
+    int p_to_c[2], c_to_p[2];
+    pipe(p_to_c);
+    pipe(c_to_p);
+
+    posix_spawn_file_actions_t actions;
+    posix_spawn_file_actions_init(&actions);
+    
+    // Map pipes to standard streams
+    posix_spawn_file_actions_adddup2(&actions, p_to_c[0], STDIN_FILENO);
+    posix_spawn_file_actions_adddup2(&actions, c_to_p[1], STDOUT_FILENO);
+    
+    // Close unused ends in child
+    posix_spawn_file_actions_addclose(&actions, p_to_c[1]);
+    posix_spawn_file_actions_addclose(&actions, c_to_p[0]);
+
+    HelperProcess hp = {0};
+    if (posix_spawn(&hp.pid, path, &actions, NULL, argv, NULL) == 0) {
+        close(p_to_c[0]);
+        close(c_to_p[1]);
+
+        // Convert raw descriptors to line-buffered FILE streams
+        hp.to_child = fdopen(p_to_c[1], "w");
+        hp.from_child = fdopen(c_to_p[0], "r");
+
+        setvbuf(hp.to_child, NULL, _IOLBF, 0);
+        setvbuf(hp.from_child, NULL, _IOLBF, 0);
+    }
+
+    posix_spawn_file_actions_destroy(&actions);
+    return hp;
+}
+
+void get_bundle_resource_path(const char *filename, char *out_path, int max_len) {
+    CFBundleRef mainBundle = CFBundleGetMainBundle();
+    CFURLRef resURL = CFBundleCopyResourceURL(mainBundle, 
+                                             CFStringCreateWithCString(NULL, filename, kCFStringEncodingUTF8), 
+                                             NULL, NULL);
+    if (!resURL) {
+        fprintf(stderr, "Error: Could not find %s in bundle\n", filename);
+        return;
+    }
+    CFURLGetFileSystemRepresentation(resURL, true, (UInt8 *)out_path, max_len);
+    CFRelease(resURL);
+}
+
+////
+
 #include <arpa/inet.h>
 #include <sys/socket.h>
 #include <unistd.h> // Required for close()
@@ -31,7 +109,7 @@ float frq[4] = {0};
 
 static int wavepointer = 300;
 #define ADDR "127.0.0.1"
-#define PORT 60440
+#define PORT 60472 // trevor's rototem port
 static void doit(struct webview *w, const char *arg) {
   printf("called with '%s'\n", arg);
   char out[1024];
@@ -133,6 +211,17 @@ static void doit(struct webview *w, const char *arg) {
 #define FILE_URL "file://"
 
 int main(int argc, char *argv[]) {
+  ///
+char html_path[PATH_MAX];
+char bin_path[PATH_MAX];
+char tmp[PATH_MAX];
+
+get_resource_path("ui.html", tmp);
+sprintf(html_path, "file://%s", tmp);
+get_resource_path("mini-skred", bin_path);
+  printf("html{%s}\n", html_path);
+  printf("help{%s}\n", bin_path);
+  ///
   for (int i=0; i<4; i++) {
     frq[i] = 440.0;
     vol[i] = 0.0;
@@ -159,7 +248,8 @@ int main(int argc, char *argv[]) {
   struct webview webview;
   int r;
   memset(&webview, 0, sizeof(webview));
-  webview.url = url;
+  //webview.url = url;
+  webview.url = html_path;
 #if 0
   webview.url = \
   "data:text/html,<!DOCTYPE html><html><body>"
@@ -171,13 +261,31 @@ int main(int argc, char *argv[]) {
     "  </button>"
     "</body></html>";
 #endif
-  webview.title = "rototem";
+  webview.title = "rototem early easter egg release";
   webview.width = 800;
   webview.height = 730;
   webview.resizable = 1;
   webview.debug = 1;
   webview.external_invoke_cb = &doit;
   printf("before init\n");
+  
+  ////
+    char skred_path[1024];
+    get_bundle_resource_path("mini-skred", skred_path, sizeof(skred_path));
+
+    // Define the arguments: -n and -p60472
+    char *sargv[] = { skred_path, "-n", "-p60472", NULL };
+
+    printf("Launching: %s\n", skred_path);
+    HelperProcess skred = launch_line_buffered_helper(skred_path, sargv);
+
+    if (skred.pid > 0) {
+      //fprintf(skred.to_child, "v0a0l1\n");
+    } else {
+      puts("FAIL");
+    }
+  ////
+  
   r = webview_init(&webview);
   int n = 0;
   printf("before loop\n");
@@ -186,5 +294,23 @@ int main(int argc, char *argv[]) {
     //printf("loop %d\n", n++);
   } while (r == 0);
   printf("before exit\n");
+
+  // Cleanup: Don't leave mini-skred hanging
+#if 1
+  // tell it to quit...
+  fprintf(skred.to_child, "/q\n");
+  sleep(1);
+#else
+  sleep(1);
+  fprintf(skred.to_child, "v0n81\n");
+  sleep(1);
+  fprintf(skred.to_child, "v0l0\n");
+  sleep(1);
+#endif
+  kill(skred.pid, SIGTERM);
+  waitpid(skred.pid, NULL, 0);
+  fclose(skred.to_child);
+  fclose(skred.from_child);
+
   return 0;
 }
