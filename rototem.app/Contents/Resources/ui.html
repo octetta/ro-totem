@@ -107,7 +107,6 @@
 <div class="dashboard">
 
     <div class="voice-card master-card">
-        <h4>main</h4>
         <div class="row">
             <button onclick="window.external.invoke('@')">dir</button>
             <div id="dir" class="mono">{}</div>
@@ -118,21 +117,26 @@
                 <control-slider id="master-vol" label="volume" step=".1" min="-90" max="0" value="-20" format="!;V$1;"></control-slider>
             </div>
             <div class="button-group" style="flex: 1;">
-                <button class="start-btn" onclick="window.external.invoke('! v0l1 v1l1 v2l1 v3l1')">all go</button>
-                <button class="stop-btn" onclick="window.external.invoke('! v0l0 v1l0 v2l0 v3l0')">all end</button>
+                <button class="start-btn" onclick="skode('v0l1 v1l1 v2l1 v3l1')">all go</button>
+                <button class="stop-btn" onclick="skode('v0l0 v1l0 v2l0 v3l0')">all end</button>
             </div>
 
         </div>
 
         <div class="row" style="margin-top: 10px;">
-<details class="custom-accordion">
-    <summary>advanced</summary>
-    <div class="accordion-content">
-        <p>This is the hidden area. You can put buttons, inputs, or text here.</p>
-        <button onclick="yourFunction()">Action</button>
-        <control-slider id="liveness" label="live" step=".001" min="-100" max="100" value="0" format="!;V$1;"></control-slider>
-    </div>
-</details>
+
+        <details class="custom-accordion">
+          <summary>advanced</summary>
+          <pre>watch this space</pre>
+          <!--
+          <div class="accordion-content">
+            <p>This is the hidden area. You can put buttons, inputs, or text here.</p>
+            <button onclick="yourFunction()">Action</button>
+            <control-slider id="liveness" label="live" step=".001" min="-100" max="100" value="0" format="!;V$1;"></control-slider>
+          </div>
+          -->
+        </details>
+
         </div>
     </div>
 
@@ -187,8 +191,8 @@
         <control-slider label="volume" min="-60" max="30" value="0" step=".1" format="!;v0a$1;"></control-slider>
         <control-slider id="v0-freq" label="speed" min="0" max="127" step=".01" value="69" format="!;v0n$1;"></control-slider>
         <div class="button-group">
-            <button class="start-btn" onclick="window.external.invoke('!v0l1')">go</button>
-            <button class="stop-btn" onclick="window.external.invoke('!v0l0')">end</button>
+            <button class="start-btn" onclick="skode('v0l1')">go</button>
+            <button class="stop-btn" onclick="skode('v0l0')">end</button>
             <button class="bump-btn" onclick="half('v0')">&frac12;&times;</button>
             <button class="bump-btn" onclick="subber('v0')">-1</button>
             <button class="bump-btn" onclick="unity('v0')">1&times;</button>
@@ -207,8 +211,8 @@
         <control-slider label="volume" min="-60" max="30" value="0" step=".1" format="!;v1a$1;"></control-slider>
         <control-slider id="v1-freq" label="speed" min="0" max="127" step=".01" value="69" format="!;v1n$1"></control-slider>
         <div class="button-group">
-            <button class="start-btn" onclick="window.external.invoke('!v1l1')">go</button>
-            <button class="stop-btn" onclick="window.external.invoke('!v1l0')">end</button>
+            <button class="start-btn" onclick="skode('v1l1')">go</button>
+            <button class="stop-btn" onclick="skode('v1l0')">end</button>
             <button class="bump-btn" onclick="half('v1')">&frac12;&times;</button>
             <button class="bump-btn" onclick="subber('v1')">-1</button>
             <button class="bump-btn" onclick="unity('v1')">1&times;</button>
@@ -227,8 +231,8 @@
         <control-slider label="volume" min="-60" max="30" value="0" step=".1" format="!;v2a$1;"></control-slider>
         <control-slider id="v2-freq" label="speed" min="0" max="127" step=".01" value="69" format="!;v2n$1;"></control-slider>
         <div class="button-group">
-            <button class="start-btn" onclick="window.external.invoke('!v2l1')">go</button>
-            <button class="stop-btn" onclick="window.external.invoke('!v2l0')">end</button>
+            <button class="start-btn" onclick="skode('v2l1')">go</button>
+            <button class="stop-btn" onclick="skode('v2l0')">end</button>
             <button class="bump-btn" onclick="half('v2')">&frac12;&times;</button>
             <button class="bump-btn" onclick="subber('v2')">-1</button>
             <button class="bump-btn" onclick="unity('v2')">1&times;</button>
@@ -247,8 +251,8 @@
         <control-slider label="volume" min="-60" max="30" value="0" step=".1" format="!;v3a$1;"></control-slider>
         <control-slider id="v3-freq" label="speed" min="0" max="127" step=".01" value="69" format="!;v3n$1;"></control-slider>
         <div class="button-group">
-            <button class="start-btn" onclick="window.external.invoke('!v3l1')">go</button>
-            <button class="stop-btn" onclick="window.external.invoke('!v3l0')">end</button>
+            <button class="start-btn" onclick="skode('v3l1')">go</button>
+            <button class="stop-btn" onclick="skode('v3l0')">end</button>
             <button class="bump-btn" onclick="half('v3')">&frac12;&times;</button>
             <button class="bump-btn" onclick="subber('v3')">-1</button>
             <button class="bump-btn" onclick="unity('v3')">1&times;</button>
@@ -260,7 +264,6 @@
 
 
 <div class="voice-card" style="grid-column: 1 / -1; border-top: 4px solid #ff9800; background: #fffaf0;">
-    <h4>manual</h4>
     <div class="row">
         <input type="text"
           id="skode-input"
@@ -273,7 +276,42 @@
         <button id="skode-send" onclick="skode(getcmd())" 
                 style="background: #ff9800; color: white; min-width: 100px;">send</button>
     </div>
+        <details class="custom-accordion">
+          <summary>log</summary>
+          <div class="accordion-content">
+
+<div id="log-container" style="
+    height: 300px; 
+    overflow-y: scroll; /* Always show scrollbar track to prevent layout jump */
+    background: #fdfdfd; 
+    color: #333333;      
+    padding: 10px; 
+    font-family: 'Courier New', monospace;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+">
+    <pre id="log-output" style="margin: 0; white-space: pre-wrap;"></pre>
 </div>
+
+          </div>
+        </details>
+</div>
+
+<script>
+    const logOutput = document.getElementById('log-output');
+    const logContainer = document.getElementById('log-container');
+    const MAX_LINES = 20;
+
+    function addLog(message) {
+        let lines = logOutput.textContent.split('\n').filter(line => line.length > 0);
+        lines.push(`${message}`);
+        if (lines.length > MAX_LINES) {
+            lines = lines.slice(-MAX_LINES);
+        }
+        logOutput.textContent = lines.join('\n');
+        logContainer.scrollTop = logContainer.scrollHeight;
+    }
+</script>
 
 <script>
 const input = document.getElementById("skode-input");

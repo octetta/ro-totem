@@ -248,19 +248,7 @@ get_resource_path("mini-skred", bin_path);
   struct webview webview;
   int r;
   memset(&webview, 0, sizeof(webview));
-  //webview.url = url;
   webview.url = html_path;
-#if 0
-  webview.url = \
-  "data:text/html,<!DOCTYPE html><html><body>"
-    "<p id=\"sentence\">It works !</p>"
-    "<button onclick=\"window.external.invoke('Hi')\">Callback</button>"
-    "<input type=\"file\" id=\"dirPicker\" webkitdirectory style=\"display:none;\" />"
-    "<button type=\"button\" onclick=\"document.getElementById('dirPicker').click()\">"
-    "  Select Directory"
-    "  </button>"
-    "</body></html>";
-#endif
   webview.title = "rototem early easter egg release";
   webview.width = 884;
   webview.height = 744;
@@ -280,7 +268,7 @@ get_resource_path("mini-skred", bin_path);
     HelperProcess skred = launch_line_buffered_helper(skred_path, sargv);
 
     if (skred.pid > 0) {
-      //fprintf(skred.to_child, "v0a0l1\n");
+      fprintf(skred.to_child, "v0a0>1>2>3\n");
     } else {
       puts("FAIL");
     }
@@ -291,22 +279,14 @@ get_resource_path("mini-skred", bin_path);
   printf("before loop\n");
   do {
     r = webview_loop(&webview, 1);
-    //printf("loop %d\n", n++);
   } while (r == 0);
-  printf("before exit\n");
 
-  // Cleanup: Don't leave mini-skred hanging
-#if 1
   // tell it to quit...
   fprintf(skred.to_child, "/q\n");
+  
   sleep(1);
-#else
-  sleep(1);
-  fprintf(skred.to_child, "v0n81\n");
-  sleep(1);
-  fprintf(skred.to_child, "v0l0\n");
-  sleep(1);
-#endif
+  
+  // Cleanup: Don't leave mini-skred hanging
   kill(skred.pid, SIGTERM);
   waitpid(skred.pid, NULL, 0);
   fclose(skred.to_child);

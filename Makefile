@@ -4,6 +4,7 @@ CONTENTS = $(APP_NAME)/Contents
 MACOS    = $(CONTENTS)/MacOS
 RESOURCES = $(CONTENTS)/Resources
 SHARE    = rototem-easter-egg.zip
+ASSETS = assets
 
 all: bundle
 
@@ -18,11 +19,11 @@ bundle: rototem_bin
 	mkdir -p $(MACOS) $(RESOURCES)
 
 	# 2. Populate structure
-	cp Info.plist $(CONTENTS)/
+	cp $(ASSETS)/Info.plist $(CONTENTS)/
 	cp rototem_bin $(MACOS)/rototem
 	cp ui.html $(RESOURCES)/
-	cp mini-skred $(RESOURCES)/
-	cp rototem.icns $(RESOURCES)/
+	cp $(ASSETS)/mini-skred $(RESOURCES)/
+	cp $(ASSETS)/rototem.icns $(RESOURCES)/
 	chmod +x $(MACOS)/rototem $(RESOURCES)/mini-skred
 
 	# 3. Strip all attributes BEFORE signing
