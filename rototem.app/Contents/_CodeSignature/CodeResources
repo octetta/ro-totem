@@ -19,15 +19,6 @@
 	</dict>
 	<key>files2</key>
 	<dict>
-		<key>MacOS/ui.html</key>
-		<dict>
-			<key>cdhash</key>
-			<data>
-			JJIcJjybUj9y6J3PepODELHwJLo=
-			</data>
-			<key>requirement</key>
-			<string>cdhash H"2f94a0e1db74cd58260e6cacf4f8f059fe900d29" or cdhash H"24921c263c9b523f72e89dcf7a938310b1f024ba"</string>
-		</dict>
 		<key>Resources/mini-skred</key>
 		<dict>
 			<key>hash2</key>

@@ -1,20 +1,40 @@
-all: \
-  rototem \
-  #
+# Define paths
+APP_NAME = rototem.app
+CONTENTS = $(APP_NAME)/Contents
+MACOS    = $(CONTENTS)/MacOS
+RESOURCES = $(CONTENTS)/Resources
+SHARE    = rototem-easter-egg.zip
 
-LDFLAGS += -framework CoreFoundation
+all: bundle
 
-SHARE = rototem-easter-egg.zip
+rototem_bin: rototem.c
+	gcc -ObjC -DOBJC_OLD_DISPATCH_PROTOTYPES=1 rototem.c \
+		-DWEBVIEW_COCOA=1 -framework WebKit -framework CoreFoundation \
+		-o rototem_bin
 
-rototem: rototem.c
-	gcc -ObjC -DOBJC_OLD_DISPATCH_PROTOTYPES=1 rototem.c -DWEBVIEW_COCOA=1 -framework WebKit -framework CoreFoundation -o rototem
-	cp rototem rototem.app/Contents/MacOS
-	cp ui.html rototem.app/Contents/Resources
-	cp mini-skred rototem.app/Contents/Resources
-	chmod +x rototem.app/Contents/Resources/mini-skred
-	cp rototem.icns rototem.app/Contents/Resources
-	cp Info.plist rototem.app/Contents
-	xattr -cr rototem.app
-	codesign --force --deep --sign - rototem.app
-	rm -rf $(SHARE)
-	zip -r -y $(SHARE) rototem.app
+bundle: rototem_bin
+	# 1. Start fresh
+	rm -rf $(APP_NAME)
+	mkdir -p $(MACOS) $(RESOURCES)
+
+	# 2. Populate structure
+	cp Info.plist $(CONTENTS)/
+	cp rototem_bin $(MACOS)/rototem
+	cp ui.html $(RESOURCES)/
+	cp mini-skred $(RESOURCES)/
+	cp rototem.icns $(RESOURCES)/
+	chmod +x $(MACOS)/rototem $(RESOURCES)/mini-skred
+
+	# 3. Strip all attributes BEFORE signing
+	# This removes the "downloaded from internet" flag and stale ACLs
+	xattr -cr $(APP_NAME)
+
+	# 4. Ad-hoc sign the whole bundle deep
+	codesign --force --deep --sign - $(APP_NAME)
+
+	# 5. Clean and Zip
+	rm -f $(SHARE)
+	zip -r -y $(SHARE) $(APP_NAME)
+
+clean:
+	rm -rf $(APP_NAME) rototem_bin $(SHARE)
