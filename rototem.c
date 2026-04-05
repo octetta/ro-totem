@@ -262,8 +262,8 @@ get_resource_path("mini-skred", bin_path);
     "</body></html>";
 #endif
   webview.title = "rototem early easter egg release";
-  webview.width = 800;
-  webview.height = 730;
+  webview.width = 884;
+  webview.height = 744;
   webview.resizable = 1;
   webview.debug = 1;
   webview.external_invoke_cb = &doit;
@@ -274,7 +274,7 @@ get_resource_path("mini-skred", bin_path);
     get_bundle_resource_path("mini-skred", skred_path, sizeof(skred_path));
 
     // Define the arguments: -n and -p60472
-    char *sargv[] = { skred_path, "-n", "-p60472", NULL };
+    char *sargv[] = { skred_path, "-n", "-p60472", "-v16", NULL };
 
     printf("Launching: %s\n", skred_path);
     HelperProcess skred = launch_line_buffered_helper(skred_path, sargv);

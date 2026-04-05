@@ -121,14 +121,18 @@
                 <button class="start-btn" onclick="window.external.invoke('! v0l1 v1l1 v2l1 v3l1')">all go</button>
                 <button class="stop-btn" onclick="window.external.invoke('! v0l0 v1l0 v2l0 v3l0')">all end</button>
             </div>
+
         </div>
 
         <div class="row" style="margin-top: 10px;">
-            <!--
-            <button class="bump-btn" onclick="window.external.invoke('(')">Vol ++</button>
-            <button class="bump-btn" onclick="window.external.invoke(')')">Vol --</button>
-            <button onclick="location.reload()" style="background:#666; margin-left: auto;">ui</button>
-            -->
+<details class="custom-accordion">
+    <summary>advanced</summary>
+    <div class="accordion-content">
+        <p>This is the hidden area. You can put buttons, inputs, or text here.</p>
+        <button onclick="yourFunction()">Action</button>
+        <control-slider id="liveness" label="live" step=".001" min="-100" max="100" value="0" format="!;V$1;"></control-slider>
+    </div>
+</details>
         </div>
     </div>
 
@@ -156,6 +160,22 @@
           document.getElementById(t).value = f;
           skode(s+"n"+f);
         }
+        function adder(s) {
+          var t = s + "-freq";
+          var f = document.getElementById(t).value
+          f += 1.0;
+          if (f > 127) f = 0;
+          document.getElementById(t).value = f;
+          skode(s+"n"+f);
+        }
+        function subber(s) {
+          var t = s + "-freq";
+          var f = document.getElementById(t).value
+          f -= 1.0;
+          if (f < 0) f = 0;
+          document.getElementById(t).value = f;
+          skode(s+"n"+f);
+        }
     </script>
 
     <div class="voice-card" style="border-top-color: #ff5722;">
@@ -170,7 +190,9 @@
             <button class="start-btn" onclick="window.external.invoke('!v0l1')">go</button>
             <button class="stop-btn" onclick="window.external.invoke('!v0l0')">end</button>
             <button class="bump-btn" onclick="half('v0')">&frac12;&times;</button>
+            <button class="bump-btn" onclick="subber('v0')">-1</button>
             <button class="bump-btn" onclick="unity('v0')">1&times;</button>
+            <button class="bump-btn" onclick="adder('v0')">+1</button>
             <button class="bump-btn" onclick="double('v0')">2&times;</button>
             <button class="xtra-btn" onclick="skode('v0b')">flip</button>
         </div>
@@ -188,7 +210,9 @@
             <button class="start-btn" onclick="window.external.invoke('!v1l1')">go</button>
             <button class="stop-btn" onclick="window.external.invoke('!v1l0')">end</button>
             <button class="bump-btn" onclick="half('v1')">&frac12;&times;</button>
+            <button class="bump-btn" onclick="subber('v1')">-1</button>
             <button class="bump-btn" onclick="unity('v1')">1&times;</button>
+            <button class="bump-btn" onclick="adder('v1')">+1</button>
             <button class="bump-btn" onclick="double('v1')">2&times;</button>
             <button class="xtra-btn" onclick="skode('v1b')">flip</button>
         </div>
@@ -206,7 +230,9 @@
             <button class="start-btn" onclick="window.external.invoke('!v2l1')">go</button>
             <button class="stop-btn" onclick="window.external.invoke('!v2l0')">end</button>
             <button class="bump-btn" onclick="half('v2')">&frac12;&times;</button>
+            <button class="bump-btn" onclick="subber('v2')">-1</button>
             <button class="bump-btn" onclick="unity('v2')">1&times;</button>
+            <button class="bump-btn" onclick="adder('v2')">+1</button>
             <button class="bump-btn" onclick="double('v2')">2&times;</button>
             <button class="xtra-btn" onclick="skode('v2b')">flip</button>
         </div>
@@ -224,7 +250,9 @@
             <button class="start-btn" onclick="window.external.invoke('!v3l1')">go</button>
             <button class="stop-btn" onclick="window.external.invoke('!v3l0')">end</button>
             <button class="bump-btn" onclick="half('v3')">&frac12;&times;</button>
+            <button class="bump-btn" onclick="subber('v3')">-1</button>
             <button class="bump-btn" onclick="unity('v3')">1&times;</button>
+            <button class="bump-btn" onclick="adder('v3')">+1</button>
             <button class="bump-btn" onclick="double('v3')">2&times;</button>
             <button class="xtra-btn" onclick="skode('v3b')">flip</button>
         </div>
