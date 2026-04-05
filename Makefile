@@ -3,7 +3,7 @@ APP_NAME = rototem.app
 CONTENTS = $(APP_NAME)/Contents
 MACOS    = $(CONTENTS)/MacOS
 RESOURCES = $(CONTENTS)/Resources
-SHARE    = rototem-easter-egg.zip
+SHARE    = rototem-easter-day.zip
 ASSETS = assets
 
 all: bundle
