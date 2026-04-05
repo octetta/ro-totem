@@ -173,7 +173,7 @@ int main(int argc, char *argv[]) {
 #endif
   webview.title = "rototem";
   webview.width = 800;
-  webview.height = 600;
+  webview.height = 730;
   webview.resizable = 1;
   webview.debug = 1;
   webview.external_invoke_cb = &doit;
