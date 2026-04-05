@@ -8,6 +8,9 @@
 #include <limits.h>
 #include <stdio.h>
 
+#include <unistd.h>
+#include <dirent.h>
+
 void get_resource_path(const char *filename, char *out_path) {
     CFBundleRef mainBundle = CFBundleGetMainBundle();
     CFURLRef resourcesURL = CFBundleCopyResourcesDirectoryURL(mainBundle);
@@ -133,8 +136,23 @@ static void doit(struct webview *w, const char *arg) {
         char res[1024];
         webview_dialog(w, WEBVIEW_DIALOG_TYPE_OPEN, WEBVIEW_DIALOG_FLAG_DIRECTORY, "sel", "", res, sizeof(res));
         if (1) {
-          sprintf(out, "assign('%s','{%s}');", "dir", res);
+          webview_eval(w, "lclear()");
+          sprintf(out, "assign('%s','%s');", "dir", res);
           webview_eval(w, out);
+          {
+            struct dirent *entry;
+            DIR *dp = opendir(res);
+            if (dp) {
+              while ((entry = readdir(dp))) {
+                char *name = entry->d_name;
+                size_t len = strlen(name);
+                if ((len > 4) && (strcasecmp(name + len - 4, ".wav") == 0)) {
+                  sprintf(res, "lstuff('%s')", name);
+                  webview_eval(w, res);
+                }
+              }
+            }
+          }
         }
       }
       break;
@@ -205,7 +223,7 @@ static void doit(struct webview *w, const char *arg) {
               break;
             }
           }
-          sprintf(out, "assign('%s','{%s}');", voice, ptr);
+          sprintf(out, "assign('%s','%s');", voice, ptr);
           webview_eval(w, out);
         }
       }
