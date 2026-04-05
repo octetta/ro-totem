@@ -250,8 +250,8 @@ get_resource_path("mini-skred", bin_path);
   memset(&webview, 0, sizeof(webview));
   webview.url = html_path;
   webview.title = "rototem early easter egg release";
-  webview.width = 884;
-  webview.height = 744;
+  webview.width = 884;  // window.innerWidth
+  webview.height = 700; // window.innerHeight
   webview.resizable = 1;
   webview.debug = 1;
   webview.external_invoke_cb = &doit;
