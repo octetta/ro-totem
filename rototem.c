@@ -27,11 +27,11 @@ typedef struct {
   pid_t pid;
   FILE *to_child;   // stdin of helper
   FILE *from_child; // stdout of helper
-} HelperProcess;
+} talker_t;
 
-HelperProcess *launch_line_buffered_helper(const char *path, char **argv) {
-  HelperProcess *hp = (HelperProcess*)calloc(1, sizeof(HelperProcess));
-  memset(hp, 0, sizeof(HelperProcess));
+talker_t *launch_line_buffered_helper(const char *path, char **argv) {
+  talker_t *hp = (talker_t*)calloc(1, sizeof(talker_t));
+  memset(hp, 0, sizeof(talker_t));
   int p_to_c[2], c_to_p[2];
   pipe(p_to_c);
   pipe(c_to_p);
@@ -67,16 +67,14 @@ void get_bundle_resource_path(const char *filename, char *out_path, int max_len)
   CFBundleRef mainBundle = CFBundleGetMainBundle();
   CFURLRef resURL = CFBundleCopyResourceURL(mainBundle, 
     CFStringCreateWithCString(NULL, filename, kCFStringEncodingUTF8), NULL, NULL);
-  if (!resURL) {
-    return;
-  }
+  if (!resURL) return;
   CFURLGetFileSystemRepresentation(resURL, true, (UInt8 *)out_path, max_len);
   CFRelease(resURL);
 }
 
-HelperProcess *skred = NULL;
+talker_t *skred = NULL;
 
-void skoder(const char *msg) {
+void skoder(const char *msg, char flag) {
   if (skred) {
     fprintf(skred->to_child, "%s\n", msg);
   }
@@ -91,53 +89,54 @@ void addLog(struct webview *w, char *out) {
 }
 
 static void invoker(struct webview *w, const char *arg) {
-  char out[1024];
+  char cmd[1024];
   switch (arg[0]) {
     case '!':
-      skoder(&arg[1]);
+      skoder(&arg[1], 0);
       break;
-    case '@':
+    case '@': // allow the user to select a folder, stuff dir name and wav file list into the webview
       {
-        char res[1024];
-        webview_dialog(w, WEBVIEW_DIALOG_TYPE_OPEN, WEBVIEW_DIALOG_FLAG_DIRECTORY, "sel", "", res, sizeof(res));
-        webview_eval(w, "lclear()");
-        sprintf(out, "assign('dir','%s');", res);
-        webview_eval(w, out);
+        char dirname[1024];
+        webview_dialog(w, WEBVIEW_DIALOG_TYPE_OPEN, WEBVIEW_DIALOG_FLAG_DIRECTORY, "sel", "", dirname, sizeof(dirname));
+        // stuff the dir name into 'dir'
+        sprintf(cmd, "assign('dir','%s');", dirname);
+        webview_eval(w, cmd);
+        webview_eval(w, "lclear()"); // this clears the 'file' array
         struct dirent *entry;
-        DIR *dp = opendir(res);
+        DIR *dp = opendir(dirname);
         if (dp) {
+          char cmd[1024];
           while ((entry = readdir(dp))) {
             char *name = entry->d_name;
             size_t len = strlen(name);
             if ((len > 4) && (strcasecmp(name + len - 4, ".wav") == 0)) {
-              sprintf(res, "lstuff('%s')", name);
-              webview_eval(w, res);
+              sprintf(cmd, "lstuff('%s')", name); // this pushes the name into the 'file' array
+              webview_eval(w, cmd);
             }
           }
         }
       }
       break;
-    case '>':
+    case '>': // tell skred to read the filename into a voice (via 'filename'), setup the voice
       if (arg[1] == 'v') {
-        const char *voice = &arg[1];
-        char res[1024];
-        webview_dialog(w, WEBVIEW_DIALOG_TYPE_OPEN, WEBVIEW_DIALOG_FLAG_FILE, "sel", "", res, sizeof(res));
-        int vint = arg[2] - '0';
-        sprintf(out, "{%s} /ws%d v%d w%d a0 B1 f440 t1 0 1 1", res, wavepointer, vint, wavepointer);
-        addLog(w, out);
+        char filename[1024];
+        webview_dialog(w, WEBVIEW_DIALOG_TYPE_OPEN, WEBVIEW_DIALOG_FLAG_FILE, "sel", "", filename, sizeof(filename));
+        int voice = arg[2] - '0';
+        sprintf(cmd, "{%s} /ws%d v%d w%d a0 B1 f440 t1 0 1 1", filename, wavepointer, voice, wavepointer);
+        addLog(w, cmd);
         wavepointer++;
         if (wavepointer > 999) wavepointer = 0;
-        skoder(out);
-        int len = strlen(res);
-        char *ptr = res;
+        skoder(cmd, 0);
+        int len = strlen(filename);
+        char *ptr = filename;
         for (int i=len; i>0; i--) {
           if (ptr[i-1] == '/') {
             ptr += i;
             break;
           }
         }
-        sprintf(out, "assign('%s','%s');", voice, ptr);
-        webview_eval(w, out);
+        sprintf(cmd, "assign('v%d','%s');", voice, ptr);
+        webview_eval(w, cmd);
       }
       break;
     default:
@@ -155,23 +154,8 @@ int main(int argc, char *argv[]) {
   get_resource_path("ui.html", tmp);
   sprintf(html_path, "file://%s", tmp);
   get_resource_path("mini-skred", bin_path);
-  {
-    char path[PATH_MAX];
-    size_t size;
-    #ifdef __APPLE__
-    _NSGetExecutablePath(path, &size);
-    #elif __linux__
-    readlink("/proc/self/exe", path, size);
-    #endif
-    char real_path[PATH_MAX];
-    realpath(path, real_path);
-  }
-  char path[PATH_MAX];
-  realpath("ui.html", path);
-  char url[PATH_MAX + sizeof(FILE_URL)];
-  snprintf(url, sizeof(url), FILE_URL "%s", path);
+
   struct webview webview;
-  int r;
   memset(&webview, 0, sizeof(webview));
   webview.url = html_path;
   webview.title = "ro-totem easter 2026";
@@ -191,20 +175,19 @@ int main(int argc, char *argv[]) {
   skred = launch_line_buffered_helper(skred_path, sargv);
 
   if (skred->pid > 0) {
-    skoder("v0a0>1>2>3\n");
+    skoder("v0a0>1>2>3", 0);
   } else {
     puts("FAIL");
     exit(1);
   }
   
-  r = webview_init(&webview);
-  int n = 0;
+  int r = webview_init(&webview);
   do {
     r = webview_loop(&webview, 1);
   } while (r == 0);
 
   // tell it to quit...
-  skoder("/q");
+  skoder("/q", 0);
   
   sleep(1);
   

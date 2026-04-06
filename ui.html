@@ -115,7 +115,7 @@
         
         <div class="row" style="align-items: flex-end; gap: 20px;">
             <div style="flex: 2;">
-                <control-slider id="master-vol" label="volume" step=".1" min="-90" max="0" value="-20" format="!;V$1;"></control-slider>
+                <control-slider id="master-vol" label="volume" step=".01" min="-90" max="0" value="-20" format="!;V$1;"></control-slider>
             </div>
             <div class="button-group" style="flex: 1;">
                 <button class="start-btn" onclick="skode('v0l1 v1l1 v2l1 v3l1')">all go</button>
@@ -190,8 +190,8 @@
             <div id="v0" class="mono"></div>
             <button class="xtra-btn" onclick="lrand('v0');">rand</button>
         </div>
-        <control-slider label="volume" min="-60" max="30" value="0" step=".1" format="!;v0a$1;"></control-slider>
-        <control-slider id="v0-freq" label="speed" min="0" max="127" step=".01" value="69" format="!;v0n$1;"></control-slider>
+        <control-slider label="volume" min="-60" max="30" value="0" step=".01" format="!;v0a$1;"></control-slider>
+        <control-slider id="v0-freq" label="speed" min="0" max="127" step=".001" value="69" format="!;v0n$1;"></control-slider>
         <div class="button-group">
             <button class="start-btn" onclick="skode('v0l1')">go</button>
             <button class="stop-btn" onclick="skode('v0l0')">end</button>
@@ -208,11 +208,11 @@
         <div class="row">
             <h4>v1</h4>
             <button class="wave-btn" onclick="window.external.invoke('>v1')">pick</button>
-            <div id="v1" class="mono">{}</div>
+            <div id="v1" class="mono"></div>
             <button class="xtra-btn" onclick="lrand('v1');">rand</button>
         </div>
-        <control-slider label="volume" min="-60" max="30" value="0" step=".1" format="!;v1a$1;"></control-slider>
-        <control-slider id="v1-freq" label="speed" min="0" max="127" step=".01" value="69" format="!;v1n$1"></control-slider>
+        <control-slider label="volume" min="-60" max="30" value="0" step=".01" format="!;v1a$1;"></control-slider>
+        <control-slider id="v1-freq" label="speed" min="0" max="127" step=".001" value="69" format="!;v1n$1"></control-slider>
         <div class="button-group">
             <button class="start-btn" onclick="skode('v1l1')">go</button>
             <button class="stop-btn" onclick="skode('v1l0')">end</button>
@@ -229,11 +229,11 @@
         <div class="row">
             <h4>v2</h4>
             <button class="wave-btn" onclick="window.external.invoke('>v2')">pick</button>
-            <div id="v2" class="mono">{}</div>
+            <div id="v2" class="mono"></div>
             <button class="xtra-btn" onclick="lrand('v2');">rand</button>
         </div>
-        <control-slider label="volume" min="-60" max="30" value="0" step=".1" format="!;v2a$1;"></control-slider>
-        <control-slider id="v2-freq" label="speed" min="0" max="127" step=".01" value="69" format="!;v2n$1;"></control-slider>
+        <control-slider label="volume" min="-60" max="30" value="0" step=".01" format="!;v2a$1;"></control-slider>
+        <control-slider id="v2-freq" label="speed" min="0" max="127" step=".001" value="69" format="!;v2n$1;"></control-slider>
         <div class="button-group">
             <button class="start-btn" onclick="skode('v2l1')">go</button>
             <button class="stop-btn" onclick="skode('v2l0')">end</button>
@@ -250,11 +250,11 @@
         <div class="row">
             <h4>v3</h4>
             <button class="wave-btn" onclick="window.external.invoke('>v3')">pick</button>
-            <div id="v3" class="mono">{}</div>
+            <div id="v3" class="mono"></div>
             <button class="xtra-btn" onclick="lrand('v3');">rand</button>
         </div>
-        <control-slider label="volume" min="-60" max="30" value="0" step=".1" format="!;v3a$1;"></control-slider>
-        <control-slider id="v3-freq" label="speed" min="0" max="127" step=".01" value="69" format="!;v3n$1;"></control-slider>
+        <control-slider label="volume" min="-60" max="30" value="0" step=".01" format="!;v3a$1;"></control-slider>
+        <control-slider id="v3-freq" label="speed" min="0" max="127" step=".001" value="69" format="!;v3n$1;"></control-slider>
         <div class="button-group">
             <button class="start-btn" onclick="skode('v3l1')">go</button>
             <button class="stop-btn" onclick="skode('v3l0')">end</button>
