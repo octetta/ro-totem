@@ -2,7 +2,6 @@
 /* don't forget to define WEBVIEW_WINAPI,WEBVIEW_GTK or WEBVIEW_COCAO */
 #include "webview.h"
 
-#include <CoreFoundation/CoreFoundation.h>
 #include <limits.h>
 #include <stdio.h>
 #include <unistd.h>
@@ -11,6 +10,8 @@
 #include <stdio.h>
 #include <string.h>
 
+#ifdef __APPLE__
+#include <CoreFoundation/CoreFoundation.h>
 void get_resource_path(const char *filename, char *out_path) {
   CFBundleRef mainBundle = CFBundleGetMainBundle();
   CFURLRef resourcesURL = CFBundleCopyResourcesDirectoryURL(mainBundle);
@@ -22,6 +23,17 @@ void get_resource_path(const char *filename, char *out_path) {
 
   CFRelease(resourcesURL);
 }
+#else
+#include <sys/wait.h>
+void get_resource_path(const char *filename, char *out_path) {
+  char path[PATH_MAX];
+  ssize_t len = readlink("/proc/self/exe", path, sizeof(path)-1);
+  if (len >= 0) path[len] = '\0';
+  char *last = strrchr(path, '/');
+  if (last) *last = '\0';
+  sprintf(out_path, "%s/%s", path, filename);
+}
+#endif
 
 typedef struct {
   pid_t pid;
@@ -47,7 +59,9 @@ talker_t *launch_line_buffered_helper(const char *path, char **argv) {
   posix_spawn_file_actions_addclose(&actions, p_to_c[1]);
   posix_spawn_file_actions_addclose(&actions, c_to_p[0]);
 
-  if (posix_spawn(&hp->pid, path, &actions, NULL, argv, NULL) == 0) {
+  extern char **environ;
+
+  if (posix_spawn(&hp->pid, path, &actions, NULL, argv, environ) == 0) {
     close(p_to_c[0]);
     close(c_to_p[1]);
 
@@ -64,12 +78,16 @@ talker_t *launch_line_buffered_helper(const char *path, char **argv) {
 }
 
 void get_bundle_resource_path(const char *filename, char *out_path, int max_len) {
+#ifdef __APPLE__
   CFBundleRef mainBundle = CFBundleGetMainBundle();
   CFURLRef resURL = CFBundleCopyResourceURL(mainBundle, 
     CFStringCreateWithCString(NULL, filename, kCFStringEncodingUTF8), NULL, NULL);
   if (!resURL) return;
   CFURLGetFileSystemRepresentation(resURL, true, (UInt8 *)out_path, max_len);
   CFRelease(resURL);
+#else
+  strcpy(out_path, filename);
+#endif
 }
 
 talker_t *skred = NULL;
@@ -153,6 +171,7 @@ int main(int argc, char *argv[]) {
 
   get_resource_path("ui.html", tmp);
   sprintf(html_path, "file://%s", tmp);
+  printf("html_path {%s}\n", html_path);
   get_resource_path("mini-skred", bin_path);
 
   struct webview webview;
