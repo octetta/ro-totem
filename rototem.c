@@ -147,6 +147,32 @@ static void invoker(struct webview *w, const char *arg) {
   }
 }
 
+void info(struct webview *w) {
+  static int run = 0;
+  char buf[1024];
+  
+  sprintf(buf, "# run %d", run++);
+  puts(buf);
+  addLog(w, buf);
+  strcpy(buf, "# output devices");
+  puts(buf);
+  addLog(w, buf);
+  for (int i=0; i<skred_devices(0); i++) {
+    sprintf(buf, "# %d %s", skred_device_idx(0, i), skred_device_str(0, i));
+    puts(buf);
+    addLog(w, buf);
+  }
+  
+  strcpy(buf, "# input devices");
+  puts(buf);
+  addLog(w, buf);
+  for (int i=0; i<skred_devices(1); i++) {
+    sprintf(buf, "# %d %s", skred_device_idx(1, i), skred_device_str(1, i));
+    puts(buf);
+    addLog(w, buf);
+  }
+}
+
 #define FILE_URL "file://"
 
 int main(int argc, char *argv[]) {
@@ -157,7 +183,6 @@ int main(int argc, char *argv[]) {
   get_resource_path("ui.html", tmp);
   sprintf(html_path, "file://%s", tmp);
   printf("html_path {%s}\n", html_path);
-  get_resource_path("mini-skred", bin_path);
 
   struct webview webview;
   memset(&webview, 0, sizeof(webview));
@@ -178,21 +203,25 @@ int main(int argc, char *argv[]) {
   skred_set_audio_device(output, input);
   skred_start(req, vc, -1);
   skred_logger(1);
-
   
   int r = webview_init(&webview);
-  char *log = skoder("v0a0>1>2>3", 0);
-  addSkodeLog(&webview, log);
+  
+  skoder("v0a0>1>2>3", 0);
+
+  int first = 20;
+
   do {
     r = webview_loop(&webview, 1);
+    if (first > 0) {
+      first--;
+      info(&webview);
+    }
   } while (r == 0);
 
   // tell it to quit...
-  log = skoder("/q", 0);
+  skoder("/q", 0);
   
   sleep(1);
   
-  // Cleanup: Don't leave mini-skred hanging
-
   return 0;
 }
