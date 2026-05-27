@@ -9,12 +9,14 @@ ASSETS = assets
 all: bundle
 
 linux-bundle:
-	gcc rototem.c -DWEBVIEW_GTK=1 `pkg-config --cflags --libs gtk+-3.0 webkit2gtk-4.0` -o rototem
+	gcc rototem.c -DWEBVIEW_GTK=1 `pkg-config --cflags --libs gtk+-3.0 webkit2gtk-4.0` \
+  -L./linux -lapi \
+  -o rototem
 
 rototem_bin: rototem.c
 	gcc -g -ObjC -DOBJC_OLD_DISPATCH_PROTOTYPES=1 rototem.c \
 		-DWEBVIEW_COCOA=1 -framework WebKit -framework CoreFoundation \
-    -L. -lapi \
+    -L./macos -lapi \
 		-o rototem_bin
 
 bundle: rototem_bin
