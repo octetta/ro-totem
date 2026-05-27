@@ -137,7 +137,8 @@ static void invoker(struct webview *w, const char *arg) {
         }
         sprintf(cmd, "assign('v%d','%s');", voice, ptr);
         webview_eval(w, cmd);
-        sprintf(cmd, "[%s] wti %d", ptr, wavepointer);
+        sprintf(cmd, "[%s] wt %d", ptr, wavepointer);
+        printf("name it : %s\n", cmd);
         log = skoder(cmd, 0);
         addSkodeLog(w, log);
       }
@@ -200,6 +201,24 @@ int main(int argc, char *argv[]) {
   int input = 0;
   int req = 128;
   int vc = 32;
+#ifdef __APPLE__
+  // grab MacBook Pro Speakers
+  for (int i=0; i<skred_devices(0); i++) {
+    if (strcmp("MacBook Pro Speakers", skred_device_str(0, i)) == 0) {
+      output = skred_device_idx(0, i);
+      printf("# USED [%d]/%d for output\n", i, output);
+      break;
+    }
+  }
+  // grab MacBook Pro Microphone
+  for (int i=0; i<skred_devices(1); i++) {
+    if (strcmp("MacBook Pro Microphone", skred_device_str(1, i)) == 0) {
+      input = skred_device_idx(1, i);
+      printf("# USED [%d]/%d for input\n", i, input);
+      break;
+    }
+  }
+#endif
   skred_set_audio_device(output, input);
   skred_start(req, vc, -1);
   skred_logger(1);
@@ -208,14 +227,18 @@ int main(int argc, char *argv[]) {
   
   skoder("v0a0>1>2>3", 0);
 
+#if 0
   int first = 20;
+#endif
 
   do {
     r = webview_loop(&webview, 1);
+#if 0
     if (first > 0) {
       first--;
       info(&webview);
     }
+#endif
   } while (r == 0);
 
   // tell it to quit...
