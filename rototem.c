@@ -1,3 +1,5 @@
+#include "api.h"
+
 #define WEBVIEW_IMPLEMENTATION
 /* don't forget to define WEBVIEW_WINAPI,WEBVIEW_GTK or WEBVIEW_COCAO */
 #include "webview.h"
@@ -6,7 +8,6 @@
 #include <stdio.h>
 #include <unistd.h>
 #include <dirent.h>
-#include <spawn.h>
 #include <stdio.h>
 #include <string.h>
 
@@ -35,48 +36,6 @@ void get_resource_path(const char *filename, char *out_path) {
 }
 #endif
 
-typedef struct {
-  pid_t pid;
-  FILE *to_child;   // stdin of helper
-  FILE *from_child; // stdout of helper
-} talker_t;
-
-talker_t *launch_line_buffered_helper(const char *path, char **argv) {
-  talker_t *hp = (talker_t*)calloc(1, sizeof(talker_t));
-  memset(hp, 0, sizeof(talker_t));
-  int p_to_c[2], c_to_p[2];
-  pipe(p_to_c);
-  pipe(c_to_p);
-
-  posix_spawn_file_actions_t actions;
-  posix_spawn_file_actions_init(&actions);
-    
-  // Map pipes to standard streams
-  posix_spawn_file_actions_adddup2(&actions, p_to_c[0], STDIN_FILENO);
-  posix_spawn_file_actions_adddup2(&actions, c_to_p[1], STDOUT_FILENO);
-    
-  // Close unused ends in child
-  posix_spawn_file_actions_addclose(&actions, p_to_c[1]);
-  posix_spawn_file_actions_addclose(&actions, c_to_p[0]);
-
-  extern char **environ;
-
-  if (posix_spawn(&hp->pid, path, &actions, NULL, argv, environ) == 0) {
-    close(p_to_c[0]);
-    close(c_to_p[1]);
-
-    // Convert raw descriptors to line-buffered FILE streams
-    hp->to_child = fdopen(p_to_c[1], "w");
-    hp->from_child = fdopen(c_to_p[0], "r");
-
-    setvbuf(hp->to_child, NULL, _IOLBF, 0);
-    setvbuf(hp->from_child, NULL, _IOLBF, 0);
-  }
-
-  posix_spawn_file_actions_destroy(&actions);
-  return hp;
-}
-
 void get_bundle_resource_path(const char *filename, char *out_path, int max_len) {
 #ifdef __APPLE__
   CFBundleRef mainBundle = CFBundleGetMainBundle();
@@ -90,12 +49,9 @@ void get_bundle_resource_path(const char *filename, char *out_path, int max_len)
 #endif
 }
 
-talker_t *skred = NULL;
-
 void skoder(const char *msg, char flag) {
-  if (skred) {
-    fprintf(skred->to_child, "%s\n", msg);
-  }
+  int r = skred_command(msg);
+  char *log = skred_log();
 }
 
 static int wavepointer = 300;
@@ -140,7 +96,7 @@ static void invoker(struct webview *w, const char *arg) {
         char filename[1024];
         webview_dialog(w, WEBVIEW_DIALOG_TYPE_OPEN, WEBVIEW_DIALOG_FLAG_FILE, "sel", "", filename, sizeof(filename));
         int voice = arg[2] - '0';
-        sprintf(cmd, "{%s} /ws%d v%d w%d a0 B1 f440 t1 0 1 1", filename, wavepointer, voice, wavepointer);
+        sprintf(cmd, "[%s] /ws%d v%d w%d a0 B1 f440 t1 0 1 1", filename, wavepointer, voice, wavepointer);
         addLog(w, cmd);
         wavepointer++;
         if (wavepointer > 999) wavepointer = 0;
@@ -184,21 +140,18 @@ int main(int argc, char *argv[]) {
   webview.debug = 1;
   webview.external_invoke_cb = &invoker;
   
-  char skred_path[1024];
-  get_bundle_resource_path("mini-skred", skred_path, sizeof(skred_path));
+  skred_enumerate_devices(0);
+  skred_enumerate_devices(1);
+  int output = 0;
+  int input = 0;
+  int req = 128;
+  int vc = 32;
+  skred_set_audio_device(output, input);
+  skred_start(req, vc, -1);
+  skred_logger(1);
 
-  // trevor's rototem port
-  // Define the arguments: -n and -p60472
-  char *sargv[] = { skred_path, "-n", "-p60472", "-v16", NULL };
 
-  skred = launch_line_buffered_helper(skred_path, sargv);
-
-  if (skred->pid > 0) {
-    skoder("v0a0>1>2>3", 0);
-  } else {
-    puts("FAIL");
-    exit(1);
-  }
+  skoder("v0a0>1>2>3", 0);
   
   int r = webview_init(&webview);
   do {
@@ -211,10 +164,6 @@ int main(int argc, char *argv[]) {
   sleep(1);
   
   // Cleanup: Don't leave mini-skred hanging
-  kill(skred->pid, SIGTERM);
-  waitpid(skred->pid, NULL, 0);
-  fclose(skred->to_child);
-  fclose(skred->from_child);
 
   return 0;
 }

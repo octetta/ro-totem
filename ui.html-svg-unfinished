@@ -87,6 +87,9 @@
         
         .bump-btn:hover { background: #ccc; }
 
+        .dark-btn { background: #111; }
+        .dark-btn:hover { color: #111; background: #ccc; }
+
         .stop-btn { background: #dc3545; }
         .stop-btn:hover { background: #a71d2a; }
 
@@ -100,9 +103,63 @@
         .wave-btn:hover { background: rgb(141, 65, 244); }
 
         hr { border: 0; border-top: 1px solid #ddd; margin: 15px 0; }
+
+    <!-- -->
+    /* Makes the SVG behave like a character of text */
+    .icon {
+      width: 1em;
+      height: 1em;
+      vertical-align: middle;
+      fill: none; /* Icons are stroke-based */
+      stroke: currentColor;
+    }
+
+    .control-btn {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      /* Now you just change the color here */
+      color: #25D3D3; 
+    }
+    <!-- -->
+
+
+        
     </style>
 </head>
 <body>
+
+<!-- -->
+
+<svg style="display: none;">
+  <symbol id="icon-play" viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round">
+    <polygon points="16,10 56,32 16,54" />
+  </symbol>
+
+  <symbol id="icon-stop" viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round">
+    <rect x="12" y="12" width="40" height="40" rx="4" ry="4" />
+  </symbol>
+
+  <symbol id="icon-repeat" viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M20 14 C 35 10, 50 15, 54 30" />
+    <polyline points="46 28 54 30 56 22" />
+    <path d="M44 50 C 29 54, 14 49, 10 34" />
+    <polyline points="18 36 10 34 8 42" />
+  </symbol>
+
+  <symbol id="xicon-mute" viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M30 12 L18 24 H8 V40 H18 L30 52 V12 Z" />
+    <line x1="56" y1="24" x2="40" y2="40" />
+    <line x1="40" y1="24" x2="56" y2="40" />
+  </symbol>
+
+  <symbol id="icon-mute" viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M11 4.702a.705.705 0 0 0-1.203-.498L6.413 7.587A1.4 1.4 0 0 1 5.416 8H3a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h2.416a1.4 1.4 0 0 1 .997.413l3.383 3.384A.705.705 0 0 0 11 19.298z"/>
+  </symbol>
+</svg>
+
+
+<!-- -->
 
 <div class="dashboard">
 
@@ -118,8 +175,29 @@
                 <control-slider id="master-vol" label="volume" step=".01" min="-90" max="0" value="-20" format="!;V$1;"></control-slider>
             </div>
             <div class="button-group" style="flex: 1;">
-                <button class="start-btn" onclick="skode('v0l1 v1l1 v2l1 v3l1')">all go</button>
-                <button class="stop-btn" onclick="skode('v0l0 v1l0 v2l0 v3l0')">all end</button>
+                <button class="start-btn" onclick="skode('v0l1 v1l1 v2l1 v3l1')">
+                  <svg class="icon"><use href="#icon-play"></use></svg>
+                </button>
+                <button class="stop-btn" onclick="skode('v0l0 v1l0 v2l0 v3l0')">
+                  <svg width="16" height="16" viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round">
+                    <rect x="12" y="12" width="40" height="40" rx="4" ry="4" />
+                  </svg>
+                </button>
+                <button class="dark-btn" onclick="skode('v0m1 v1m1 v2m1 v3m1')">
+                  <svg class="icon"><use href="#icon-play"></use></svg>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M11 5L6 9H2v6h4l5 4V5z"></path>
+                    <path d="M19.07 4.93a10 10 0 0 1 0 14.14"></path>
+                    <path d="M15.54 8.46a5 5 0 0 1 0 7.07"></path>
+                  </svg>
+                </button>
+                <button class="dark-btn" onclick="skode('v0m0 v1m0 v2m0 v3m0')">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M11 5L6 9H2v6h4l5 4V5z"></path>
+                    <line x1="23" y1="9" x2="17" y2="15"></line>
+                    <line x1="17" y1="9" x2="23" y2="15"></line>
+                  </svg>
+                </button>
             </div>
 
         </div>
@@ -188,7 +266,14 @@
             <h4>v0</h4>
             <button class="wave-btn" onclick="window.external.invoke('>v0');">pick</button>
             <div id="v0" class="mono"></div>
-            <button class="xtra-btn" onclick="lrand('v0');">rand</button>
+            <button class="xtra-btn" onclick="lrand('v0');">
+              <svg width="16" height="16" viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M20 14 C 35 10, 50 15, 54 30" />
+                <polyline points="46 28 54 30 56 22" />
+                <path d="M44 50 C 29 54, 14 49, 10 34" />
+                <polyline points="18 36 10 34 8 42" />
+              </svg>
+            </button>
         </div>
         <control-slider label="volume" min="-60" max="30" value="0" step=".01" format="!;v0a$1;"></control-slider>
         <control-slider id="v0-freq" label="speed" min="0" max="127" step=".001" value="69" format="!;v0n$1;"></control-slider>
@@ -430,7 +515,7 @@ button.addEventListener("click", () => {
       let f = files[r];
       let d = document.getElementById("dir").textContent;
       let t = `${d}/${f}`;
-      let cmd = `[${t}] /ws ${lndx} ${v} w${lndx} a0 B1 f440 t1 0 1 1`;
+      let cmd = `{${t}} /ws ${lndx} v${v} w${lndx} a0 B1 f440 t1 0 1 1`;
       console.log(cmd);
       assign(v, f);
       skode(cmd);
