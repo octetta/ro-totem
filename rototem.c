@@ -49,9 +49,32 @@ void get_bundle_resource_path(const char *filename, char *out_path, int max_len)
 #endif
 }
 
-void skoder(const char *msg, char flag) {
+void addLog(struct webview *w, char *out);
+
+char *skoder(const char *msg, char flag) {
   int r = skred_command(msg);
   char *log = skred_log();
+  return log;
+}
+
+void addSkodeLog(struct webview *w, char *log) {
+  if (log && log[0] != '\0') {
+    char *end;
+    char *s = log;
+    while ((end = strchr(s, '\n'))) {
+      *end = '\0'; // Terminate at newline
+      // Pointer math: check one byte back for '\r' and strip it
+      if (end > s && end[-1] == '\r') end[-1] = '\0';
+      printf("Line: %s\n", s); // Pass 's' to your evaluator here
+      addLog(w, s);
+      s = end + 1; // Advance pointer past the newline
+    }
+    // Handle the final segment if it lacks a trailing newline
+    if (*s) {
+      printf("Line: %s\n", s);
+      addLog(w, s);
+    }
+  }
 }
 
 static int wavepointer = 300;
@@ -64,9 +87,11 @@ void addLog(struct webview *w, char *out) {
 
 static void invoker(struct webview *w, const char *arg) {
   char cmd[1024];
+  char *log;
   switch (arg[0]) {
     case '!':
-      skoder(&arg[1], 0);
+      log = skoder(&arg[1], 0);
+      addSkodeLog(w, log);
       break;
     case '@': // allow the user to select a folder, stuff dir name and wav file list into the webview
       {
@@ -100,7 +125,8 @@ static void invoker(struct webview *w, const char *arg) {
         addLog(w, cmd);
         wavepointer++;
         if (wavepointer > 999) wavepointer = 0;
-        skoder(cmd, 0);
+        log = skoder(cmd, 0);
+        addSkodeLog(w, log);
         int len = strlen(filename);
         char *ptr = filename;
         for (int i=len; i>0; i--) {
@@ -111,6 +137,9 @@ static void invoker(struct webview *w, const char *arg) {
         }
         sprintf(cmd, "assign('v%d','%s');", voice, ptr);
         webview_eval(w, cmd);
+        sprintf(cmd, "[%s] wti %d", ptr, wavepointer);
+        log = skoder(cmd, 0);
+        addSkodeLog(w, log);
       }
       break;
     default:
@@ -133,7 +162,7 @@ int main(int argc, char *argv[]) {
   struct webview webview;
   memset(&webview, 0, sizeof(webview));
   webview.url = html_path;
-  webview.title = "ro-totem easter 2026";
+  webview.title = "ro-totem tokyo 2026";
   webview.width = 884;  // window.innerWidth
   webview.height = 700; // window.innerHeight
   webview.resizable = 1;
@@ -150,16 +179,16 @@ int main(int argc, char *argv[]) {
   skred_start(req, vc, -1);
   skred_logger(1);
 
-
-  skoder("v0a0>1>2>3", 0);
   
   int r = webview_init(&webview);
+  char *log = skoder("v0a0>1>2>3", 0);
+  addSkodeLog(&webview, log);
   do {
     r = webview_loop(&webview, 1);
   } while (r == 0);
 
   // tell it to quit...
-  skoder("/q", 0);
+  log = skoder("/q", 0);
   
   sleep(1);
   
