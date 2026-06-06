@@ -111,7 +111,7 @@ static void invoker(struct webview *w, const char *arg) {
         char dirname[1024];
         webview_dialog(w, WEBVIEW_DIALOG_TYPE_OPEN, WEBVIEW_DIALOG_FLAG_DIRECTORY, "sel", "", dirname, sizeof(dirname));
         // stuff the dir name into 'dir'
-        sprintf(cmd, "assign('dir','%s');", dirname);
+        sprintf(cmd, "vassign('dir','%s');", dirname);
         webview_eval(w, cmd);
         webview_eval(w, "lclear()"); // this clears the 'file' array
         struct dirent *entry;
@@ -130,35 +130,45 @@ static void invoker(struct webview *w, const char *arg) {
       }
       break;
     case '>': // tell skred to read the filename into a voice (via 'filename'), setup the voice
+      // pick in the ui
       if (arg[1] == 'v') {
         char filename[1024];
+        char *shortname = filename;
         webview_dialog(w, WEBVIEW_DIALOG_TYPE_OPEN, WEBVIEW_DIALOG_FLAG_FILE, "sel", "", filename, sizeof(filename));
         int voice = arg[2] - '0';
-        sprintf(cmd,
-          "[%s] /ws%d v%d w%d a0 B1 f440 t1 0 1 1",
-          filename,
-          wavepointer,
-          voice,
-          wavepointer);
-        addLog(w, cmd);
-        wavepointer++;
-        if (wavepointer > 999) wavepointer = 0;
-        log = skoder(cmd, 0);
-        addSkodeLog(w, log);
-        int len = strlen(filename);
-        char *ptr = filename;
-        char *name = filename;
-        for (int i=0; i<len; i++) {
-          if (*ptr == '/' || *ptr == '\\') {
-            name = ptr+1;
+        for (int j=0; j<2; j++) {
+          int pan = -1;
+          if (j&1) pan = 1;
+          sprintf(cmd,
+            "[%s] /ws%d %d v%d p%d w%d a0 B1 f440 t1 0 1 1",
+            filename,
+            wavepointer,
+            j,
+            voice+j,
+            pan,
+            wavepointer);
+          addLog(w, cmd);
+          wavepointer++;
+          if (wavepointer > 998) wavepointer = 0;
+          log = skoder(cmd, 0);
+          addSkodeLog(w, log);
+          int len = strlen(filename);
+          char *ptr = filename;
+          char *name = filename;
+          for (int i=0; i<len; i++) {
+            if (*ptr == '/' || *ptr == '\\') {
+              name = ptr+1;
+            }
+            ptr++;
           }
+          shortname = name;
+          sprintf(cmd, "[%s] wt %d", shortname, wavepointer);
+          //printf("name it : %s\n", shortname);
+          log = skoder(cmd, 0);
+          addSkodeLog(w, log);
         }
-        sprintf(cmd, "assign('v%d','%s');", voice, filename);
+        sprintf(cmd, "assign(%d,'%s');", voice, shortname);
         webview_eval(w, cmd);
-        sprintf(cmd, "[%s] wt %d", name, wavepointer);
-        printf("name it : %s\n", name);
-        log = skoder(cmd, 0);
-        addSkodeLog(w, log);
       }
       break;
     default:
@@ -201,12 +211,12 @@ int main(int argc, char *argv[]) {
 
   get_resource_path("ui.html", tmp);
   sprintf(html_path, "file://%s", tmp);
-  printf("html_path {%s}\n", html_path);
+  //printf("html_path {%s}\n", html_path);
 
   struct webview webview;
   memset(&webview, 0, sizeof(webview));
   webview.url = html_path;
-  webview.title = "ro-totem gemini alpha 2026";
+  webview.title = "ro-totem gemini beta 2026";
   webview.width = 884;  // window.innerWidth
   webview.height = 700; // window.innerHeight
   webview.resizable = 1;
@@ -224,7 +234,7 @@ int main(int argc, char *argv[]) {
   for (int i=0; i<skred_devices(0); i++) {
     if (strcmp("MacBook Pro Speakers", skred_device_str(0, i)) == 0) {
       output = skred_device_idx(0, i);
-      printf("# USED [%d]/%d for output\n", i, output);
+      //printf("# USED [%d]/%d for output\n", i, output);
       break;
     }
   }
@@ -232,7 +242,7 @@ int main(int argc, char *argv[]) {
   for (int i=0; i<skred_devices(1); i++) {
     if (strcmp("MacBook Pro Microphone", skred_device_str(1, i)) == 0) {
       input = skred_device_idx(1, i);
-      printf("# USED [%d]/%d for input\n", i, input);
+      //printf("# USED [%d]/%d for input\n", i, input);
       break;
     }
   }
@@ -243,7 +253,7 @@ int main(int argc, char *argv[]) {
   
   int r = webview_init(&webview);
   
-  skoder("v0a0>1>2>3", 0);
+  skoder("S100v0a0f440>1>2>3>4>5>6>7", 0);
 
 #if 0
   int first = 20;

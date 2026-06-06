@@ -110,7 +110,7 @@
         <div class="row">
             <button onclick="window.external.invoke('@')">dir</button>
             <div id="dir" class="mono"></div>
-            <button class="xtra-btn" onclick="lrand('v0');lrand('v1');lrand('v2');lrand('v3');">rand</button>
+            <button class="xtra-btn" onclick="lrand(0);lrand(2);lrand(4);lrand(6);">rand</button>
         </div>
         
         <div class="row" style="align-items: flex-end; gap: 20px;">
@@ -118,8 +118,8 @@
                 <control-slider id="master-vol" label="volume" step=".01" min="-90" max="0" value="-20" format="!;V$1;"></control-slider>
             </div>
             <div class="button-group" style="flex: 1;">
-                <button class="start-btn" onclick="skode('v0l1 v1l1 v2l1 v3l1')">all go</button>
-                <button class="stop-btn" onclick="skode('v0l0 v1l0 v2l0 v3l0')">all end</button>
+                <button class="start-btn" onclick="skode('v0l1 v1l1 v2l1 v3l1 v4l1 v5l1 v6l1 v7l1')">all go</button>
+                <button class="stop-btn" onclick="skode('v0l0 v1l0 v2l0 v3l0 v4l0 v5l0 v6l0 v7l0')">all end</button>
             </div>
 
         </div>
@@ -143,130 +143,134 @@
 
     <script>
         function unity(s) {
-          var t = s + "-freq";
+          var t = "v" + s + "-freq";
           var f = document.getElementById(t).value
           f = 69;
           document.getElementById(t).value = f;
-          skode(s+"n"+f);
+          skode(`v${s}n${f}`);
+          skode(`v${s+1}n${f}`);
         }
         function double(s) {
-          var t = s + "-freq";
+          var t = "v" + s + "-freq";
           var f = document.getElementById(t).value
           f += 12.0;
           if (f > 127) f = 127;
           document.getElementById(t).value = f;
-          skode(s+"n"+f);
+          skode(`v${s}n${f}`);
+          skode(`v${s+1}n${f}`);
         }
         function half(s) {
-          var t = s + "-freq";
+          var t = "v" + s + "-freq";
           var f = document.getElementById(t).value
           f -= 12.0;
           if (f < 0) f = 0;
           document.getElementById(t).value = f;
-          skode(s+"n"+f);
+          skode(`v${s}n${f}`);
+          skode(`v${s+1}n${f}`);
         }
         function adder(s) {
-          var t = s + "-freq";
+          var t = "v" + s + "-freq";
           var f = document.getElementById(t).value
           f += 1.0;
           if (f > 127) f = 0;
           document.getElementById(t).value = f;
-          skode(s+"n"+f);
+          skode(`v${s}n${f}`);
+          skode(`v${s+1}n${f}`);
         }
         function subber(s) {
-          var t = s + "-freq";
+          var t = "v" + s + "-freq";
           var f = document.getElementById(t).value
           f -= 1.0;
           if (f < 0) f = 0;
           document.getElementById(t).value = f;
-          skode(s+"n"+f);
+          skode(`v${s}n${f}`);
+          skode(`v${s+1}n${f}`);
         }
     </script>
 
     <div class="voice-card" style="border-top-color: #ff5722;">
         <div class="row">
-            <h4>v0</h4>
+            <h4>T0</h4>
             <button class="wave-btn" onclick="window.external.invoke('>v0');">pick</button>
             <div id="v0" class="mono"></div>
-            <button class="xtra-btn" onclick="lrand('v0');">rand</button>
+            <button class="xtra-btn" onclick="lrand(0);">rand</button>
         </div>
-        <control-slider label="volume" min="-60" max="30" value="0" step=".01" format="!;v0a$1;"></control-slider>
-        <control-slider id="v0-freq" label="speed" min="0" max="127" step=".001" value="69" format="!;v0n$1;"></control-slider>
+        <control-slider label="volume" min="-60" max="30" value="0" step=".01" format="!v0a$1;v1a$1"></control-slider>
+        <control-slider id="v0-freq" label="speed" min="0" max="127" step=".001" value="69" format="!v0n$1;v1n$1"></control-slider>
         <div class="button-group">
-            <button class="start-btn" onclick="skode('v0l1')">go</button>
-            <button class="stop-btn" onclick="skode('v0l0')">end</button>
-            <button class="bump-btn" onclick="half('v0')">&frac12;&times;</button>
-            <button class="bump-btn" onclick="subber('v0')">-1</button>
-            <button class="bump-btn" onclick="unity('v0')">1&times;</button>
-            <button class="bump-btn" onclick="adder('v0')">+1</button>
-            <button class="bump-btn" onclick="double('v0')">2&times;</button>
-            <button class="xtra-btn" onclick="skode('v0b')">flip</button>
+            <button class="start-btn" onclick="skode('v0l1v1l1')">go</button>
+            <button class="stop-btn" onclick="skode('v0l0v1l0')">end</button>
+            <button class="bump-btn" onclick="half(0)">&frac12;&times;</button>
+            <button class="bump-btn" onclick="subber(0)">-1</button>
+            <button class="bump-btn" onclick="unity(0)">1&times;</button>
+            <button class="bump-btn" onclick="adder(0)">+1</button>
+            <button class="bump-btn" onclick="double(0)">2&times;</button>
+            <button class="xtra-btn" onclick="skode('v0b v1b ')">flip</button>
         </div>
     </div>
 
     <div class="voice-card" style="border-top-color: #2196f3;">
         <div class="row">
-            <h4>v1</h4>
-            <button class="wave-btn" onclick="window.external.invoke('>v1')">pick</button>
+            <h4>T1</h4>
+            <button class="wave-btn" onclick="window.external.invoke('>v2')">pick</button>
             <div id="v1" class="mono"></div>
-            <button class="xtra-btn" onclick="lrand('v1');">rand</button>
+            <button class="xtra-btn" onclick="lrand(2);">rand</button>
         </div>
-        <control-slider label="volume" min="-60" max="30" value="0" step=".01" format="!;v1a$1;"></control-slider>
-        <control-slider id="v1-freq" label="speed" min="0" max="127" step=".001" value="69" format="!;v1n$1"></control-slider>
+        <control-slider label="volume" min="-60" max="30" value="0" step=".01" format="!v2a$1;v3a$1"></control-slider>
+        <control-slider id="v2-freq" label="speed" min="0" max="127" step=".001" value="69" format="!v2n$1;v3n$1"></control-slider>
         <div class="button-group">
-            <button class="start-btn" onclick="skode('v1l1')">go</button>
-            <button class="stop-btn" onclick="skode('v1l0')">end</button>
-            <button class="bump-btn" onclick="half('v1')">&frac12;&times;</button>
-            <button class="bump-btn" onclick="subber('v1')">-1</button>
-            <button class="bump-btn" onclick="unity('v1')">1&times;</button>
-            <button class="bump-btn" onclick="adder('v1')">+1</button>
-            <button class="bump-btn" onclick="double('v1')">2&times;</button>
-            <button class="xtra-btn" onclick="skode('v1b')">flip</button>
+            <button class="start-btn" onclick="skode('v2l1v3l1')">go</button>
+            <button class="stop-btn" onclick="skode('v2l0v3l0')">end</button>
+            <button class="bump-btn" onclick="half(2)">&frac12;&times;</button>
+            <button class="bump-btn" onclick="subber(2)">-1</button>
+            <button class="bump-btn" onclick="unity(2)">1&times;</button>
+            <button class="bump-btn" onclick="adder(2)">+1</button>
+            <button class="bump-btn" onclick="double(2)">2&times;</button>
+            <button class="xtra-btn" onclick="skode('v2b v3b ')">flip</button>
         </div>
     </div>
 
     <div class="voice-card" style="border-top-color: #4caf50;">
         <div class="row">
-            <h4>v2</h4>
-            <button class="wave-btn" onclick="window.external.invoke('>v2')">pick</button>
+            <h4>T2</h4>
+            <button class="wave-btn" onclick="window.external.invoke('>v4')">pick</button>
             <div id="v2" class="mono"></div>
-            <button class="xtra-btn" onclick="lrand('v2');">rand</button>
+            <button class="xtra-btn" onclick="lrand(4);">rand</button>
         </div>
-        <control-slider label="volume" min="-60" max="30" value="0" step=".01" format="!;v2a$1;"></control-slider>
-        <control-slider id="v2-freq" label="speed" min="0" max="127" step=".001" value="69" format="!;v2n$1;"></control-slider>
+        <control-slider label="volume" min="-60" max="30" value="0" step=".01" format="!v4a$1;v5a$1"></control-slider>
+        <control-slider id="v4-freq" label="speed" min="0" max="127" step=".001" value="69" format="!v4n$1;v5n$1"></control-slider>
         <div class="button-group">
-            <button class="start-btn" onclick="skode('v2l1')">go</button>
-            <button class="stop-btn" onclick="skode('v2l0')">end</button>
-            <button class="bump-btn" onclick="half('v2')">&frac12;&times;</button>
-            <button class="bump-btn" onclick="subber('v2')">-1</button>
-            <button class="bump-btn" onclick="unity('v2')">1&times;</button>
-            <button class="bump-btn" onclick="adder('v2')">+1</button>
-            <button class="bump-btn" onclick="double('v2')">2&times;</button>
-            <button class="xtra-btn" onclick="skode('v2b')">flip</button>
+            <button class="start-btn" onclick="skode('v4l1v5l1')">go</button>
+            <button class="stop-btn" onclick="skode('v4l0v5l0')">end</button>
+            <button class="bump-btn" onclick="half(4)">&frac12;&times;</button>
+            <button class="bump-btn" onclick="subber(4)">-1</button>
+            <button class="bump-btn" onclick="unity(4)">1&times;</button>
+            <button class="bump-btn" onclick="adder(4)">+1</button>
+            <button class="bump-btn" onclick="double(4)">2&times;</button>
+            <button class="xtra-btn" onclick="skode('v4b v5b ')">flip</button>
         </div>
     </div>
 
     <div class="voice-card" style="border-top-color: #ffeb3b;">
         <div class="row">
-            <h4>v3</h4>
-            <button class="wave-btn" onclick="window.external.invoke('>v3')">pick</button>
+            <h4>T3</h4>
+            <button class="wave-btn" onclick="window.external.invoke('>v6')">pick</button>
             <div id="v3" class="mono"></div>
-            <button class="xtra-btn" onclick="lrand('v3');">rand</button>
+            <button class="xtra-btn" onclick="lrand(6);">rand</button>
         </div>
-        <control-slider label="volume" min="-60" max="30" value="0" step=".01" format="!;v3a$1;"></control-slider>
-        <control-slider id="v3-freq" label="speed" min="0" max="127" step=".001" value="69" format="!;v3n$1;"></control-slider>
+        <control-slider label="volume" min="-60" max="30" value="0" step=".01" format="!v6a$1;v7a$1"></control-slider>
+        <control-slider id="v6-freq" label="speed" min="0" max="127" step=".001" value="69" format="!v6n$1;v7n$1"></control-slider>
         <div class="button-group">
-            <button class="start-btn" onclick="skode('v3l1')">go</button>
-            <button class="stop-btn" onclick="skode('v3l0')">end</button>
-            <button class="bump-btn" onclick="half('v3')">&frac12;&times;</button>
-            <button class="bump-btn" onclick="subber('v3')">-1</button>
-            <button class="bump-btn" onclick="unity('v3')">1&times;</button>
-            <button class="bump-btn" onclick="adder('v3')">+1</button>
-            <button class="bump-btn" onclick="double('v3')">2&times;</button>
-            <button class="xtra-btn" onclick="skode('v3b')">flip</button>
+            <button class="start-btn" onclick="skode('v6l1v7l1')">go</button>
+            <button class="stop-btn" onclick="skode('v6l0v7l0')">end</button>
+            <button class="bump-btn" onclick="half(6)">&frac12;&times;</button>
+            <button class="bump-btn" onclick="subber(6)">-1</button>
+            <button class="bump-btn" onclick="unity(6)">1&times;</button>
+            <button class="bump-btn" onclick="adder(6)">+1</button>
+            <button class="bump-btn" onclick="double(6)">2&times;</button>
+            <button class="xtra-btn" onclick="skode('v6b v7b ')">flip</button>
         </div>
     </div>
-
 
 <div class="voice-card" style="grid-column: 1 / -1; border-top: 4px solid #ff9800; background: #fffaf0;">
     <div class="row">
@@ -403,7 +407,7 @@ button.addEventListener("click", () => {
                     composed: true, 
                     detail: { 
                         value: parseFloat(v),
-                        formatted: (this.getAttribute('format') || '$1').replace('$1', v)
+                        formatted: (this.getAttribute('format') || '$1').replaceAll('$1', v)
                     } 
                 }));
             });
@@ -430,15 +434,20 @@ button.addEventListener("click", () => {
       let f = files[r];
       let d = document.getElementById("dir").textContent;
       let t = `${d}/${f}`;
-      let cmd = `[${t}] /ws ${lndx} ${v} w${lndx} a0 B1 f440 t1 0 1 1 ; [${f}] wt ${lndx}`;
-      //console.log(cmd);
+        skode(`[${t}] /ws ${lndx+0} 0 v${v+0} p-1 w${lndx+0} a0 B1 f440 t1 0 1 1 ; [${f}] wt ${lndx+0};`);
+        skode(`[${t}] /ws ${lndx+1} 1 v${v+1} p1  w${lndx+1} a0 B1 f440 t1 0 1 1 ; [${f}] wt ${lndx+1};`);
+        lndx+=2;
+        if (lndx >= 998) { lndx = 0; }
       assign(v, f);
-      skode(cmd);
-      lndx++;
-      if (lndx > 999) { lndx = 0; }
     }
     
     function assign(id, value) {
+        let nid = id >> 1;
+        const element = document.getElementById("v"+nid);
+        if (element) element.textContent = value;
+    }
+
+    function vassign(id, value) {
         const element = document.getElementById(id);
         if (element) element.textContent = value;
     }
@@ -457,7 +466,6 @@ button.addEventListener("click", () => {
     function skode(s) {
         if (s.length > 0) {
             addLog(s);
-            //window.external.invoke("!;" + s + ";");
             window.external.invoke("!" + s);
         }
     }

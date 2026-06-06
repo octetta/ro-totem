@@ -3,7 +3,7 @@ APP_NAME = ro-totem.app
 CONTENTS = $(APP_NAME)/Contents
 MACOS    = $(CONTENTS)/MacOS
 RESOURCES = $(CONTENTS)/Resources
-SHARE    = ro-totem-gemini-alpha-2026.zip
+SHARE    = ro-totem-gemini-beta-2026.zip
 ASSETS = assets
 
 all: bundle
