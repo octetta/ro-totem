@@ -1,6 +1,8 @@
 #ifndef SKRED_API_H
 #define SKRED_API_H
 
+#include <stdint.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -14,6 +16,13 @@ int skred_command(char* cmd);
 // Safely tear down resources
 void skred_stop(void);
 
+// RECORD feature: writes master plus four stereo stems to a 10-channel WAV.
+int skred_record_start(const char *filename, double max_seconds);
+int skred_record_stop(void);
+int skred_record_state(void);
+uint64_t skred_record_frames_written(void);
+uint64_t skred_record_dropped_frames(void);
+
 // list of included features
 char *skred_features(void);
 
@@ -23,7 +32,18 @@ char *skred_log(void);
 // enable / disable logging
 void skred_logger(int f);
 
-// clumsy enumeration
+// Audio device management. Selection values are list slots from the latest
+// refresh; -1 selects the default device and -2 disables capture.
+int skred_audio_refresh(void);
+int skred_audio_select(int is_capture, int selection);
+int skred_audio_reconnect(void);
+int skred_audio_disconnect(void);
+int skred_audio_running(void);
+char *skred_audio_status(void);
+int skred_audio_command(const char *line);
+char *skred_audio_message(void);
+
+// Compatibility enumeration API.
 int skred_devices(int isCapture);
 int skred_device_idx(int isCapture, int idx);
 char *skred_device_str(int isCapture, int idx);

@@ -51,9 +51,22 @@ void get_bundle_resource_path(const char *filename, char *out_path, int max_len)
 
 void addLog(struct webview *w, char *out);
 
+int handle_audio_command(const char *line) {
+  int result = skred_audio_command(line);
+  if (result == 0) return 0;
+  const char *message = skred_audio_message();
+  if (message && message[0]) printf("%s\n", message);
+  return 1;
+}
+
 char *skoder(const char *msg, char flag) {
-  int r = skred_command(msg);
-  char *log = skred_log();
+  char *log = "";
+  if (handle_audio_command(msg)) {
+    log = skred_audio_message();
+  } else {
+    skred_command(msg);
+    log = skred_log();
+  }
   return log;
 }
 
@@ -188,7 +201,7 @@ int main(int argc, char *argv[]) {
   struct webview webview;
   memset(&webview, 0, sizeof(webview));
   webview.url = html_path;
-  webview.title = "ro-totem tokyo 2026";
+  webview.title = "ro-totem gemini alpha 2026";
   webview.width = 884;  // window.innerWidth
   webview.height = 700; // window.innerHeight
   webview.resizable = 1;
