@@ -332,7 +332,7 @@ input.addEventListener("keydown", (event) => {
 
 // Your existing button logic
 button.addEventListener("click", () => {
-  console.log("Button was clicked!");
+  //console.log("Button was clicked!");
 });
 </script>
 
@@ -430,8 +430,8 @@ button.addEventListener("click", () => {
       let f = files[r];
       let d = document.getElementById("dir").textContent;
       let t = `${d}/${f}`;
-      let cmd = `[${t}] /ws ${lndx} ${v} w${lndx} a0 B1 f440 t1 0 1 1`;
-      console.log(cmd);
+      let cmd = `[${t}] /ws ${lndx} ${v} w${lndx} a0 B1 f440 t1 0 1 1 ; [${f}] wt ${lndx}`;
+      //console.log(cmd);
       assign(v, f);
       skode(cmd);
       lndx++;
@@ -444,7 +444,7 @@ button.addEventListener("click", () => {
     }
 
     document.addEventListener('update', (e) => {
-        console.log("Slider Action:", e.detail.formatted);
+        //console.log("Slider Action:", e.detail.formatted);
         if (window.external && window.external.invoke) {
             window.external.invoke(e.detail.formatted);
         }
@@ -485,7 +485,7 @@ window.addEventListener('keydown', (e) => {
 
     if (isRefresh) {
         e.preventDefault(); // Stop the browser/webview from reloading
-        console.log("Portable refresh captured!");
+        //console.log("Portable refresh captured!");
         
         // Trigger your custom reload logic here
         location.reload(); 

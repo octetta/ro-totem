@@ -78,13 +78,13 @@ void addSkodeLog(struct webview *w, char *log) {
       *end = '\0'; // Terminate at newline
       // Pointer math: check one byte back for '\r' and strip it
       if (end > s && end[-1] == '\r') end[-1] = '\0';
-      printf("Line: %s\n", s); // Pass 's' to your evaluator here
+      //printf("Line: %s\n", s); // Pass 's' to your evaluator here
       addLog(w, s);
       s = end + 1; // Advance pointer past the newline
     }
     // Handle the final segment if it lacks a trailing newline
     if (*s) {
-      printf("Line: %s\n", s);
+      //printf("Line: %s\n", s);
       addLog(w, s);
     }
   }
@@ -134,7 +134,12 @@ static void invoker(struct webview *w, const char *arg) {
         char filename[1024];
         webview_dialog(w, WEBVIEW_DIALOG_TYPE_OPEN, WEBVIEW_DIALOG_FLAG_FILE, "sel", "", filename, sizeof(filename));
         int voice = arg[2] - '0';
-        sprintf(cmd, "[%s] /ws%d v%d w%d a0 B1 f440 t1 0 1 1", filename, wavepointer, voice, wavepointer);
+        sprintf(cmd,
+          "[%s] /ws%d v%d w%d a0 B1 f440 t1 0 1 1",
+          filename,
+          wavepointer,
+          voice,
+          wavepointer);
         addLog(w, cmd);
         wavepointer++;
         if (wavepointer > 999) wavepointer = 0;
@@ -142,16 +147,16 @@ static void invoker(struct webview *w, const char *arg) {
         addSkodeLog(w, log);
         int len = strlen(filename);
         char *ptr = filename;
-        for (int i=len; i>0; i--) {
-          if (ptr[i-1] == '/') {
-            ptr += i;
-            break;
+        char *name = filename;
+        for (int i=0; i<len; i++) {
+          if (*ptr == '/' || *ptr == '\\') {
+            name = ptr+1;
           }
         }
-        sprintf(cmd, "assign('v%d','%s');", voice, ptr);
+        sprintf(cmd, "assign('v%d','%s');", voice, filename);
         webview_eval(w, cmd);
-        sprintf(cmd, "[%s] wt %d", ptr, wavepointer);
-        printf("name it : %s\n", cmd);
+        sprintf(cmd, "[%s] wt %d", name, wavepointer);
+        printf("name it : %s\n", name);
         log = skoder(cmd, 0);
         addSkodeLog(w, log);
       }
