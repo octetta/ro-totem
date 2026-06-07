@@ -27,12 +27,92 @@
             border-radius: 8px;
             box-shadow: 0 4px 12px rgba(0,0,0,0.08);
             border-top: 4px solid #6200ee;
+            box-sizing: border-box;
+            min-width: 0;
         }
 
         .master-card {
             grid-column: 1 / -1;
             background: #eef2f7;
             border-top: 6px solid #333;
+        }
+
+        voice-pair-card {
+            display: block;
+            min-width: 0;
+        }
+
+        #voice-cards {
+            display: contents;
+        }
+
+        .custom-accordion {
+            width: 100%;
+        }
+
+        .custom-accordion summary {
+            cursor: pointer;
+            font-weight: bold;
+            text-transform: uppercase;
+            font-size: 0.8rem;
+        }
+
+        .range-settings {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+            gap: 10px;
+            margin-top: 10px;
+        }
+
+        .range-settings fieldset {
+            border: 1px solid #ccd2da;
+            border-radius: 6px;
+            padding: 8px;
+        }
+
+        .range-settings legend {
+            padding: 0 5px;
+            font-weight: bold;
+        }
+
+        .range-setting-row {
+            display: grid;
+            grid-template-columns: 55px repeat(3, minmax(55px, 1fr));
+            gap: 6px;
+            align-items: center;
+            margin-top: 6px;
+        }
+
+        .range-setting-row input {
+            min-width: 0;
+            padding: 5px;
+            border: 1px solid #ccd2da;
+            border-radius: 4px;
+        }
+
+        .range-setting-row input.invalid {
+            border-color: #dc3545;
+            background: #fff3f4;
+        }
+
+        .range-setting-head {
+            color: #666;
+            font-size: 0.72rem;
+            font-weight: bold;
+            text-align: center;
+        }
+
+        .settings-actions {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 8px;
+            margin-top: 10px;
+        }
+
+        #settings-status {
+            color: #555;
+            font-size: 0.8rem;
         }
 
         /* Reusable UI Rows */
@@ -62,8 +142,32 @@
         /* Buttons */
         .button-group {
             display: flex;
+            flex-wrap: wrap;
             gap: 8px;
             margin-top: 10px;
+        }
+
+        .card-action-row {
+            display: flex;
+            gap: 8px;
+            margin-top: 8px;
+            min-width: 0;
+        }
+
+        .card-action-row button {
+            flex: 1 1 0;
+            min-width: 0;
+            padding-left: 6px;
+            padding-right: 6px;
+        }
+
+        .speed-actions {
+            gap: 5px;
+        }
+
+        .speed-actions button {
+            padding-left: 3px;
+            padding-right: 3px;
         }
 
         button {
@@ -110,7 +214,7 @@
         <div class="row">
             <button onclick="window.external.invoke('@')">dir</button>
             <div id="dir" class="mono"></div>
-            <button class="xtra-btn" onclick="lrand(0);lrand(2);lrand(4);lrand(6);">rand</button>
+            <button class="xtra-btn" onclick="randomizeAllTracks()">rand</button>
         </div>
         
         <div class="row" style="align-items: flex-end; gap: 20px;">
@@ -118,8 +222,8 @@
                 <control-slider id="master-vol" label="volume" step=".01" min="-90" max="0" value="-20" format="!;V$1;"></control-slider>
             </div>
             <div class="button-group" style="flex: 1;">
-                <button class="start-btn" onclick="skode('v0l1 v1l1 v2l1 v3l1 v4l1 v5l1 v6l1 v7l1')">all go</button>
-                <button class="stop-btn" onclick="skode('v0l0 v1l0 v2l0 v3l0 v4l0 v5l0 v6l0 v7l0')">all end</button>
+                <button class="start-btn" onclick="setAllTracksPlaying(true)">all go</button>
+                <button class="stop-btn" onclick="setAllTracksPlaying(false)">all end</button>
             </div>
 
         </div>
@@ -128,14 +232,12 @@
 
         <details class="custom-accordion">
           <summary>advanced</summary>
-          <pre>watch this space</pre>
-          <!--
-          <div class="accordion-content">
-            <p>This is the hidden area. You can put buttons, inputs, or text here.</p>
-            <button onclick="yourFunction()">Action</button>
-            <control-slider id="liveness" label="live" step=".001" min="-100" max="100" value="0" format="!;V$1;"></control-slider>
+          <div id="range-settings" class="range-settings"></div>
+          <div class="settings-actions">
+            <button type="button" onclick="loadSettingsFile()">load JSON</button>
+            <button type="button" onclick="saveSettingsFile()">save JSON</button>
+            <span id="settings-status" role="status"></span>
           </div>
-          -->
         </details>
 
         </div>
@@ -143,134 +245,39 @@
 
     <script>
         function unity(s) {
-          var t = "v" + s + "-freq";
-          var f = document.getElementById(t).value
-          f = 69;
-          document.getElementById(t).value = f;
-          skode(`v${s}n${f}`);
-          skode(`v${s+1}n${f}`);
+          setSpeed(s, 69);
         }
         function double(s) {
-          var t = "v" + s + "-freq";
-          var f = document.getElementById(t).value
-          f += 12.0;
-          if (f > 127) f = 127;
-          document.getElementById(t).value = f;
-          skode(`v${s}n${f}`);
-          skode(`v${s+1}n${f}`);
+          setSpeed(s, getSpeed(s).value + 12);
         }
         function half(s) {
-          var t = "v" + s + "-freq";
-          var f = document.getElementById(t).value
-          f -= 12.0;
-          if (f < 0) f = 0;
-          document.getElementById(t).value = f;
-          skode(`v${s}n${f}`);
-          skode(`v${s+1}n${f}`);
+          setSpeed(s, getSpeed(s).value - 12);
         }
         function adder(s) {
-          var t = "v" + s + "-freq";
-          var f = document.getElementById(t).value
-          f += 1.0;
-          if (f > 127) f = 0;
-          document.getElementById(t).value = f;
-          skode(`v${s}n${f}`);
-          skode(`v${s+1}n${f}`);
+          setSpeed(s, getSpeed(s).value + 1);
         }
         function subber(s) {
-          var t = "v" + s + "-freq";
-          var f = document.getElementById(t).value
-          f -= 1.0;
-          if (f < 0) f = 0;
-          document.getElementById(t).value = f;
+          setSpeed(s, getSpeed(s).value - 1);
+        }
+        function getSpeed(s) {
+          var slider = document.getElementById("v" + s + "-freq");
+          return {
+            slider: slider,
+            value: slider.value,
+            min: parseFloat(slider.getAttribute("min")),
+            max: parseFloat(slider.getAttribute("max"))
+          };
+        }
+        function setSpeed(s, value) {
+          var speed = getSpeed(s);
+          var f = Math.min(speed.max, Math.max(speed.min, value));
+          speed.slider.value = f;
           skode(`v${s}n${f}`);
           skode(`v${s+1}n${f}`);
         }
     </script>
 
-    <div class="voice-card" style="border-top-color: #ff5722;">
-        <div class="row">
-            <h4>T0</h4>
-            <button class="wave-btn" onclick="window.external.invoke('>v0');">pick</button>
-            <div id="v0" class="mono"></div>
-            <button class="xtra-btn" onclick="lrand(0);">rand</button>
-        </div>
-        <control-slider label="volume" min="-60" max="30" value="0" step=".01" format="!v0a$1;v1a$1"></control-slider>
-        <control-slider id="v0-freq" label="speed" min="0" max="127" step=".001" value="69" format="!v0n$1;v1n$1"></control-slider>
-        <div class="button-group">
-            <button class="start-btn" onclick="skode('v0l1v1l1')">go</button>
-            <button class="stop-btn" onclick="skode('v0l0v1l0')">end</button>
-            <button class="bump-btn" onclick="half(0)">&frac12;&times;</button>
-            <button class="bump-btn" onclick="subber(0)">-1</button>
-            <button class="bump-btn" onclick="unity(0)">1&times;</button>
-            <button class="bump-btn" onclick="adder(0)">+1</button>
-            <button class="bump-btn" onclick="double(0)">2&times;</button>
-            <button class="xtra-btn" onclick="skode('v0b v1b ')">flip</button>
-        </div>
-    </div>
-
-    <div class="voice-card" style="border-top-color: #2196f3;">
-        <div class="row">
-            <h4>T1</h4>
-            <button class="wave-btn" onclick="window.external.invoke('>v2')">pick</button>
-            <div id="v1" class="mono"></div>
-            <button class="xtra-btn" onclick="lrand(2);">rand</button>
-        </div>
-        <control-slider label="volume" min="-60" max="30" value="0" step=".01" format="!v2a$1;v3a$1"></control-slider>
-        <control-slider id="v2-freq" label="speed" min="0" max="127" step=".001" value="69" format="!v2n$1;v3n$1"></control-slider>
-        <div class="button-group">
-            <button class="start-btn" onclick="skode('v2l1v3l1')">go</button>
-            <button class="stop-btn" onclick="skode('v2l0v3l0')">end</button>
-            <button class="bump-btn" onclick="half(2)">&frac12;&times;</button>
-            <button class="bump-btn" onclick="subber(2)">-1</button>
-            <button class="bump-btn" onclick="unity(2)">1&times;</button>
-            <button class="bump-btn" onclick="adder(2)">+1</button>
-            <button class="bump-btn" onclick="double(2)">2&times;</button>
-            <button class="xtra-btn" onclick="skode('v2b v3b ')">flip</button>
-        </div>
-    </div>
-
-    <div class="voice-card" style="border-top-color: #4caf50;">
-        <div class="row">
-            <h4>T2</h4>
-            <button class="wave-btn" onclick="window.external.invoke('>v4')">pick</button>
-            <div id="v2" class="mono"></div>
-            <button class="xtra-btn" onclick="lrand(4);">rand</button>
-        </div>
-        <control-slider label="volume" min="-60" max="30" value="0" step=".01" format="!v4a$1;v5a$1"></control-slider>
-        <control-slider id="v4-freq" label="speed" min="0" max="127" step=".001" value="69" format="!v4n$1;v5n$1"></control-slider>
-        <div class="button-group">
-            <button class="start-btn" onclick="skode('v4l1v5l1')">go</button>
-            <button class="stop-btn" onclick="skode('v4l0v5l0')">end</button>
-            <button class="bump-btn" onclick="half(4)">&frac12;&times;</button>
-            <button class="bump-btn" onclick="subber(4)">-1</button>
-            <button class="bump-btn" onclick="unity(4)">1&times;</button>
-            <button class="bump-btn" onclick="adder(4)">+1</button>
-            <button class="bump-btn" onclick="double(4)">2&times;</button>
-            <button class="xtra-btn" onclick="skode('v4b v5b ')">flip</button>
-        </div>
-    </div>
-
-    <div class="voice-card" style="border-top-color: #ffeb3b;">
-        <div class="row">
-            <h4>T3</h4>
-            <button class="wave-btn" onclick="window.external.invoke('>v6')">pick</button>
-            <div id="v3" class="mono"></div>
-            <button class="xtra-btn" onclick="lrand(6);">rand</button>
-        </div>
-        <control-slider label="volume" min="-60" max="30" value="0" step=".01" format="!v6a$1;v7a$1"></control-slider>
-        <control-slider id="v6-freq" label="speed" min="0" max="127" step=".001" value="69" format="!v6n$1;v7n$1"></control-slider>
-        <div class="button-group">
-            <button class="start-btn" onclick="skode('v6l1v7l1')">go</button>
-            <button class="stop-btn" onclick="skode('v6l0v7l0')">end</button>
-            <button class="bump-btn" onclick="half(6)">&frac12;&times;</button>
-            <button class="bump-btn" onclick="subber(6)">-1</button>
-            <button class="bump-btn" onclick="unity(6)">1&times;</button>
-            <button class="bump-btn" onclick="adder(6)">+1</button>
-            <button class="bump-btn" onclick="double(6)">2&times;</button>
-            <button class="xtra-btn" onclick="skode('v6b v7b ')">flip</button>
-        </div>
-    </div>
+    <div id="voice-cards"></div>
 
 <div class="voice-card" style="grid-column: 1 / -1; border-top: 4px solid #ff9800; background: #fffaf0;">
     <div class="row">
@@ -364,7 +371,7 @@ button.addEventListener("click", () => {
 
         attributeChangedCallback(name, oldVal, newVal) {
             if (oldVal !== newVal && this.shadowRoot.innerHTML !== "") {
-                this.updateUI(this.getAttribute('value'));
+                this.syncAttributes();
             }
         }
 
@@ -373,6 +380,23 @@ button.addEventListener("click", () => {
             const display = this.shadowRoot.querySelector('.display');
             if (input) input.value = val;
             if (display) display.textContent = val;
+        }
+
+        syncAttributes() {
+            const input = this.shadowRoot.querySelector('input');
+            const label = this.shadowRoot.querySelector('label');
+            if (!input) return;
+
+            input.min = this.getAttribute('min') || 0;
+            input.max = this.getAttribute('max') || 100;
+            input.step = this.getAttribute('step') || 1;
+            if (label) label.textContent = this.getAttribute('label') || 'Slider';
+
+            const min = parseFloat(input.min);
+            const max = parseFloat(input.max);
+            const value = Math.min(max, Math.max(min, this.value));
+            if (value !== this.value) this.setAttribute('value', value);
+            this.updateUI(value);
         }
 
         render() {
@@ -414,6 +438,218 @@ button.addEventListener("click", () => {
         }
     }
     customElements.define('control-slider', ControlSlider);
+
+    class VoicePairCard extends HTMLElement {
+        connectedCallback() {
+            if (this.firstElementChild) return;
+
+            const track = parseInt(this.getAttribute('track'), 10);
+            const voice = parseInt(this.getAttribute('voice'), 10);
+            const partner = voice + 1;
+            const color = this.getAttribute('color');
+
+            this.innerHTML = `
+                <div class="voice-card" style="border-top-color: ${color};">
+                    <div class="row">
+                        <h4>T${track}</h4>
+                        <button class="wave-btn" onclick="window.external.invoke('>v${voice}')">pick</button>
+                        <div id="v${track}" class="mono"></div>
+                        <button class="xtra-btn" onclick="lrand(${voice})">rand</button>
+                    </div>
+                    <control-slider id="v${voice}-volume" label="volume"
+                        min="-60" max="30" value="0" step=".01"
+                        format="!v${voice}a$1;v${partner}a$1"></control-slider>
+                    <control-slider id="v${voice}-freq" label="speed"
+                        min="0" max="127" step=".001" value="69"
+                        format="!v${voice}n$1;v${partner}n$1"></control-slider>
+                    <div class="card-action-row">
+                        <button class="start-btn" onclick="skode('v${voice}l1v${partner}l1')">go</button>
+                        <button class="stop-btn" onclick="skode('v${voice}l0v${partner}l0')">end</button>
+                        <button class="xtra-btn" onclick="skode('v${voice}b v${partner}b ')">flip</button>
+                    </div>
+                    <div class="card-action-row speed-actions">
+                        <button class="bump-btn" onclick="half(${voice})">&frac12;&times;</button>
+                        <button class="bump-btn" onclick="subber(${voice})">-1</button>
+                        <button class="bump-btn" onclick="unity(${voice})">1&times;</button>
+                        <button class="bump-btn" onclick="adder(${voice})">+1</button>
+                        <button class="bump-btn" onclick="double(${voice})">2&times;</button>
+                    </div>
+                </div>`;
+        }
+    }
+    customElements.define('voice-pair-card', VoicePairCard);
+
+    const TRACKS = [
+        { color: '#ff5722' },
+        { color: '#2196f3' },
+        { color: '#4caf50' },
+        { color: '#ffeb3b' },
+        { color: '#9c27b0' },
+        { color: '#00bcd4' },
+        { color: '#ff9800' },
+        { color: '#795548' }
+    ].map((track, index) => ({
+        ...track,
+        track: index,
+        voice: index * 2
+    }));
+
+    const voiceRangeDefaults = {
+        volume: { min: -60, max: 30, step: 0.01 },
+        speed: { min: 0, max: 127, step: 0.001 }
+    };
+
+    function renderVoiceCards() {
+        document.getElementById('voice-cards').innerHTML = TRACKS.map(track => `
+            <voice-pair-card
+                track="${track.track}"
+                voice="${track.voice}"
+                color="${track.color}">
+            </voice-pair-card>
+        `).join('');
+    }
+
+    function sliderFor(voice, kind) {
+        return document.getElementById(
+            kind === 'speed' ? `v${voice}-freq` : `v${voice}-volume`
+        );
+    }
+
+    function updateSliderRange(voice, kind, property, input) {
+        const sliderId = kind === 'speed' ? `v${voice}-freq` : `v${voice}-volume`;
+        const slider = document.getElementById(sliderId);
+        const number = parseFloat(input.value);
+        const min = property === 'min' ? number : parseFloat(slider.getAttribute('min'));
+        const max = property === 'max' ? number : parseFloat(slider.getAttribute('max'));
+        const invalid = !Number.isFinite(number) ||
+            (property === 'step' && number <= 0) ||
+            (property !== 'step' && min >= max);
+
+        input.classList.toggle('invalid', invalid);
+        input.title = invalid ? 'Use a positive step and keep min below max.' : '';
+        if (!invalid) slider.setAttribute(property, number);
+    }
+
+    function renderRangeSettings() {
+        const container = document.getElementById('range-settings');
+        container.innerHTML = TRACKS.map(({ voice, track }) => `
+            <fieldset>
+                <legend>T${track}</legend>
+                <div class="range-setting-row range-setting-head">
+                    <span></span><span>min</span><span>max</span><span>step</span>
+                </div>
+                ${['volume', 'speed'].map(kind => `
+                    <div class="range-setting-row">
+                        <label>${kind}</label>
+                        ${['min', 'max', 'step'].map(property => `
+                            <input type="number"
+                                value="${sliderFor(voice, kind).getAttribute(property)}"
+                                oninput="updateSliderRange(${voice}, '${kind}', '${property}', this)">
+                        `).join('')}
+                    </div>
+                `).join('')}
+            </fieldset>
+        `).join('');
+    }
+
+    function getSettings() {
+        return {
+            format: 'ro-totem-slider-settings',
+            version: 1,
+            tracks: TRACKS.map(({ track, voice }) => ({
+                track,
+                volume: rangeFor(sliderFor(voice, 'volume')),
+                speed: rangeFor(sliderFor(voice, 'speed'))
+            }))
+        };
+    }
+
+    function rangeFor(slider) {
+        return {
+            min: parseFloat(slider.getAttribute('min')),
+            max: parseFloat(slider.getAttribute('max')),
+            step: parseFloat(slider.getAttribute('step'))
+        };
+    }
+
+    function validRange(range) {
+        return range &&
+            Number.isFinite(range.min) &&
+            Number.isFinite(range.max) &&
+            Number.isFinite(range.step) &&
+            range.min < range.max &&
+            range.step > 0;
+    }
+
+    function applySettings(settings) {
+        if (!settings || settings.format !== 'ro-totem-slider-settings' ||
+            settings.version !== 1 || !Array.isArray(settings.tracks)) {
+            throw new Error('This is not a supported ro-totem settings file.');
+        }
+
+        settings.tracks.forEach(savedTrack => {
+            const track = TRACKS[savedTrack.track];
+            if (!track) return;
+
+            ['volume', 'speed'].forEach(kind => {
+                const range = savedTrack[kind];
+                if (!validRange(range)) return;
+                const slider = sliderFor(track.voice, kind);
+                slider.setAttribute('min', range.min);
+                slider.setAttribute('max', range.max);
+                slider.setAttribute('step', range.step);
+            });
+        });
+
+        renderRangeSettings();
+        setSettingsStatus('settings loaded');
+    }
+
+    function loadSettingsFromText(text) {
+        try {
+            applySettings(JSON.parse(text));
+        } catch (error) {
+            settingsFileError(error.message);
+        }
+    }
+
+    function saveSettingsFile() {
+        const json = JSON.stringify(getSettings(), null, 2);
+        window.external.invoke('JS' + json);
+    }
+
+    function loadSettingsFile() {
+        window.external.invoke('JL');
+    }
+
+    function settingsFileSaved() {
+        setSettingsStatus('settings saved');
+    }
+
+    function settingsFileError(message) {
+        setSettingsStatus(message, true);
+    }
+
+    function setSettingsStatus(message, isError = false) {
+        const status = document.getElementById('settings-status');
+        status.textContent = message;
+        status.style.color = isError ? '#a71d2a' : '#555';
+    }
+
+    function randomizeAllTracks() {
+        TRACKS.forEach(track => lrand(track.voice));
+    }
+
+    function setAllTracksPlaying(playing) {
+        const state = playing ? 1 : 0;
+        skode(TRACKS.flatMap(track => [
+            `v${track.voice}l${state}`,
+            `v${track.voice + 1}l${state}`
+        ]).join(' '));
+    }
+
+    renderVoiceCards();
+    renderRangeSettings();
 
     // --- SYSTEM INTEGRATION ---
     let files = [];

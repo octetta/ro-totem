@@ -6,9 +6,9 @@
 
 #include <limits.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <unistd.h>
 #include <dirent.h>
-#include <stdio.h>
 #include <string.h>
 
 #ifdef __APPLE__
@@ -98,6 +98,94 @@ void addLog(struct webview *w, char *out) {
   webview_eval(w, res);
 }
 
+static void load_settings_file(struct webview *w, const char *filename) {
+  FILE *file = fopen(filename, "rb");
+  if (!file) {
+    webview_eval(w, "settingsFileError('Could not open settings file.')");
+    return;
+  }
+
+  if (fseek(file, 0, SEEK_END) != 0) {
+    fclose(file);
+    webview_eval(w, "settingsFileError('Could not read settings file.')");
+    return;
+  }
+
+  long length = ftell(file);
+  if (length < 0 || length > 1024 * 1024 || fseek(file, 0, SEEK_SET) != 0) {
+    fclose(file);
+    webview_eval(w, "settingsFileError('Settings file is too large or invalid.')");
+    return;
+  }
+
+  char *json = malloc((size_t)length + 1);
+  char *script = malloc((size_t)length * 6 + 32);
+  if (!json || !script) {
+    free(json);
+    free(script);
+    fclose(file);
+    webview_eval(w, "settingsFileError('Not enough memory to load settings.')");
+    return;
+  }
+
+  size_t read = fread(json, 1, (size_t)length, file);
+  fclose(file);
+  json[read] = '\0';
+
+  char *out = script;
+  out += sprintf(out, "loadSettingsFromText(\"");
+  for (size_t i = 0; i < read; i++) {
+    unsigned char c = (unsigned char)json[i];
+    switch (c) {
+      case '\\': *out++ = '\\'; *out++ = '\\'; break;
+      case '"': *out++ = '\\'; *out++ = '"'; break;
+      case '\n': *out++ = '\\'; *out++ = 'n'; break;
+      case '\r': *out++ = '\\'; *out++ = 'r'; break;
+      case '\t': *out++ = '\\'; *out++ = 't'; break;
+      default:
+        if (c < 0x20) {
+          out += sprintf(out, "\\u%04x", c);
+        } else {
+          *out++ = (char)c;
+        }
+    }
+  }
+  strcpy(out, "\")");
+  webview_eval(w, script);
+  free(script);
+  free(json);
+}
+
+static void save_settings_file(struct webview *w, const char *json) {
+  char filename[PATH_MAX];
+  webview_dialog(w, WEBVIEW_DIALOG_TYPE_SAVE, WEBVIEW_DIALOG_FLAG_FILE,
+                 "Save settings", "ro-totem-settings.json",
+                 filename, sizeof(filename));
+  if (!filename[0]) return;
+
+  size_t length = strlen(filename);
+  if (length < 5 || strcasecmp(filename + length - 5, ".json") != 0) {
+    if (length + 5 >= sizeof(filename)) {
+      webview_eval(w, "settingsFileError('Settings filename is too long.')");
+      return;
+    }
+    strcat(filename, ".json");
+  }
+
+  FILE *file = fopen(filename, "wb");
+  if (!file) {
+    webview_eval(w, "settingsFileError('Could not create settings file.')");
+    return;
+  }
+
+  size_t json_length = strlen(json);
+  int ok = fwrite(json, 1, json_length, file) == json_length;
+  ok = fclose(file) == 0 && ok;
+  webview_eval(w, ok
+    ? "settingsFileSaved()"
+    : "settingsFileError('Could not write settings file.')");
+}
+
 static void invoker(struct webview *w, const char *arg) {
   char cmd[1024];
   char *log;
@@ -129,13 +217,24 @@ static void invoker(struct webview *w, const char *arg) {
         }
       }
       break;
+    case 'J':
+      if (arg[1] == 'S') {
+        save_settings_file(w, &arg[2]);
+      } else if (arg[1] == 'L') {
+        char filename[PATH_MAX];
+        webview_dialog(w, WEBVIEW_DIALOG_TYPE_OPEN, WEBVIEW_DIALOG_FLAG_FILE,
+                       "Load settings", "", filename, sizeof(filename));
+        if (filename[0]) load_settings_file(w, filename);
+      }
+      break;
     case '>': // tell skred to read the filename into a voice (via 'filename'), setup the voice
       // pick in the ui
       if (arg[1] == 'v') {
         char filename[1024];
         char *shortname = filename;
         webview_dialog(w, WEBVIEW_DIALOG_TYPE_OPEN, WEBVIEW_DIALOG_FLAG_FILE, "sel", "", filename, sizeof(filename));
-        int voice = arg[2] - '0';
+        int voice = atoi(&arg[2]);
+        if (voice < 0 || voice + 1 >= 32) break;
         for (int j=0; j<2; j++) {
           int pan = -1;
           if (j&1) pan = 1;
@@ -253,7 +352,7 @@ int main(int argc, char *argv[]) {
   
   int r = webview_init(&webview);
   
-  skoder("S100v0a0f440>1>2>3>4>5>6>7", 0);
+  skoder("S100v0a0f440>1>2>3>4>5>6>7>8>9>10>11>12>13>14>15", 0);
 
 #if 0
   int first = 20;
