@@ -92,10 +92,67 @@ void addSkodeLog(struct webview *w, char *log) {
 
 static int wavepointer = 300;
 
-void addLog(struct webview *w, char *out) {
-  char res[4096];
-  sprintf(res, "addLog('%s')", out);
-  webview_eval(w, res);
+static char *append_js_string(char *out, const char *value) {
+  *out++ = '\'';
+  for (const unsigned char *p = (const unsigned char *)value; *p; p++) {
+    switch (*p) {
+      case '\\': *out++ = '\\'; *out++ = '\\'; break;
+      case '\'': *out++ = '\\'; *out++ = '\''; break;
+      case '\n': *out++ = '\\'; *out++ = 'n'; break;
+      case '\r': *out++ = '\\'; *out++ = 'r'; break;
+      case '\t': *out++ = '\\'; *out++ = 't'; break;
+      default: *out++ = (char)*p; break;
+    }
+  }
+  *out++ = '\'';
+  return out;
+}
+
+void addLog(struct webview *w, char *message) {
+  char script[PATH_MAX * 2 + 256];
+  char *out = script;
+  out += sprintf(out, "addLog(");
+  out = append_js_string(out, message);
+  *out++ = ')';
+  *out = '\0';
+  webview_eval(w, script);
+}
+
+static void load_wave_file(struct webview *w, const char *filename, int voice) {
+  if (!filename[0] || voice < 0 || voice + 1 >= 32) return;
+
+  char cmd[PATH_MAX + 128];
+  char *log;
+  const char *shortname = filename;
+  for (const char *p = filename; *p; p++) {
+    if (*p == '/' || *p == '\\') shortname = p + 1;
+  }
+
+  for (int j = 0; j < 2; j++) {
+    int wave = wavepointer++;
+    if (wavepointer > 998) wavepointer = 0;
+    int pan = (j & 1) ? 1 : -1;
+    snprintf(cmd, sizeof(cmd),
+      "[%s] /ws%d %d v%d p%d w%d a0 B1 f440 t1 0 1 1",
+      filename, wave, j, voice + j, pan, wave);
+    addLog(w, cmd);
+    log = skoder(cmd, 0);
+    addSkodeLog(w, log);
+    snprintf(cmd, sizeof(cmd), "[%s] wt %d", shortname, wave);
+    log = skoder(cmd, 0);
+    addSkodeLog(w, log);
+  }
+
+  char script[PATH_MAX * 2 + 64];
+  char *out = script;
+  out += sprintf(out, "setTrackWave(%d,", voice);
+  out = append_js_string(out, filename);
+  *out++ = ',';
+  out = append_js_string(out, shortname);
+  *out++ = ')';
+  *out = '\0';
+  webview_eval(w, script);
+  webview_eval(w, "waveFileLoaded()");
 }
 
 static void load_settings_file(struct webview *w, const char *filename) {
@@ -186,6 +243,27 @@ static void save_settings_file(struct webview *w, const char *json) {
     : "settingsFileError('Could not write settings file.')");
 }
 
+static void send_audio_devices(struct webview *w) {
+  char script[PATH_MAX * 2 + 128];
+  char *log = skoder("/als", 0);
+  addSkodeLog(w, log);
+  webview_eval(w, "clearAudioDevices()");
+
+  for (int is_capture = 0; is_capture <= 1; is_capture++) {
+    const char *kind = is_capture ? "input" : "output";
+    for (int i = 0; i < skred_devices(is_capture); i++) {
+      char *out = script;
+      out += sprintf(out, "addAudioDevice('%s',%d,", kind, i);
+      out = append_js_string(out, skred_device_str(is_capture, i));
+      *out++ = ')';
+      *out = '\0';
+      webview_eval(w, script);
+    }
+  }
+
+  webview_eval(w, "audioDevicesReady()");
+}
+
 static void invoker(struct webview *w, const char *arg) {
   char cmd[1024];
   char *log;
@@ -217,6 +295,9 @@ static void invoker(struct webview *w, const char *arg) {
         }
       }
       break;
+    case 'D':
+      if (arg[1] == 'R') send_audio_devices(w);
+      break;
     case 'J':
       if (arg[1] == 'S') {
         save_settings_file(w, &arg[2]);
@@ -227,47 +308,22 @@ static void invoker(struct webview *w, const char *arg) {
         if (filename[0]) load_settings_file(w, filename);
       }
       break;
+    case 'W':
+      {
+        char *end;
+        long voice = strtol(&arg[1], &end, 10);
+        if (end && *end == ':' && voice >= 0 && voice + 1 < 32) {
+          load_wave_file(w, end + 1, (int)voice);
+        }
+      }
+      break;
     case '>': // tell skred to read the filename into a voice (via 'filename'), setup the voice
       // pick in the ui
       if (arg[1] == 'v') {
-        char filename[1024];
-        char *shortname = filename;
+        char filename[PATH_MAX] = "";
         webview_dialog(w, WEBVIEW_DIALOG_TYPE_OPEN, WEBVIEW_DIALOG_FLAG_FILE, "sel", "", filename, sizeof(filename));
         int voice = atoi(&arg[2]);
-        if (voice < 0 || voice + 1 >= 32) break;
-        for (int j=0; j<2; j++) {
-          int pan = -1;
-          if (j&1) pan = 1;
-          sprintf(cmd,
-            "[%s] /ws%d %d v%d p%d w%d a0 B1 f440 t1 0 1 1",
-            filename,
-            wavepointer,
-            j,
-            voice+j,
-            pan,
-            wavepointer);
-          addLog(w, cmd);
-          wavepointer++;
-          if (wavepointer > 998) wavepointer = 0;
-          log = skoder(cmd, 0);
-          addSkodeLog(w, log);
-          int len = strlen(filename);
-          char *ptr = filename;
-          char *name = filename;
-          for (int i=0; i<len; i++) {
-            if (*ptr == '/' || *ptr == '\\') {
-              name = ptr+1;
-            }
-            ptr++;
-          }
-          shortname = name;
-          sprintf(cmd, "[%s] wt %d", shortname, wavepointer);
-          //printf("name it : %s\n", shortname);
-          log = skoder(cmd, 0);
-          addSkodeLog(w, log);
-        }
-        sprintf(cmd, "assign(%d,'%s');", voice, shortname);
-        webview_eval(w, cmd);
+        load_wave_file(w, filename, voice);
       }
       break;
     default:

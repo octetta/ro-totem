@@ -102,6 +102,29 @@
             text-align: center;
         }
 
+        .track-visibility {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            margin-top: 4px;
+            font-size: 0.8rem;
+        }
+
+        .audio-device-settings {
+            display: grid;
+            grid-template-columns: auto minmax(180px, 1fr) auto;
+            gap: 8px;
+            align-items: center;
+            margin-top: 10px;
+        }
+
+        .audio-device-settings select {
+            min-width: 0;
+            padding: 6px;
+            border: 1px solid #ccd2da;
+            border-radius: 4px;
+        }
+
         .settings-actions {
             display: flex;
             flex-wrap: wrap;
@@ -200,6 +223,9 @@
         .xtra-btn { color: #2C3E50; background: #93E9BE; }
         .xtra-btn:hover { background: #76D1A4; }
 
+        .flip-btn { color: #4a3200; background: #ffc857; }
+        .flip-btn:hover { background: #f2ad2e; }
+
         .wave-btn { color: #fff; background: rgb(98, 0, 238); }
         .wave-btn:hover { background: rgb(141, 65, 244); }
 
@@ -232,11 +258,54 @@
 
         <details class="custom-accordion">
           <summary>advanced</summary>
+          <div class="audio-device-settings">
+            <label for="audio-output-device">output</label>
+            <select id="audio-output-device"></select>
+            <button type="button" onclick="applyAudioDevice('output')">apply</button>
+            <label for="audio-input-device">input</label>
+            <select id="audio-input-device"></select>
+            <button type="button" onclick="applyAudioDevice('input')">apply</button>
+          </div>
+          <div class="settings-actions">
+            <button type="button" onclick="refreshAudioDevices()">refresh devices</button>
+            <span id="audio-device-status" role="status"></span>
+          </div>
           <div id="range-settings" class="range-settings"></div>
           <div class="settings-actions">
             <button type="button" onclick="loadSettingsFile()">load JSON</button>
             <button type="button" onclick="saveSettingsFile()">save JSON</button>
             <span id="settings-status" role="status"></span>
+          </div>
+          <div class="voice-card" style="margin-top: 10px; border-top: 4px solid #ff9800; background: #fffaf0;">
+            <div class="row">
+              <input type="text"
+                id="skode-input"
+                placeholder="Enter command..."
+                autocapitalize="none"
+                autocorrect="off"
+                spellcheck="false"
+                autocomplete="off"
+                style="flex-grow: 1; padding: 10px; border: 1px solid #ddd; border-radius: 6px; font-family: monospace;">
+              <button id="skode-send" onclick="skode(getcmd())"
+                      style="background: #ff9800; color: white; min-width: 100px;">send</button>
+            </div>
+            <details class="custom-accordion">
+              <summary>log</summary>
+              <div class="accordion-content">
+                <div id="log-container" style="
+                    height: 300px;
+                    overflow-y: scroll;
+                    background: #fdfdfd;
+                    color: #333333;
+                    padding: 10px;
+                    font-family: 'Courier New', monospace;
+                    border: 1px solid #ccc;
+                    border-radius: 4px;
+                ">
+                  <pre id="log-output" style="margin: 0; white-space: pre-wrap;"></pre>
+                </div>
+              </div>
+            </details>
           </div>
         </details>
 
@@ -278,40 +347,6 @@
     </script>
 
     <div id="voice-cards"></div>
-
-<div class="voice-card" style="grid-column: 1 / -1; border-top: 4px solid #ff9800; background: #fffaf0;">
-    <div class="row">
-        <input type="text"
-          id="skode-input"
-          placeholder="Enter command..." 
-          autocapitalize="none"
-          autocorrect="off"
-          spellcheck="false"
-          autocomplete="off"
-          style="flex-grow: 1; padding: 10px; border: 1px solid #ddd; border-radius: 6px; font-family: monospace;">
-        <button id="skode-send" onclick="skode(getcmd())" 
-                style="background: #ff9800; color: white; min-width: 100px;">send</button>
-    </div>
-        <details class="custom-accordion">
-          <summary>log</summary>
-          <div class="accordion-content">
-
-<div id="log-container" style="
-    height: 300px; 
-    overflow-y: scroll; /* Always show scrollbar track to prevent layout jump */
-    background: #fdfdfd; 
-    color: #333333;      
-    padding: 10px; 
-    font-family: 'Courier New', monospace;
-    border: 1px solid #ccc;
-    border-radius: 4px;
-">
-    <pre id="log-output" style="margin: 0; white-space: pre-wrap;"></pre>
-</div>
-
-          </div>
-        </details>
-</div>
 
 <script>
     const logOutput = document.getElementById('log-output');
@@ -465,7 +500,7 @@ button.addEventListener("click", () => {
                     <div class="card-action-row">
                         <button class="start-btn" onclick="skode('v${voice}l1v${partner}l1')">go</button>
                         <button class="stop-btn" onclick="skode('v${voice}l0v${partner}l0')">end</button>
-                        <button class="xtra-btn" onclick="skode('v${voice}b v${partner}b ')">flip</button>
+                        <button class="flip-btn" onclick="skode('v${voice}b v${partner}b ')">flip</button>
                     </div>
                     <div class="card-action-row speed-actions">
                         <button class="bump-btn" onclick="half(${voice})">&frac12;&times;</button>
@@ -498,15 +533,25 @@ button.addEventListener("click", () => {
         volume: { min: -60, max: 30, step: 0.01 },
         speed: { min: 0, max: 127, step: 0.001 }
     };
+    const trackWaves = new Map();
+    const trackVisibility = new Map(TRACKS.map(({ track }) => [track, track < 4]));
+    const audioDeviceSelections = {
+        output: null,
+        input: null
+    };
+    let pendingAudioDeviceSettings = null;
+    let pendingVoiceRestore = null;
 
     function renderVoiceCards() {
         document.getElementById('voice-cards').innerHTML = TRACKS.map(track => `
             <voice-pair-card
+                id="track-card-${track.track}"
                 track="${track.track}"
                 voice="${track.voice}"
                 color="${track.color}">
             </voice-pair-card>
         `).join('');
+        TRACKS.forEach(({ track }) => applyTrackVisibility(track));
     }
 
     function sliderFor(voice, kind) {
@@ -535,6 +580,12 @@ button.addEventListener("click", () => {
         container.innerHTML = TRACKS.map(({ voice, track }) => `
             <fieldset>
                 <legend>T${track}</legend>
+                <label class="track-visibility">
+                    <input type="checkbox"
+                        ${trackVisibility.get(track) ? 'checked' : ''}
+                        onchange="setTrackVisibility(${track}, this.checked)">
+                    show track card
+                </label>
                 <div class="range-setting-row range-setting-head">
                     <span></span><span>min</span><span>max</span><span>step</span>
                 </div>
@@ -552,15 +603,40 @@ button.addEventListener("click", () => {
         `).join('');
     }
 
+    function setTrackVisibility(track, visible) {
+        if (!TRACKS[track]) return;
+        trackVisibility.set(track, visible);
+        applyTrackVisibility(track);
+    }
+
+    function applyTrackVisibility(track) {
+        const card = document.getElementById(`track-card-${track}`);
+        if (card) card.style.display = trackVisibility.get(track) ? 'block' : 'none';
+    }
+
     function getSettings() {
         return {
             format: 'ro-totem-slider-settings',
-            version: 1,
+            version: 4,
+            master: sliderStateFor(document.getElementById('master-vol')),
+            audioDevices: {
+                output: audioDeviceSelections.output,
+                input: audioDeviceSelections.input
+            },
             tracks: TRACKS.map(({ track, voice }) => ({
                 track,
-                volume: rangeFor(sliderFor(voice, 'volume')),
-                speed: rangeFor(sliderFor(voice, 'speed'))
+                visible: trackVisibility.get(track),
+                volume: sliderStateFor(sliderFor(voice, 'volume')),
+                speed: sliderStateFor(sliderFor(voice, 'speed')),
+                wave: trackWaves.get(voice) || null
             }))
+        };
+    }
+
+    function sliderStateFor(slider) {
+        return {
+            ...rangeFor(slider),
+            value: slider.value
         };
     }
 
@@ -583,13 +659,36 @@ button.addEventListener("click", () => {
 
     function applySettings(settings) {
         if (!settings || settings.format !== 'ro-totem-slider-settings' ||
-            settings.version !== 1 || !Array.isArray(settings.tracks)) {
+            ![1, 2, 3, 4].includes(settings.version) || !Array.isArray(settings.tracks)) {
             throw new Error('This is not a supported ro-totem settings file.');
         }
 
+        const voiceCommands = [];
+        const waves = [];
+
+        pendingAudioDeviceSettings = settings.version >= 4 && settings.audioDevices
+            ? settings.audioDevices
+            : null;
+
+        if (settings.version < 3) {
+            TRACKS.forEach(({ track }) => {
+                setTrackVisibility(track, track < 4);
+            });
+        }
+
         settings.tracks.forEach(savedTrack => {
+            if (!savedTrack || !Number.isInteger(savedTrack.track)) return;
             const track = TRACKS[savedTrack.track];
             if (!track) return;
+
+            if (settings.version >= 2 && savedTrack.wave &&
+                typeof savedTrack.wave.path === 'string') {
+                waves.push({ voice: track.voice, path: savedTrack.wave.path });
+            }
+
+            if (settings.version >= 3 && typeof savedTrack.visible === 'boolean') {
+                setTrackVisibility(savedTrack.track, savedTrack.visible);
+            }
 
             ['volume', 'speed'].forEach(kind => {
                 const range = savedTrack[kind];
@@ -598,10 +697,63 @@ button.addEventListener("click", () => {
                 slider.setAttribute('min', range.min);
                 slider.setAttribute('max', range.max);
                 slider.setAttribute('step', range.step);
+                if (settings.version >= 2 && Number.isFinite(range.value)) {
+                    voiceCommands.push(setSliderValue(slider, range.value));
+                }
             });
         });
 
+        if (settings.version >= 2 && validRange(settings.master)) {
+            const master = document.getElementById('master-vol');
+            master.setAttribute('min', settings.master.min);
+            master.setAttribute('max', settings.master.max);
+            master.setAttribute('step', settings.master.step);
+            if (Number.isFinite(settings.master.value)) {
+                voiceCommands.push(setSliderValue(master, settings.master.value));
+            }
+        }
+
         renderRangeSettings();
+        if (pendingAudioDeviceSettings) refreshAudioDevices();
+        if (waves.length > 0) {
+            pendingVoiceRestore = {
+                wavesRemaining: waves.length,
+                commands: voiceCommands
+            };
+            setSettingsStatus('loading waves...');
+            waves.forEach(wave => {
+                window.external.invoke(`W${wave.voice}:${wave.path}`);
+            });
+        } else {
+            applyVoiceCommands(voiceCommands);
+            setSettingsStatus('settings loaded');
+        }
+    }
+
+    function setSliderValue(slider, value) {
+        const min = parseFloat(slider.getAttribute('min'));
+        const max = parseFloat(slider.getAttribute('max'));
+        const clamped = Math.min(max, Math.max(min, value));
+        slider.value = clamped;
+        return (slider.getAttribute('format') || '$1').replaceAll('$1', clamped);
+    }
+
+    function applyVoiceCommands(commands) {
+        if (commands.length === 0) return;
+        const combined = commands
+            .map(command => command.startsWith('!') ? command.slice(1) : command)
+            .join(';');
+        window.external.invoke('!' + combined);
+    }
+
+    function waveFileLoaded() {
+        if (!pendingVoiceRestore) return;
+        pendingVoiceRestore.wavesRemaining--;
+        if (pendingVoiceRestore.wavesRemaining > 0) return;
+
+        const commands = pendingVoiceRestore.commands;
+        pendingVoiceRestore = null;
+        applyVoiceCommands(commands);
         setSettingsStatus('settings loaded');
     }
 
@@ -636,6 +788,72 @@ button.addEventListener("click", () => {
         status.style.color = isError ? '#a71d2a' : '#555';
     }
 
+    function refreshAudioDevices() {
+        if (!window.external || !window.external.invoke) {
+            setTimeout(refreshAudioDevices, 50);
+            return;
+        }
+        setAudioDeviceStatus('refreshing devices...');
+        window.external.invoke('DR');
+    }
+
+    function clearAudioDevices() {
+        ['output', 'input'].forEach(kind => {
+            const select = document.getElementById(`audio-${kind}-device`);
+            select.innerHTML = '';
+        });
+    }
+
+    function addAudioDevice(kind, selection, name) {
+        const select = document.getElementById(`audio-${kind}-device`);
+        const option = document.createElement('option');
+        option.value = selection;
+        option.textContent = `${selection}: ${name}`;
+        option.dataset.name = name;
+        select.appendChild(option);
+    }
+
+    function audioDevicesReady() {
+        const savedSettings = pendingAudioDeviceSettings;
+        ['output', 'input'].forEach(kind => {
+            const saved = savedSettings ? savedSettings[kind] : audioDeviceSelections[kind];
+            if (!saved) return;
+            const select = document.getElementById(`audio-${kind}-device`);
+            const options = Array.from(select.options);
+            const match = options.find(option => option.dataset.name === saved.name) ||
+                options.find(option => Number(option.value) === saved.selection);
+            if (!match) return;
+            select.value = match.value;
+            if (savedSettings) applyAudioDevice(kind);
+        });
+        pendingAudioDeviceSettings = null;
+        setAudioDeviceStatus('device list refreshed');
+    }
+
+    function applyAudioDevice(kind) {
+        const select = document.getElementById(`audio-${kind}-device`);
+        const option = select.selectedOptions[0];
+        if (!option) {
+            setAudioDeviceStatus(`no ${kind} device selected`, true);
+            return;
+        }
+
+        const selection = Number(option.value);
+        audioDeviceSelections[kind] = {
+            selection,
+            name: option.dataset.name
+        };
+        const command = kind === 'input' ? '/ain' : '/aout';
+        window.external.invoke(`!${command} ${selection}`);
+        setAudioDeviceStatus(`${kind} device applied`);
+    }
+
+    function setAudioDeviceStatus(message, isError = false) {
+        const status = document.getElementById('audio-device-status');
+        status.textContent = message;
+        status.style.color = isError ? '#a71d2a' : '#555';
+    }
+
     function randomizeAllTracks() {
         TRACKS.forEach(track => lrand(track.voice));
     }
@@ -650,6 +868,7 @@ button.addEventListener("click", () => {
 
     renderVoiceCards();
     renderRangeSettings();
+    setTimeout(refreshAudioDevices, 0);
 
     // --- SYSTEM INTEGRATION ---
     let files = [];
@@ -674,13 +893,18 @@ button.addEventListener("click", () => {
         skode(`[${t}] /ws ${lndx+1} 1 v${v+1} p1  w${lndx+1} a0 B1 f440 t1 0 1 1 ; [${f}] wt ${lndx+1};`);
         lndx+=2;
         if (lndx >= 998) { lndx = 0; }
-      assign(v, f);
+      setTrackWave(v, t, f);
     }
     
-    function assign(id, value) {
+    function setTrackWave(id, path, name) {
+        trackWaves.set(id, { path, name });
         let nid = id >> 1;
         const element = document.getElementById("v"+nid);
-        if (element) element.textContent = value;
+        if (element) element.textContent = name;
+    }
+
+    function assign(id, value) {
+        setTrackWave(id, value, value);
     }
 
     function vassign(id, value) {
