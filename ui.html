@@ -155,53 +155,66 @@
         }
 
         .track-lock {
-            width: 24px;
-            height: 24px;
+            flex: 0 0 28px;
+            width: 28px;
+            height: 28px;
             padding: 0;
-            border: 1px solid transparent;
-            background: transparent;
-            color: #777;
-            opacity: 0.65;
+            border: 1px solid #c8ced6;
+            border-radius: 6px;
+            background: #f4f6f8;
+            color: #59636e;
             position: relative;
+            box-shadow: inset 0 1px 0 rgba(255,255,255,0.8);
         }
 
         .track-lock::before {
             content: "";
             position: absolute;
             left: 8px;
-            top: 4px;
-            width: 7px;
-            height: 8px;
+            top: 5px;
+            width: 10px;
+            height: 9px;
             border: 2px solid currentColor;
             border-bottom: 0;
-            border-radius: 5px 5px 0 0;
+            border-radius: 6px 6px 0 0;
             box-sizing: border-box;
-            transform: translateX(3px) rotate(25deg);
+            transform: translate(4px, -1px) rotate(32deg);
             transform-origin: bottom left;
+            transition: transform 140ms ease;
         }
 
         .track-lock::after {
             content: "";
             position: absolute;
             left: 6px;
-            top: 10px;
-            width: 12px;
+            top: 12px;
+            width: 14px;
             height: 10px;
-            border-radius: 2px;
+            border-radius: 3px;
             background: currentColor;
         }
 
         .track-lock:hover {
-            background: #edf0f4;
-            color: #333;
-            opacity: 1;
+            border-color: #9da6b0;
+            background: #e7ebef;
+            color: #303840;
+        }
+
+        .track-lock:focus-visible {
+            outline: 3px solid rgba(98, 0, 238, 0.25);
+            outline-offset: 2px;
         }
 
         .track-lock.locked {
-            border-color: #d3a000;
-            background: #fff7d6;
-            color: #735700;
-            opacity: 1;
+            border-color: #d29b00;
+            background: #ffe7a3;
+            color: #654900;
+            box-shadow: inset 0 1px 0 rgba(255,255,255,0.55);
+        }
+
+        .track-lock.locked:hover {
+            border-color: #ad7f00;
+            background: #ffd96b;
         }
 
         .track-lock.locked::before {
@@ -243,19 +256,16 @@
         }
 
         .track-state {
-            flex: 1 1 0;
-            min-width: 0;
-            padding: 8px 6px;
+            flex: 0 0 34px;
+            width: 34px;
+            padding: 8px;
             border-radius: 6px;
             background: #e2e6ea;
             color: #495057;
             display: flex;
             align-items: center;
             justify-content: center;
-            gap: 6px;
             box-sizing: border-box;
-            font-size: 0.78rem;
-            font-weight: bold;
             line-height: 1;
             user-select: none;
         }
@@ -355,6 +365,24 @@
 
         .flip-btn { color: #4a3200; background: #ffc857; }
         .flip-btn:hover { background: #f2ad2e; }
+
+        .mute-btn {
+            color: #fff;
+            background: #5468d4;
+        }
+
+        .mute-btn:hover {
+            background: #4052b5;
+        }
+
+        .mute-btn.muted {
+            color: #292044;
+            background: #c9b8f4;
+        }
+
+        .mute-btn.muted:hover {
+            background: #b49ce9;
+        }
 
         .wave-btn { color: #fff; background: rgb(98, 0, 238); }
         .wave-btn:hover { background: rgb(141, 65, 244); }
@@ -555,13 +583,23 @@ button.addEventListener("click", () => {
             input.min = this.getAttribute('min') || 0;
             input.max = this.getAttribute('max') || 100;
             input.step = this.getAttribute('step') || 1;
-            if (label) label.textContent = this.getAttribute('label') || 'Slider';
+            const labelText = this.getAttribute('label') || 'Slider';
+            if (label) label.textContent = labelText;
+            input.classList.toggle('volume', labelText.toLowerCase() === 'volume');
 
             const min = parseFloat(input.min);
             const max = parseFloat(input.max);
             const value = Math.min(max, Math.max(min, this.value));
             if (value !== this.value) this.setAttribute('value', value);
+            this.updateDefaultMarker(input, min, max);
             this.updateUI(value);
+        }
+
+        updateDefaultMarker(input, min, max) {
+            if (!Number.isFinite(this.defaultValue) || max <= min) return;
+            const defaultValue = Math.min(max, Math.max(min, this.defaultValue));
+            const position = ((defaultValue - min) / (max - min)) * 100;
+            input.style.setProperty('--default-position', `${position}%`);
         }
 
         render() {
@@ -570,6 +608,7 @@ button.addEventListener("click", () => {
             const step = this.getAttribute('step') || 1;
             const val = this.getAttribute('value') || min;
             const label = this.getAttribute('label') || 'Slider';
+            this.defaultValue = parseFloat(val);
 
             this.shadowRoot.innerHTML = `
             <style>
@@ -577,17 +616,65 @@ button.addEventListener("click", () => {
                 label { font-size: 0.75rem; color: #666; font-weight: bold; }
                 .row { display: flex; align-items: center; gap: 10px; }
                 input { flex-grow: 1; accent-color: #6200ee; cursor: pointer; }
+                input.volume {
+                    appearance: none;
+                    height: 18px;
+                    background: transparent;
+                }
+                input.volume::-webkit-slider-runnable-track {
+                    height: 6px;
+                    border-radius: 3px;
+                    background: linear-gradient(to right,
+                        #c9b8f4 0,
+                        #c9b8f4 calc(var(--default-position) - 1px),
+                        #4a3b63 calc(var(--default-position) - 1px),
+                        #4a3b63 calc(var(--default-position) + 1px),
+                        #6200ee calc(var(--default-position) + 1px),
+                        #6200ee 100%);
+                }
+                input.volume::-webkit-slider-thumb {
+                    appearance: none;
+                    width: 16px;
+                    height: 16px;
+                    margin-top: -5px;
+                    border: 2px solid #fff;
+                    border-radius: 50%;
+                    background: #6200ee;
+                    box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+                }
+                input.volume::-moz-range-track {
+                    height: 6px;
+                    border-radius: 3px;
+                    background: linear-gradient(to right,
+                        #c9b8f4 0,
+                        #c9b8f4 calc(var(--default-position) - 1px),
+                        #4a3b63 calc(var(--default-position) - 1px),
+                        #4a3b63 calc(var(--default-position) + 1px),
+                        #6200ee calc(var(--default-position) + 1px),
+                        #6200ee 100%);
+                }
+                input.volume::-moz-range-thumb {
+                    width: 12px;
+                    height: 12px;
+                    border: 2px solid #fff;
+                    border-radius: 50%;
+                    background: #6200ee;
+                    box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+                }
                 span { font-family: monospace; font-size: 0.85rem; min-width: 45px; text-align: right; }
             </style>
             <div class="wrapper">
                 <label>${label}</label>
                 <div class="row">
-                    <input type="range" min="${min}" max="${max}" step="${step}" value="${val}">
+                    <input class="${label.toLowerCase() === 'volume' ? 'volume' : ''}"
+                        type="range" min="${min}" max="${max}" step="${step}" value="${val}">
                     <span class="display">${val}</span>
                 </div>
             </div>`;
 
-            this.shadowRoot.querySelector('input').addEventListener('input', (e) => {
+            const input = this.shadowRoot.querySelector('input');
+            this.updateDefaultMarker(input, parseFloat(min), parseFloat(max));
+            input.addEventListener('input', (e) => {
                 const v = e.target.value;
                 this.setAttribute('value', v);
                 this.updateUI(v);
@@ -627,7 +714,7 @@ button.addEventListener("click", () => {
                         <button class="xtra-btn" onclick="lrand(${voice})">rand</button>
                     </div>
                     <control-slider id="v${voice}-volume" label="volume"
-                        min="-60" max="30" value="0" step=".01"
+                        min="-30" max="30" value="0" step=".01"
                         format="!v${voice}a$1;v${partner}a$1"></control-slider>
                     <control-slider id="v${voice}-freq" label="speed"
                         min="0" max="127" step=".001" value="69"
@@ -636,12 +723,16 @@ button.addEventListener("click", () => {
                         <button class="start-btn" onclick="setTrackPlaying(${track}, true)">go</button>
                         <button class="stop-btn" onclick="setTrackPlaying(${track}, false)">end</button>
                         <button class="flip-btn" onclick="skode('v${voice}b v${partner}b ')">flip</button>
+                        <button id="track-mute-${track}" class="mute-btn"
+                            onclick="toggleTrackMute(${track})"
+                            aria-pressed="false"
+                            aria-label="Mute T${track}"
+                            title="Mute T${track}">mute</button>
                         <span id="track-state-${track}" class="track-state stopped"
                             role="status" aria-label="T${track} stopped" title="T${track} is stopped">
                             <span class="track-state-icon" aria-hidden="true">
                                 <span></span><span></span><span></span>
                             </span>
-                            <span class="track-state-label">stopped</span>
                         </span>
                     </div>
                     <div class="card-action-row speed-actions">
@@ -672,13 +763,14 @@ button.addEventListener("click", () => {
     }));
 
     const voiceRangeDefaults = {
-        volume: { min: -60, max: 30, step: 0.01 },
+        volume: { min: -30, max: 30, step: 0.01 },
         speed: { min: 0, max: 127, step: 0.001 }
     };
     const trackWaves = new Map();
     const trackVisibility = new Map(TRACKS.map(({ track }) => [track, track < 4]));
     const trackLocks = new Map(TRACKS.map(({ track }) => [track, false]));
     const trackPlaying = new Map(TRACKS.map(({ track }) => [track, false]));
+    const trackMuted = new Map(TRACKS.map(({ track }) => [track, false]));
     const audioDeviceSelections = {
         output: null,
         input: null
@@ -703,6 +795,7 @@ button.addEventListener("click", () => {
             applyTrackVisibility(track);
             applyTrackLock(track);
             updateTrackPlayingIndicator(track);
+            updateTrackMuteButton(track);
         });
     }
 
@@ -792,7 +885,7 @@ button.addEventListener("click", () => {
     function getSettings() {
         return {
             format: 'ro-totem-slider-settings',
-            version: 6,
+            version: 7,
             directory: document.getElementById('dir').textContent || null,
             master: sliderStateFor(document.getElementById('master-vol')),
             audioDevices: {
@@ -803,6 +896,7 @@ button.addEventListener("click", () => {
                 track,
                 visible: trackVisibility.get(track),
                 locked: trackLocks.get(track),
+                muted: trackMuted.get(track),
                 volume: sliderStateFor(sliderFor(voice, 'volume')),
                 speed: sliderStateFor(sliderFor(voice, 'speed')),
                 wave: trackWaves.get(voice) || null
@@ -836,7 +930,7 @@ button.addEventListener("click", () => {
 
     function applySettings(settings) {
         if (!settings || settings.format !== 'ro-totem-slider-settings' ||
-            ![1, 2, 3, 4, 5, 6].includes(settings.version) || !Array.isArray(settings.tracks)) {
+            ![1, 2, 3, 4, 5, 6, 7].includes(settings.version) || !Array.isArray(settings.tracks)) {
             throw new Error('This is not a supported ro-totem settings file.');
         }
 
@@ -864,6 +958,8 @@ button.addEventListener("click", () => {
             TRACKS.forEach(({ track }) => setTrackLock(track, false));
         }
 
+        TRACKS.forEach(({ track }) => setTrackMutedState(track, false));
+
         settings.tracks.forEach(savedTrack => {
             if (!savedTrack || !Number.isInteger(savedTrack.track)) return;
             const track = TRACKS[savedTrack.track];
@@ -882,6 +978,10 @@ button.addEventListener("click", () => {
                 setTrackLock(savedTrack.track, savedTrack.locked);
             }
 
+            if (settings.version >= 7 && typeof savedTrack.muted === 'boolean') {
+                setTrackMutedState(savedTrack.track, savedTrack.muted);
+            }
+
             ['volume', 'speed'].forEach(kind => {
                 const range = savedTrack[kind];
                 if (!validRange(range)) return;
@@ -893,6 +993,11 @@ button.addEventListener("click", () => {
                     voiceCommands.push(setSliderValue(slider, range.value));
                 }
             });
+        });
+
+        TRACKS.forEach(({ track, voice }) => {
+            const muteState = trackMuted.get(track) ? 1 : 0;
+            voiceCommands.push(`v${voice}m${muteState};v${voice + 1}m${muteState}`);
         });
 
         if (settings.version >= 2 && validRange(settings.master)) {
@@ -1066,10 +1171,7 @@ button.addEventListener("click", () => {
             `v${track.voice}l${state}`,
             `v${track.voice + 1}l${state}`
         ]).join(' '));
-        tracks.forEach(({ track }) => {
-            trackPlaying.set(track, playing);
-            updateTrackPlayingIndicator(track);
-        });
+        tracks.forEach(({ track }) => setTrackPlayingState(track, playing));
     }
 
     function setTrackPlaying(track, playing) {
@@ -1077,6 +1179,11 @@ button.addEventListener("click", () => {
         if (!config) return;
         const state = playing ? 1 : 0;
         skode(`v${config.voice}l${state}v${config.voice + 1}l${state}`);
+        setTrackPlayingState(track, playing);
+    }
+
+    function setTrackPlayingState(track, playing) {
+        if (!TRACKS[track]) return;
         trackPlaying.set(track, playing);
         updateTrackPlayingIndicator(track);
     }
@@ -1090,7 +1197,33 @@ button.addEventListener("click", () => {
         indicator.classList.toggle('stopped', !playing);
         indicator.setAttribute('aria-label', `T${track} ${state}`);
         indicator.title = `T${track} is ${state}`;
-        indicator.querySelector('.track-state-label').textContent = state;
+    }
+
+    function toggleTrackMute(track) {
+        const config = TRACKS[track];
+        if (!config) return;
+        const muted = !trackMuted.get(track);
+        const state = muted ? 1 : 0;
+        skode(`v${config.voice}m${state}v${config.voice + 1}m${state}`);
+        setTrackMutedState(track, muted);
+    }
+
+    function setTrackMutedState(track, muted) {
+        if (!TRACKS[track]) return;
+        trackMuted.set(track, muted);
+        updateTrackMuteButton(track);
+    }
+
+    function updateTrackMuteButton(track) {
+        const button = document.getElementById(`track-mute-${track}`);
+        if (!button) return;
+        const muted = trackMuted.get(track);
+        const action = muted ? 'Unmute' : 'Mute';
+        button.classList.toggle('muted', muted);
+        button.setAttribute('aria-pressed', muted);
+        button.setAttribute('aria-label', `${action} T${track}`);
+        button.title = `${action} T${track}`;
+        button.textContent = action.toLowerCase();
     }
 
     function masterControlledTracks() {
@@ -1100,10 +1233,13 @@ button.addEventListener("click", () => {
     }
 
     function applyTrackControls(voice) {
+        const track = voice >> 1;
+        const muteState = trackMuted.get(track) ? 1 : 0;
         const commands = ['volume', 'speed']
             .map(kind => sliderFor(voice, kind))
             .filter(Boolean)
             .map(slider => setSliderValue(slider, slider.value));
+        commands.push(`v${voice}m${muteState};v${voice + 1}m${muteState}`);
         applyVoiceCommands(commands);
     }
 
@@ -1147,6 +1283,7 @@ button.addEventListener("click", () => {
         }
         trackWaves.set(id, wave);
         let nid = id >> 1;
+        setTrackPlayingState(nid, false);
         const element = document.getElementById("v"+nid);
         if (element) element.textContent = name;
         const label = document.getElementById(`track-label-${nid}`);

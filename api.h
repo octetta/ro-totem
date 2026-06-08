@@ -11,7 +11,7 @@ extern "C" {
 int skred_start(unsigned int req_audio_frames, unsigned int voices, int port);
 
 // Send an ASCII control protocol message to the engine
-int skred_command(char* cmd);
+int skred_command(const char *cmd);
 
 // Safely tear down resources
 void skred_stop(void);

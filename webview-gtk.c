@@ -51,6 +51,17 @@ static void external_message_received_cb(WebKitUserContentManager *m,
   "window.webkit.messageHandlers.external.postMessage(x);" \
   "}}"
 
+static void webview_run_javascript(WebKitWebView *webview, const char *script,
+                                   GAsyncReadyCallback callback,
+                                   gpointer userdata) {
+#if WEBKIT_CHECK_VERSION(2, 40, 0)
+  webkit_web_view_evaluate_javascript(webview, script, -1, NULL, NULL, NULL,
+                                     callback, userdata);
+#else
+  webkit_web_view_run_javascript(webview, script, NULL, callback, userdata);
+#endif
+}
+
 static void webview_load_changed_cb(WebKitWebView *webview,
                                     WebKitLoadEvent event, gpointer arg) {
   (void)webview;
@@ -58,10 +69,10 @@ static void webview_load_changed_cb(WebKitWebView *webview,
   if (event == WEBKIT_LOAD_STARTED) {
     w->priv.ready = 0;
   } else if (event == WEBKIT_LOAD_FINISHED) {
-    webkit_web_view_run_javascript(
-      WEBKIT_WEB_VIEW(w->priv.webview),
-      "if(!window.external){" REGISTER_EXTERNAL_INVOKE_JS "}",
-      NULL, NULL, NULL);
+    webview_run_javascript(WEBKIT_WEB_VIEW(w->priv.webview),
+                           "if(!window.external){"
+                           REGISTER_EXTERNAL_INVOKE_JS "}",
+                           NULL, NULL);
     w->priv.ready = 1;
   }
 }
@@ -147,8 +158,8 @@ WEBVIEW_API int webview_init(struct webview *w) {
 
   gtk_widget_show_all(w->priv.window);
 
-  webkit_web_view_run_javascript(WEBKIT_WEB_VIEW(w->priv.webview),
-    REGISTER_EXTERNAL_INVOKE_JS, NULL, NULL, NULL);
+  webview_run_javascript(WEBKIT_WEB_VIEW(w->priv.webview),
+                         REGISTER_EXTERNAL_INVOKE_JS, NULL, NULL);
 
   g_signal_connect(G_OBJECT(w->priv.window), "destroy",
                    G_CALLBACK(webview_destroy_cb), w);
@@ -246,8 +257,8 @@ WEBVIEW_API int webview_eval(struct webview *w, const char *js) {
     g_main_context_iteration(NULL, TRUE);
   }
   w->priv.js_busy = 1;
-  webkit_web_view_run_javascript(WEBKIT_WEB_VIEW(w->priv.webview), js, NULL,
-                                 webview_eval_finished, w);
+  webview_run_javascript(WEBKIT_WEB_VIEW(w->priv.webview), js,
+                         webview_eval_finished, w);
   while (w->priv.js_busy) {
     g_main_context_iteration(NULL, TRUE);
   }
