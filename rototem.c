@@ -108,6 +108,36 @@ static char *append_js_string(char *out, const char *value) {
   return out;
 }
 
+static void load_wave_directory(struct webview *w, const char *dirname) {
+  char script[PATH_MAX * 2 + 64];
+  char *out = script;
+
+  webview_eval(w, "lclear()");
+  out += sprintf(out, "vassign('dir',");
+  out = append_js_string(out, dirname);
+  *out++ = ')';
+  *out = '\0';
+  webview_eval(w, script);
+
+  DIR *dp = opendir(dirname);
+  if (!dp) return;
+
+  struct dirent *entry;
+  while ((entry = readdir(dp))) {
+    const char *name = entry->d_name;
+    size_t len = strlen(name);
+    if (len <= 4 || strcasecmp(name + len - 4, ".wav") != 0) continue;
+
+    out = script;
+    out += sprintf(out, "lstuff(");
+    out = append_js_string(out, name);
+    *out++ = ')';
+    *out = '\0';
+    webview_eval(w, script);
+  }
+  closedir(dp);
+}
+
 void addLog(struct webview *w, char *message) {
   char script[PATH_MAX * 2 + 256];
   char *out = script;
@@ -124,12 +154,14 @@ static void load_wave_file(struct webview *w, const char *filename, int voice) {
   char cmd[PATH_MAX + 128];
   char *log;
   const char *shortname = filename;
+  int waves[2];
   for (const char *p = filename; *p; p++) {
     if (*p == '/' || *p == '\\') shortname = p + 1;
   }
 
   for (int j = 0; j < 2; j++) {
     int wave = wavepointer++;
+    waves[j] = wave;
     if (wavepointer > 998) wavepointer = 0;
     int pan = (j & 1) ? 1 : -1;
     snprintf(cmd, sizeof(cmd),
@@ -149,7 +181,7 @@ static void load_wave_file(struct webview *w, const char *filename, int voice) {
   out = append_js_string(out, filename);
   *out++ = ',';
   out = append_js_string(out, shortname);
-  *out++ = ')';
+  out += sprintf(out, ",%d,%d)", waves[0], waves[1]);
   *out = '\0';
   webview_eval(w, script);
   snprintf(script, sizeof(script), "applyTrackControls(%d)", voice);
@@ -267,7 +299,6 @@ static void send_audio_devices(struct webview *w) {
 }
 
 static void invoker(struct webview *w, const char *arg) {
-  char cmd[1024];
   char *log;
   switch (arg[0]) {
     case '!':
@@ -276,25 +307,9 @@ static void invoker(struct webview *w, const char *arg) {
       break;
     case '@': // allow the user to select a folder, stuff dir name and wav file list into the webview
       {
-        char dirname[1024];
+        char dirname[PATH_MAX] = "";
         webview_dialog(w, WEBVIEW_DIALOG_TYPE_OPEN, WEBVIEW_DIALOG_FLAG_DIRECTORY, "sel", "", dirname, sizeof(dirname));
-        // stuff the dir name into 'dir'
-        sprintf(cmd, "vassign('dir','%s');", dirname);
-        webview_eval(w, cmd);
-        webview_eval(w, "lclear()"); // this clears the 'file' array
-        struct dirent *entry;
-        DIR *dp = opendir(dirname);
-        if (dp) {
-          char cmd[1024];
-          while ((entry = readdir(dp))) {
-            char *name = entry->d_name;
-            size_t len = strlen(name);
-            if ((len > 4) && (strcasecmp(name + len - 4, ".wav") == 0)) {
-              sprintf(cmd, "lstuff('%s')", name); // this pushes the name into the 'file' array
-              webview_eval(w, cmd);
-            }
-          }
-        }
+        if (dirname[0]) load_wave_directory(w, dirname);
       }
       break;
     case 'D':
@@ -309,6 +324,9 @@ static void invoker(struct webview *w, const char *arg) {
                        "Load settings", "", filename, sizeof(filename));
         if (filename[0]) load_settings_file(w, filename);
       }
+      break;
+    case 'R':
+      load_wave_directory(w, &arg[1]);
       break;
     case 'W':
       {
@@ -373,7 +391,7 @@ int main(int argc, char *argv[]) {
   struct webview webview;
   memset(&webview, 0, sizeof(webview));
   webview.url = html_path;
-  webview.title = "ro-totem gemini delta 2026";
+  webview.title = "ro-totem gemini delta-two 2026";
   webview.width = 884;  // window.innerWidth
   webview.height = 700; // window.innerHeight
   webview.resizable = 1;

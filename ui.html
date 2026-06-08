@@ -149,7 +149,65 @@
         .row h4 {
           margin: 0;
         }
-        
+
+        .track-label {
+            cursor: help;
+        }
+
+        .track-lock {
+            width: 24px;
+            height: 24px;
+            padding: 0;
+            border: 1px solid transparent;
+            background: transparent;
+            color: #777;
+            opacity: 0.65;
+            position: relative;
+        }
+
+        .track-lock::before {
+            content: "";
+            position: absolute;
+            left: 8px;
+            top: 4px;
+            width: 7px;
+            height: 8px;
+            border: 2px solid currentColor;
+            border-bottom: 0;
+            border-radius: 5px 5px 0 0;
+            box-sizing: border-box;
+            transform: translateX(3px) rotate(25deg);
+            transform-origin: bottom left;
+        }
+
+        .track-lock::after {
+            content: "";
+            position: absolute;
+            left: 6px;
+            top: 10px;
+            width: 12px;
+            height: 10px;
+            border-radius: 2px;
+            background: currentColor;
+        }
+
+        .track-lock:hover {
+            background: #edf0f4;
+            color: #333;
+            opacity: 1;
+        }
+
+        .track-lock.locked {
+            border-color: #d3a000;
+            background: #fff7d6;
+            color: #735700;
+            opacity: 1;
+        }
+
+        .track-lock.locked::before {
+            transform: none;
+        }
+
         .mono {
             font-family: monospace;
             background: #eee;
@@ -486,7 +544,12 @@ button.addEventListener("click", () => {
             this.innerHTML = `
                 <div class="voice-card" style="border-top-color: ${color};">
                     <div class="row">
-                        <h4>T${track}</h4>
+                        <button type="button" id="track-lock-${track}" class="track-lock"
+                            onclick="toggleTrackLock(${track})"
+                            aria-label="Lock T${track} from master controls"
+                            title="Unlocked: master controls affect T${track}"></button>
+                        <h4 id="track-label-${track}" class="track-label"
+                            title="T${track} uses voices v${voice} and v${partner}; no wavetables loaded">T${track}</h4>
                         <button class="wave-btn" onclick="window.external.invoke('>v${voice}')">pick</button>
                         <div id="v${track}" class="mono"></div>
                         <button class="xtra-btn" onclick="lrand(${voice})">rand</button>
@@ -535,6 +598,7 @@ button.addEventListener("click", () => {
     };
     const trackWaves = new Map();
     const trackVisibility = new Map(TRACKS.map(({ track }) => [track, track < 4]));
+    const trackLocks = new Map(TRACKS.map(({ track }) => [track, false]));
     const audioDeviceSelections = {
         output: null,
         input: null
@@ -551,7 +615,10 @@ button.addEventListener("click", () => {
                 color="${track.color}">
             </voice-pair-card>
         `).join('');
-        TRACKS.forEach(({ track }) => applyTrackVisibility(track));
+        TRACKS.forEach(({ track }) => {
+            applyTrackVisibility(track);
+            applyTrackLock(track);
+        });
     }
 
     function sliderFor(voice, kind) {
@@ -614,10 +681,34 @@ button.addEventListener("click", () => {
         if (card) card.style.display = trackVisibility.get(track) ? 'block' : 'none';
     }
 
+    function toggleTrackLock(track) {
+        setTrackLock(track, !trackLocks.get(track));
+    }
+
+    function setTrackLock(track, locked) {
+        if (!TRACKS[track]) return;
+        trackLocks.set(track, locked);
+        applyTrackLock(track);
+    }
+
+    function applyTrackLock(track) {
+        const button = document.getElementById(`track-lock-${track}`);
+        if (!button) return;
+        const locked = trackLocks.get(track);
+        button.classList.toggle('locked', locked);
+        button.setAttribute('aria-pressed', locked);
+        button.setAttribute('aria-label',
+            `${locked ? 'Unlock' : 'Lock'} T${track} from master controls`);
+        button.title = locked
+            ? `Locked: master controls skip T${track}`
+            : `Unlocked: master controls affect T${track}`;
+    }
+
     function getSettings() {
         return {
             format: 'ro-totem-slider-settings',
-            version: 4,
+            version: 6,
+            directory: document.getElementById('dir').textContent || null,
             master: sliderStateFor(document.getElementById('master-vol')),
             audioDevices: {
                 output: audioDeviceSelections.output,
@@ -626,6 +717,7 @@ button.addEventListener("click", () => {
             tracks: TRACKS.map(({ track, voice }) => ({
                 track,
                 visible: trackVisibility.get(track),
+                locked: trackLocks.get(track),
                 volume: sliderStateFor(sliderFor(voice, 'volume')),
                 speed: sliderStateFor(sliderFor(voice, 'speed')),
                 wave: trackWaves.get(voice) || null
@@ -659,7 +751,7 @@ button.addEventListener("click", () => {
 
     function applySettings(settings) {
         if (!settings || settings.format !== 'ro-totem-slider-settings' ||
-            ![1, 2, 3, 4].includes(settings.version) || !Array.isArray(settings.tracks)) {
+            ![1, 2, 3, 4, 5, 6].includes(settings.version) || !Array.isArray(settings.tracks)) {
             throw new Error('This is not a supported ro-totem settings file.');
         }
 
@@ -670,10 +762,21 @@ button.addEventListener("click", () => {
             ? settings.audioDevices
             : null;
 
+        if (settings.version >= 5) {
+            const directory = typeof settings.directory === 'string'
+                ? settings.directory
+                : '';
+            window.external.invoke(`R${directory}`);
+        }
+
         if (settings.version < 3) {
             TRACKS.forEach(({ track }) => {
                 setTrackVisibility(track, track < 4);
             });
+        }
+
+        if (settings.version < 6) {
+            TRACKS.forEach(({ track }) => setTrackLock(track, false));
         }
 
         settings.tracks.forEach(savedTrack => {
@@ -688,6 +791,10 @@ button.addEventListener("click", () => {
 
             if (settings.version >= 3 && typeof savedTrack.visible === 'boolean') {
                 setTrackVisibility(savedTrack.track, savedTrack.visible);
+            }
+
+            if (settings.version >= 6 && typeof savedTrack.locked === 'boolean') {
+                setTrackLock(savedTrack.track, savedTrack.locked);
             }
 
             ['volume', 'speed'].forEach(kind => {
@@ -855,19 +962,21 @@ button.addEventListener("click", () => {
     }
 
     function randomizeAllTracks() {
-        visibleTracks().forEach(track => lrand(track.voice));
+        masterControlledTracks().forEach(track => lrand(track.voice));
     }
 
     function setAllTracksPlaying(playing) {
         const state = playing ? 1 : 0;
-        skode(visibleTracks().flatMap(track => [
+        skode(masterControlledTracks().flatMap(track => [
             `v${track.voice}l${state}`,
             `v${track.voice + 1}l${state}`
         ]).join(' '));
     }
 
-    function visibleTracks() {
-        return TRACKS.filter(({ track }) => trackVisibility.get(track));
+    function masterControlledTracks() {
+        return TRACKS.filter(({ track }) =>
+            trackVisibility.get(track) && !trackLocks.get(track)
+        );
     }
 
     function applyTrackControls(voice) {
@@ -901,19 +1010,32 @@ button.addEventListener("click", () => {
       let f = files[r];
       let d = document.getElementById("dir").textContent;
       let t = `${d}/${f}`;
-        skode(`[${t}] /ws ${lndx+0} 0 v${v+0} p-1 w${lndx+0} a0 B1 f440 t1 0 1 1 ; [${f}] wt ${lndx+0};`);
-        skode(`[${t}] /ws ${lndx+1} 1 v${v+1} p1  w${lndx+1} a0 B1 f440 t1 0 1 1 ; [${f}] wt ${lndx+1};`);
+      const leftWave = lndx;
+      const rightWave = lndx + 1;
+        skode(`[${t}] /ws ${leftWave} 0 v${v+0} p-1 w${leftWave} a0 B1 f440 t1 0 1 1 ; [${f}] wt ${leftWave};`);
+        skode(`[${t}] /ws ${rightWave} 1 v${v+1} p1  w${rightWave} a0 B1 f440 t1 0 1 1 ; [${f}] wt ${rightWave};`);
         applyTrackControls(v);
         lndx+=2;
         if (lndx >= 998) { lndx = 0; }
-      setTrackWave(v, t, f);
+      setTrackWave(v, t, f, leftWave, rightWave);
     }
     
-    function setTrackWave(id, path, name) {
-        trackWaves.set(id, { path, name });
+    function setTrackWave(id, path, name, leftWave, rightWave) {
+        const wave = { path, name };
+        if (Number.isInteger(leftWave) && Number.isInteger(rightWave)) {
+            wave.wavetables = [leftWave, rightWave];
+        }
+        trackWaves.set(id, wave);
         let nid = id >> 1;
         const element = document.getElementById("v"+nid);
         if (element) element.textContent = name;
+        const label = document.getElementById(`track-label-${nid}`);
+        if (label) {
+            const voices = `T${nid} uses voices v${id} and v${id + 1}`;
+            label.title = wave.wavetables
+                ? `${voices}; wavetables ${leftWave} and ${rightWave}`
+                : `${voices}; wavetable numbers unavailable`;
+        }
     }
 
     function assign(id, value) {
