@@ -855,15 +855,27 @@ button.addEventListener("click", () => {
     }
 
     function randomizeAllTracks() {
-        TRACKS.forEach(track => lrand(track.voice));
+        visibleTracks().forEach(track => lrand(track.voice));
     }
 
     function setAllTracksPlaying(playing) {
         const state = playing ? 1 : 0;
-        skode(TRACKS.flatMap(track => [
+        skode(visibleTracks().flatMap(track => [
             `v${track.voice}l${state}`,
             `v${track.voice + 1}l${state}`
         ]).join(' '));
+    }
+
+    function visibleTracks() {
+        return TRACKS.filter(({ track }) => trackVisibility.get(track));
+    }
+
+    function applyTrackControls(voice) {
+        const commands = ['volume', 'speed']
+            .map(kind => sliderFor(voice, kind))
+            .filter(Boolean)
+            .map(slider => setSliderValue(slider, slider.value));
+        applyVoiceCommands(commands);
     }
 
     renderVoiceCards();
@@ -891,6 +903,7 @@ button.addEventListener("click", () => {
       let t = `${d}/${f}`;
         skode(`[${t}] /ws ${lndx+0} 0 v${v+0} p-1 w${lndx+0} a0 B1 f440 t1 0 1 1 ; [${f}] wt ${lndx+0};`);
         skode(`[${t}] /ws ${lndx+1} 1 v${v+1} p1  w${lndx+1} a0 B1 f440 t1 0 1 1 ; [${f}] wt ${lndx+1};`);
+        applyTrackControls(v);
         lndx+=2;
         if (lndx >= 998) { lndx = 0; }
       setTrackWave(v, t, f);

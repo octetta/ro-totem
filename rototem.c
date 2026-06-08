@@ -152,6 +152,8 @@ static void load_wave_file(struct webview *w, const char *filename, int voice) {
   *out++ = ')';
   *out = '\0';
   webview_eval(w, script);
+  snprintf(script, sizeof(script), "applyTrackControls(%d)", voice);
+  webview_eval(w, script);
   webview_eval(w, "waveFileLoaded()");
 }
 
