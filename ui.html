@@ -242,6 +242,78 @@
             padding-right: 6px;
         }
 
+        .track-state {
+            flex: 1 1 0;
+            min-width: 0;
+            padding: 8px 6px;
+            border-radius: 6px;
+            background: #e2e6ea;
+            color: #495057;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            box-sizing: border-box;
+            font-size: 0.78rem;
+            font-weight: bold;
+            line-height: 1;
+            user-select: none;
+        }
+
+        .track-state.playing {
+            background: #d7f0dd;
+            color: #17652a;
+        }
+
+        .track-state-icon {
+            width: 14px;
+            height: 14px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 2px;
+        }
+
+        .track-state-icon span {
+            display: block;
+            width: 3px;
+            height: 10px;
+            border-radius: 1px;
+            background: currentColor;
+        }
+
+        .track-state.playing .track-state-icon span {
+            animation: track-level 0.72s ease-in-out infinite alternate;
+            transform-origin: center;
+        }
+
+        .track-state.playing .track-state-icon span:nth-child(2) {
+            animation-delay: -0.48s;
+        }
+
+        .track-state.playing .track-state-icon span:nth-child(3) {
+            animation-delay: -0.24s;
+        }
+
+        .track-state.stopped .track-state-icon span:nth-child(3) {
+            display: none;
+        }
+
+        @keyframes track-level {
+            from { transform: scaleY(0.35); }
+            to { transform: scaleY(1); }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            .track-state.playing .track-state-icon span {
+                animation: none;
+            }
+
+            .track-state.playing .track-state-icon span:nth-child(2) {
+                transform: scaleY(0.55);
+            }
+        }
+
         .speed-actions {
             gap: 5px;
         }
@@ -561,9 +633,16 @@ button.addEventListener("click", () => {
                         min="0" max="127" step=".001" value="69"
                         format="!v${voice}n$1;v${partner}n$1"></control-slider>
                     <div class="card-action-row">
-                        <button class="start-btn" onclick="skode('v${voice}l1v${partner}l1')">go</button>
-                        <button class="stop-btn" onclick="skode('v${voice}l0v${partner}l0')">end</button>
+                        <button class="start-btn" onclick="setTrackPlaying(${track}, true)">go</button>
+                        <button class="stop-btn" onclick="setTrackPlaying(${track}, false)">end</button>
                         <button class="flip-btn" onclick="skode('v${voice}b v${partner}b ')">flip</button>
+                        <span id="track-state-${track}" class="track-state stopped"
+                            role="status" aria-label="T${track} stopped" title="T${track} is stopped">
+                            <span class="track-state-icon" aria-hidden="true">
+                                <span></span><span></span><span></span>
+                            </span>
+                            <span class="track-state-label">stopped</span>
+                        </span>
                     </div>
                     <div class="card-action-row speed-actions">
                         <button class="bump-btn" onclick="half(${voice})">&frac12;&times;</button>
@@ -599,7 +678,12 @@ button.addEventListener("click", () => {
     const trackWaves = new Map();
     const trackVisibility = new Map(TRACKS.map(({ track }) => [track, track < 4]));
     const trackLocks = new Map(TRACKS.map(({ track }) => [track, false]));
+    const trackPlaying = new Map(TRACKS.map(({ track }) => [track, false]));
     const audioDeviceSelections = {
+        output: null,
+        input: null
+    };
+    const pendingAudioDeviceSelections = {
         output: null,
         input: null
     };
@@ -618,6 +702,7 @@ button.addEventListener("click", () => {
         TRACKS.forEach(({ track }) => {
             applyTrackVisibility(track);
             applyTrackLock(track);
+            updateTrackPlayingIndicator(track);
         });
     }
 
@@ -920,7 +1005,7 @@ button.addEventListener("click", () => {
         select.appendChild(option);
     }
 
-    function audioDevicesReady() {
+    function audioDevicesReady(status) {
         const savedSettings = pendingAudioDeviceSettings;
         ['output', 'input'].forEach(kind => {
             const saved = savedSettings ? savedSettings[kind] : audioDeviceSelections[kind];
@@ -934,7 +1019,7 @@ button.addEventListener("click", () => {
             if (savedSettings) applyAudioDevice(kind);
         });
         pendingAudioDeviceSettings = null;
-        setAudioDeviceStatus('device list refreshed');
+        setAudioDeviceStatus(status || 'device list refreshed');
     }
 
     function applyAudioDevice(kind) {
@@ -946,13 +1031,22 @@ button.addEventListener("click", () => {
         }
 
         const selection = Number(option.value);
-        audioDeviceSelections[kind] = {
+        pendingAudioDeviceSelections[kind] = {
             selection,
             name: option.dataset.name
         };
-        const command = kind === 'input' ? '/ain' : '/aout';
-        window.external.invoke(`!${command} ${selection}`);
-        setAudioDeviceStatus(`${kind} device applied`);
+        setAudioDeviceStatus(`connecting ${kind} device...`);
+        window.external.invoke(`DA${kind === 'input' ? 1 : 0}:${selection}`);
+    }
+
+    function audioDeviceApplied(kind, success, status) {
+        const pending = pendingAudioDeviceSelections[kind];
+        pendingAudioDeviceSelections[kind] = null;
+        if (success && pending) audioDeviceSelections[kind] = pending;
+        setAudioDeviceStatus(
+            status || (success ? `${kind} device connected` : `${kind} device connection failed`),
+            !success
+        );
     }
 
     function setAudioDeviceStatus(message, isError = false) {
@@ -966,11 +1060,37 @@ button.addEventListener("click", () => {
     }
 
     function setAllTracksPlaying(playing) {
+        const tracks = masterControlledTracks();
         const state = playing ? 1 : 0;
-        skode(masterControlledTracks().flatMap(track => [
+        skode(tracks.flatMap(track => [
             `v${track.voice}l${state}`,
             `v${track.voice + 1}l${state}`
         ]).join(' '));
+        tracks.forEach(({ track }) => {
+            trackPlaying.set(track, playing);
+            updateTrackPlayingIndicator(track);
+        });
+    }
+
+    function setTrackPlaying(track, playing) {
+        const config = TRACKS[track];
+        if (!config) return;
+        const state = playing ? 1 : 0;
+        skode(`v${config.voice}l${state}v${config.voice + 1}l${state}`);
+        trackPlaying.set(track, playing);
+        updateTrackPlayingIndicator(track);
+    }
+
+    function updateTrackPlayingIndicator(track) {
+        const indicator = document.getElementById(`track-state-${track}`);
+        if (!indicator) return;
+        const playing = trackPlaying.get(track);
+        const state = playing ? 'running' : 'stopped';
+        indicator.classList.toggle('playing', playing);
+        indicator.classList.toggle('stopped', !playing);
+        indicator.setAttribute('aria-label', `T${track} ${state}`);
+        indicator.title = `T${track} is ${state}`;
+        indicator.querySelector('.track-state-label').textContent = state;
     }
 
     function masterControlledTracks() {

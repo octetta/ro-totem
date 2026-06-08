@@ -280,6 +280,7 @@ static void save_settings_file(struct webview *w, const char *json) {
 static void send_audio_devices(struct webview *w) {
   char script[PATH_MAX * 2 + 128];
   char *log = skoder("/als", 0);
+  const char *status;
   addSkodeLog(w, log);
   webview_eval(w, "clearAudioDevices()");
 
@@ -295,7 +296,36 @@ static void send_audio_devices(struct webview *w) {
     }
   }
 
-  webview_eval(w, "audioDevicesReady()");
+  status = skred_audio_status();
+  char *out = script;
+  out += sprintf(out, "audioDevicesReady(");
+  out = append_js_string(out, status ? status : "");
+  *out++ = ')';
+  *out = '\0';
+  webview_eval(w, script);
+}
+
+static void apply_audio_device(struct webview *w, const char *arg) {
+  char *end;
+  long is_capture = strtol(arg, &end, 10);
+  if (!end || *end != ':' || (is_capture != 0 && is_capture != 1)) return;
+
+  long selection = strtol(end + 1, &end, 10);
+  if (!end || *end != '\0' || selection < -2 || selection > INT_MAX) return;
+
+  int result = skred_audio_select((int)is_capture, (int)selection);
+  if (result == 0) result = skred_audio_reconnect();
+
+  const char *status = skred_audio_status();
+  char script[PATH_MAX * 2 + 128];
+  char *out = script;
+  out += sprintf(out, "audioDeviceApplied('%s',%s,",
+    is_capture ? "input" : "output",
+    result == 0 ? "true" : "false");
+  out = append_js_string(out, status ? status : "");
+  *out++ = ')';
+  *out = '\0';
+  webview_eval(w, script);
 }
 
 static void invoker(struct webview *w, const char *arg) {
@@ -313,7 +343,11 @@ static void invoker(struct webview *w, const char *arg) {
       }
       break;
     case 'D':
-      if (arg[1] == 'R') send_audio_devices(w);
+      if (arg[1] == 'R') {
+        send_audio_devices(w);
+      } else if (arg[1] == 'A') {
+        apply_audio_device(w, &arg[2]);
+      }
       break;
     case 'J':
       if (arg[1] == 'S') {
@@ -391,7 +425,7 @@ int main(int argc, char *argv[]) {
   struct webview webview;
   memset(&webview, 0, sizeof(webview));
   webview.url = html_path;
-  webview.title = "ro-totem gemini delta-two 2026";
+  webview.title = "ro-totem gemini delta-three 2026";
   webview.width = 884;  // window.innerWidth
   webview.height = 700; // window.innerHeight
   webview.resizable = 1;
