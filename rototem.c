@@ -619,7 +619,7 @@ int main(void) {
   struct webview webview;
   memset(&webview, 0, sizeof(webview));
   webview.url = html_path;
-  webview.title = "ro-totem gemini epsilon-one 2026";
+  webview.title = "ro-totem gemini epsilon-two 2026";
   webview.width = 884;  // window.innerWidth
   webview.height = 700; // window.innerHeight
   webview.resizable = 1;
