@@ -120,7 +120,8 @@ appimage: appdir
 # -----------------------------------------------------------------------------
 
 MACOS_BUILD_DIR := $(BUILD_DIR)/macos
-MACOS_BINARY := $(MACOS_BUILD_DIR)/$(APP_NAME)
+MACOS_EXECUTABLE_NAME := rototem
+MACOS_BINARY := $(MACOS_BUILD_DIR)/$(MACOS_EXECUTABLE_NAME)
 MACOS_APP := $(APP_NAME).app
 MACOS_CONTENTS := $(MACOS_APP)/Contents
 MACOS_EXECUTABLES := $(MACOS_CONTENTS)/MacOS
@@ -140,9 +141,10 @@ macos-package: $(MACOS_BINARY)
 	rm -rf $(MACOS_APP)
 	mkdir -p $(MACOS_EXECUTABLES) $(MACOS_RESOURCES)
 	cp $(ASSETS_DIR)/Info.plist $(MACOS_CONTENTS)/
-	cp $(MACOS_BINARY) $(MACOS_EXECUTABLES)/$(APP_NAME)
+	cp $(MACOS_BINARY) $(MACOS_EXECUTABLES)/$(MACOS_EXECUTABLE_NAME)
 	cp ui.html $(MACOS_RESOURCES)/
 	cp $(ASSETS_DIR)/rototem.icns $(MACOS_RESOURCES)/
+	test -x $(MACOS_EXECUTABLES)/$(MACOS_EXECUTABLE_NAME)
 	xattr -cr $(MACOS_APP)
 	codesign --force --deep --sign - $(MACOS_APP)
 	rm -f $(MACOS_ARCHIVE)
