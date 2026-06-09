@@ -521,8 +521,10 @@ is the reusable design.
   and application lifecycle.
 - `ui.html`: complete local UI, native bridge API, state, rendering, actions,
   and settings migration.
-- `api.h`: public Skred API used by the host.
-- `webview.h`: portable native webview abstraction.
+- `vendor/skred/`: externally produced Skred API header and platform static
+  libraries.
+- `vendor/webview/`: vendored native webview abstraction and platform
+  backends.
 - `Makefile`: Linux compilation and macOS application-bundle example.
 - `assets/Info.plist`: macOS bundle metadata.
 

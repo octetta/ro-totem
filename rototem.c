@@ -1,8 +1,8 @@
-#include "api.h"
+#include "vendor/skred/include/api.h"
 
 #define WEBVIEW_IMPLEMENTATION
-/* don't forget to define WEBVIEW_WINAPI,WEBVIEW_GTK or WEBVIEW_COCAO */
-#include "webview.h"
+/* Define WEBVIEW_WINAPI, WEBVIEW_GTK, or WEBVIEW_COCOA when compiling. */
+#include "vendor/webview/webview.h"
 
 #include <limits.h>
 #include <stdarg.h>

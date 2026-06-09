@@ -24,8 +24,10 @@ See [ARCHITECTURE.md](ARCHITECTURE.md) for:
 - `rototem.c`: native host, Skred integration, persistence, and bridge
   dispatcher.
 - `ui.html`: complete WebKit interface, state model, controls, and actions.
-- `api.h`: Skred API used by the host.
-- `webview.h`: portable webview implementation.
+- `vendor/skred/`: externally produced Skred API header and platform static
+  libraries.
+- `vendor/webview/`: vendored portable webview implementation and platform
+  backends.
 - `Makefile`: Linux build and macOS bundle targets.
 
 ## Linux Build
