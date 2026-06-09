@@ -133,6 +133,44 @@
             margin-top: 10px;
         }
 
+        .master-controls-row { align-items: flex-end; gap: 20px; }
+        .master-volume { flex: 2; }
+        .master-buttons { flex: 1; }
+        .advanced-row { margin-top: 10px; }
+
+        .command-card {
+            margin-top: 10px;
+            border-top-color: #ff9800;
+            background: #fffaf0;
+        }
+
+        .command-input {
+            flex-grow: 1;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-family: monospace;
+        }
+
+        .command-send {
+            min-width: 100px;
+            background: #ff9800;
+            color: white;
+        }
+
+        .log-container {
+            height: 300px;
+            overflow-y: scroll;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            background: #fdfdfd;
+            color: #333;
+            font-family: "Courier New", monospace;
+        }
+
+        .log-output { margin: 0; white-space: pre-wrap; }
+
         #settings-status {
             color: #555;
             font-size: 0.8rem;
@@ -345,13 +383,13 @@
         }
 
         button:hover { background: #4b00b5; }
-        
+
         .bump-btn {
             background: #ddd;
             color: #333;
             padding: 4px 10px;
         }
-        
+
         .bump-btn:hover { background: #ccc; }
 
         .stop-btn { background: #dc3545; }
@@ -396,45 +434,45 @@
 
     <div class="voice-card master-card">
         <div class="row">
-            <button onclick="window.external.invoke('@')">dir</button>
+            <button data-action="choose-directory">dir</button>
             <div id="dir" class="mono"></div>
-            <button class="xtra-btn" onclick="randomizeAllTracks()">rand</button>
+            <button class="xtra-btn" data-action="randomize-all">rand</button>
         </div>
-        
-        <div class="row" style="align-items: flex-end; gap: 20px;">
-            <div style="flex: 2;">
-                <control-slider id="master-vol" label="volume" step=".01" min="-90" max="0" value="-20" format="!;V$1;"></control-slider>
+
+        <div class="row master-controls-row">
+            <div class="master-volume">
+                <control-slider id="master-vol" label="volume" step=".01" min="-90" max="0" value="-20"></control-slider>
             </div>
-            <div class="button-group" style="flex: 1;">
-                <button class="start-btn" onclick="setAllTracksPlaying(true)">all go</button>
-                <button class="stop-btn" onclick="setAllTracksPlaying(false)">all end</button>
+            <div class="button-group master-buttons">
+                <button class="start-btn" data-action="set-all-playing" data-playing="true">all go</button>
+                <button class="stop-btn" data-action="set-all-playing" data-playing="false">all end</button>
             </div>
 
         </div>
 
-        <div class="row" style="margin-top: 10px;">
+        <div class="row advanced-row">
 
         <details class="custom-accordion">
           <summary>advanced</summary>
           <div class="audio-device-settings">
             <label for="audio-output-device">output</label>
             <select id="audio-output-device"></select>
-            <button type="button" onclick="applyAudioDevice('output')">apply</button>
+            <button type="button" data-action="apply-audio-device" data-kind="output">apply</button>
             <label for="audio-input-device">input</label>
             <select id="audio-input-device"></select>
-            <button type="button" onclick="applyAudioDevice('input')">apply</button>
+            <button type="button" data-action="apply-audio-device" data-kind="input">apply</button>
           </div>
           <div class="settings-actions">
-            <button type="button" onclick="refreshAudioDevices()">refresh devices</button>
+            <button type="button" data-action="refresh-audio-devices">refresh devices</button>
             <span id="audio-device-status" role="status"></span>
           </div>
           <div id="range-settings" class="range-settings"></div>
           <div class="settings-actions">
-            <button type="button" onclick="loadSettingsFile()">load JSON</button>
-            <button type="button" onclick="saveSettingsFile()">save JSON</button>
+            <button type="button" data-action="load-settings">load JSON</button>
+            <button type="button" data-action="save-settings">save JSON</button>
             <span id="settings-status" role="status"></span>
           </div>
-          <div class="voice-card" style="margin-top: 10px; border-top: 4px solid #ff9800; background: #fffaf0;">
+          <div class="voice-card command-card">
             <div class="row">
               <input type="text"
                 id="skode-input"
@@ -443,24 +481,14 @@
                 autocorrect="off"
                 spellcheck="false"
                 autocomplete="off"
-                style="flex-grow: 1; padding: 10px; border: 1px solid #ddd; border-radius: 6px; font-family: monospace;">
-              <button id="skode-send" onclick="skode(getcmd())"
-                      style="background: #ff9800; color: white; min-width: 100px;">send</button>
+                class="command-input">
+              <button id="skode-send" class="command-send" data-action="send-command">send</button>
             </div>
             <details class="custom-accordion">
               <summary>log</summary>
               <div class="accordion-content">
-                <div id="log-container" style="
-                    height: 300px;
-                    overflow-y: scroll;
-                    background: #fdfdfd;
-                    color: #333333;
-                    padding: 10px;
-                    font-family: 'Courier New', monospace;
-                    border: 1px solid #ccc;
-                    border-radius: 4px;
-                ">
-                  <pre id="log-output" style="margin: 0; white-space: pre-wrap;"></pre>
+                <div id="log-container" class="log-container">
+                  <pre id="log-output" class="log-output"></pre>
                 </div>
               </div>
             </details>
@@ -470,80 +498,64 @@
         </div>
     </div>
 
-    <script>
-        function unity(s) {
-          setSpeed(s, 69);
-        }
-        function double(s) {
-          setSpeed(s, getSpeed(s).value + 12);
-        }
-        function half(s) {
-          setSpeed(s, getSpeed(s).value - 12);
-        }
-        function adder(s) {
-          setSpeed(s, getSpeed(s).value + 1);
-        }
-        function subber(s) {
-          setSpeed(s, getSpeed(s).value - 1);
-        }
-        function getSpeed(s) {
-          var slider = document.getElementById("v" + s + "-freq");
-          return {
-            slider: slider,
-            value: slider.value,
-            min: parseFloat(slider.getAttribute("min")),
-            max: parseFloat(slider.getAttribute("max"))
-          };
-        }
-        function setSpeed(s, value) {
-          var speed = getSpeed(s);
-          var f = Math.min(speed.max, Math.max(speed.min, value));
-          speed.slider.value = f;
-          skode(`v${s}n${f}`);
-          skode(`v${s+1}n${f}`);
-        }
-    </script>
-
     <div id="voice-cards"></div>
-
-<script>
-    const logOutput = document.getElementById('log-output');
-    const logContainer = document.getElementById('log-container');
-    const MAX_LINES = 20;
-
-    function addLog(message) {
-        let lines = logOutput.textContent.split('\n').filter(line => line.length > 0);
-        lines.push(`${message}`);
-        if (lines.length > MAX_LINES) {
-            lines = lines.slice(-MAX_LINES);
-        }
-        logOutput.textContent = lines.join('\n');
-        logContainer.scrollTop = logContainer.scrollHeight;
-    }
-</script>
-
-<script>
-const input = document.getElementById("skode-input");
-const button = document.getElementById("skode-send");
-
-input.addEventListener("keydown", (event) => {
-  // Check if the key pressed was 'Enter'
-  if (event.key === "Enter") {
-    event.preventDefault(); // Prevents a newline if it's a textarea
-    button.click();        // Manually triggers the button's click event
-  }
-});
-
-// Your existing button logic
-button.addEventListener("click", () => {
-  //console.log("Button was clicked!");
-});
-</script>
 
 </div>
 
 <script>
-    // --- CUSTOM ELEMENT DEFINITION ---
+    // --- CONSTANTS AND NATIVE BRIDGE ---
+    const MAX_LOG_LINES = 20;
+    const logOutput = document.getElementById('log-output');
+    const logContainer = document.getElementById('log-container');
+
+    /*
+     * UI-to-native protocol handled by invoker() in rototem.c:
+     *   !<commands>       pass audio-engine commands through unchanged
+     *   @                 open the wave-directory chooser
+     *   >v<voice>         open a wave chooser for a stereo voice pair
+     *   R<directory>      scan a directory for .wav files
+     *   W<voice>:<path>   load a wave into a stereo voice pair
+     *   JS<json> / JL     save or load the settings file
+     *   DR / DA<c>:<n>    refresh or select audio devices
+     *
+     * Audio-engine commands are a separate compact language. Common forms:
+     *   v<n>a<x> volume, v<n>n<x> speed, v<n>l<0|1> play,
+     *   v<n>m<0|1> mute, v<n>b0 forward, v<n>b1 backward, and
+     *   v<n>b- invert direction. Prefer b- over bare b so a following
+     *   command cannot be consumed as b's numeric parameter.
+     * Keep command construction in this bridge or named action functions.
+     */
+    const native = {
+        available() {
+            return Boolean(window.external && window.external.invoke);
+        },
+        invoke(command) {
+            if (!this.available()) return false;
+            window.external.invoke(command);
+            return true;
+        },
+        chooseDirectory() { return this.invoke('@'); },
+        chooseWave(voice) { return this.invoke(`>v${voice}`); },
+        sendCommands(commands) { return this.invoke(`!${commands}`); },
+        loadDirectory(directory) { return this.invoke(`R${directory}`); },
+        loadWave(voice, path) { return this.invoke(`W${voice}:${path}`); },
+        saveSettings(json) { return this.invoke(`JS${json}`); },
+        loadSettings() { return this.invoke('JL'); },
+        refreshAudioDevices() { return this.invoke('DR'); },
+        applyAudioDevice(isInput, selection) {
+            return this.invoke(`DA${isInput ? 1 : 0}:${selection}`);
+        }
+    };
+
+    function addLog(message) {
+        let lines = logOutput.textContent.split('\n').filter(Boolean);
+        lines.push(String(message));
+        if (lines.length > MAX_LOG_LINES) lines = lines.slice(-MAX_LOG_LINES);
+        logOutput.textContent = lines.join('\n');
+        logContainer.scrollTop = logContainer.scrollHeight;
+    }
+
+    // --- CUSTOM ELEMENTS ---
     class ControlSlider extends HTMLElement {
         constructor() {
             super();
@@ -551,7 +563,7 @@ button.addEventListener("click", () => {
         }
 
         static get observedAttributes() {
-            return ['min', 'max', 'step', 'value', 'label', 'format'];
+            return ['min', 'max', 'step', 'value', 'label'];
         }
 
         get value() { return parseFloat(this.getAttribute('value') || 0); }
@@ -678,13 +690,10 @@ button.addEventListener("click", () => {
                 const v = e.target.value;
                 this.setAttribute('value', v);
                 this.updateUI(v);
-                this.dispatchEvent(new CustomEvent('update', { 
-                    bubbles: true, 
-                    composed: true, 
-                    detail: { 
-                        value: parseFloat(v),
-                        formatted: (this.getAttribute('format') || '$1').replaceAll('$1', v)
-                    } 
+                this.dispatchEvent(new CustomEvent('update', {
+                    bubbles: true,
+                    composed: true,
+                    detail: { value: parseFloat(v) }
                 }));
             });
         }
@@ -701,30 +710,31 @@ button.addEventListener("click", () => {
             const color = this.getAttribute('color');
 
             this.innerHTML = `
-                <div class="voice-card" style="border-top-color: ${color};">
+                <div class="voice-card">
                     <div class="row">
                         <button type="button" id="track-lock-${track}" class="track-lock"
-                            onclick="toggleTrackLock(${track})"
+                            data-action="toggle-track-lock" data-track="${track}"
                             aria-label="Lock T${track} from master controls"
                             title="Unlocked: master controls affect T${track}"></button>
                         <h4 id="track-label-${track}" class="track-label"
                             title="T${track} uses voices v${voice} and v${partner}; no wavetables loaded">T${track}</h4>
-                        <button class="wave-btn" onclick="window.external.invoke('>v${voice}')">pick</button>
+                        <button class="wave-btn" data-action="choose-wave" data-voice="${voice}">pick</button>
                         <div id="v${track}" class="mono"></div>
-                        <button class="xtra-btn" onclick="lrand(${voice})">rand</button>
+                        <button class="xtra-btn" data-action="randomize-track" data-voice="${voice}">rand</button>
                     </div>
                     <control-slider id="v${voice}-volume" label="volume"
-                        min="-30" max="30" value="0" step=".01"
-                        format="!v${voice}a$1;v${partner}a$1"></control-slider>
+                        min="-30" max="30" value="0" step=".01"></control-slider>
                     <control-slider id="v${voice}-freq" label="speed"
-                        min="0" max="127" step=".001" value="69"
-                        format="!v${voice}n$1;v${partner}n$1"></control-slider>
+                        min="0" max="127" step=".001" value="69"></control-slider>
                     <div class="card-action-row">
-                        <button class="start-btn" onclick="setTrackPlaying(${track}, true)">go</button>
-                        <button class="stop-btn" onclick="setTrackPlaying(${track}, false)">end</button>
-                        <button class="flip-btn" onclick="skode('v${voice}b v${partner}b ')">flip</button>
+                        <button class="start-btn" data-action="set-track-playing"
+                            data-track="${track}" data-playing="true">go</button>
+                        <button class="stop-btn" data-action="set-track-playing"
+                            data-track="${track}" data-playing="false">end</button>
+                        <button class="flip-btn" data-action="flip-track"
+                            data-voice="${voice}" data-partner="${partner}">flip</button>
                         <button id="track-mute-${track}" class="mute-btn"
-                            onclick="toggleTrackMute(${track})"
+                            data-action="toggle-track-mute" data-track="${track}"
                             aria-pressed="false"
                             aria-label="Mute T${track}"
                             title="Mute T${track}">mute</button>
@@ -736,13 +746,19 @@ button.addEventListener("click", () => {
                         </span>
                     </div>
                     <div class="card-action-row speed-actions">
-                        <button class="bump-btn" onclick="half(${voice})">&frac12;&times;</button>
-                        <button class="bump-btn" onclick="subber(${voice})">-1</button>
-                        <button class="bump-btn" onclick="unity(${voice})">1&times;</button>
-                        <button class="bump-btn" onclick="adder(${voice})">+1</button>
-                        <button class="bump-btn" onclick="double(${voice})">2&times;</button>
+                        <button class="bump-btn" data-action="adjust-speed"
+                            data-voice="${voice}" data-adjustment="half">&frac12;&times;</button>
+                        <button class="bump-btn" data-action="adjust-speed"
+                            data-voice="${voice}" data-adjustment="down">-1</button>
+                        <button class="bump-btn" data-action="adjust-speed"
+                            data-voice="${voice}" data-adjustment="unity">1&times;</button>
+                        <button class="bump-btn" data-action="adjust-speed"
+                            data-voice="${voice}" data-adjustment="up">+1</button>
+                        <button class="bump-btn" data-action="adjust-speed"
+                            data-voice="${voice}" data-adjustment="double">2&times;</button>
                     </div>
                 </div>`;
+            this.firstElementChild.style.borderTopColor = color;
         }
     }
     customElements.define('voice-pair-card', VoicePairCard);
@@ -762,15 +778,14 @@ button.addEventListener("click", () => {
         voice: index * 2
     }));
 
-    const voiceRangeDefaults = {
-        volume: { min: -30, max: 30, step: 0.01 },
-        speed: { min: 0, max: 127, step: 0.001 }
-    };
-    const trackWaves = new Map();
-    const trackVisibility = new Map(TRACKS.map(({ track }) => [track, track < 4]));
-    const trackLocks = new Map(TRACKS.map(({ track }) => [track, false]));
-    const trackPlaying = new Map(TRACKS.map(({ track }) => [track, false]));
-    const trackMuted = new Map(TRACKS.map(({ track }) => [track, false]));
+    const trackState = TRACKS.map(({ track }) => ({
+        visible: track < 4,
+        locked: false,
+        playing: false,
+        muted: false,
+        wave: null
+    }));
+    let waveDirectory = '';
     const audioDeviceSelections = {
         output: null,
         input: null
@@ -781,6 +796,10 @@ button.addEventListener("click", () => {
     };
     let pendingAudioDeviceSettings = null;
     let pendingVoiceRestore = null;
+
+    function stateFor(track) {
+        return trackState[track] || null;
+    }
 
     function renderVoiceCards() {
         document.getElementById('voice-cards').innerHTML = TRACKS.map(track => `
@@ -827,8 +846,8 @@ button.addEventListener("click", () => {
                 <legend>T${track}</legend>
                 <label class="track-visibility">
                     <input type="checkbox"
-                        ${trackVisibility.get(track) ? 'checked' : ''}
-                        onchange="setTrackVisibility(${track}, this.checked)">
+                        ${stateFor(track).visible ? 'checked' : ''}
+                        data-setting="visibility" data-track="${track}">
                     show track card
                 </label>
                 <div class="range-setting-row range-setting-head">
@@ -840,7 +859,10 @@ button.addEventListener("click", () => {
                         ${['min', 'max', 'step'].map(property => `
                             <input type="number"
                                 value="${sliderFor(voice, kind).getAttribute(property)}"
-                                oninput="updateSliderRange(${voice}, '${kind}', '${property}', this)">
+                                data-setting="range"
+                                data-voice="${voice}"
+                                data-kind="${kind}"
+                                data-property="${property}">
                         `).join('')}
                     </div>
                 `).join('')}
@@ -849,30 +871,34 @@ button.addEventListener("click", () => {
     }
 
     function setTrackVisibility(track, visible) {
-        if (!TRACKS[track]) return;
-        trackVisibility.set(track, visible);
+        const state = stateFor(track);
+        if (!state) return;
+        state.visible = visible;
         applyTrackVisibility(track);
     }
 
     function applyTrackVisibility(track) {
         const card = document.getElementById(`track-card-${track}`);
-        if (card) card.style.display = trackVisibility.get(track) ? 'block' : 'none';
+        const state = stateFor(track);
+        if (card && state) card.style.display = state.visible ? 'block' : 'none';
     }
 
     function toggleTrackLock(track) {
-        setTrackLock(track, !trackLocks.get(track));
+        const state = stateFor(track);
+        if (state) setTrackLock(track, !state.locked);
     }
 
     function setTrackLock(track, locked) {
-        if (!TRACKS[track]) return;
-        trackLocks.set(track, locked);
+        const state = stateFor(track);
+        if (!state) return;
+        state.locked = locked;
         applyTrackLock(track);
     }
 
     function applyTrackLock(track) {
         const button = document.getElementById(`track-lock-${track}`);
         if (!button) return;
-        const locked = trackLocks.get(track);
+        const locked = stateFor(track).locked;
         button.classList.toggle('locked', locked);
         button.setAttribute('aria-pressed', locked);
         button.setAttribute('aria-label',
@@ -886,7 +912,7 @@ button.addEventListener("click", () => {
         return {
             format: 'ro-totem-slider-settings',
             version: 7,
-            directory: document.getElementById('dir').textContent || null,
+            directory: waveDirectory || null,
             master: sliderStateFor(document.getElementById('master-vol')),
             audioDevices: {
                 output: audioDeviceSelections.output,
@@ -894,12 +920,12 @@ button.addEventListener("click", () => {
             },
             tracks: TRACKS.map(({ track, voice }) => ({
                 track,
-                visible: trackVisibility.get(track),
-                locked: trackLocks.get(track),
-                muted: trackMuted.get(track),
+                visible: stateFor(track).visible,
+                locked: stateFor(track).locked,
+                muted: stateFor(track).muted,
                 volume: sliderStateFor(sliderFor(voice, 'volume')),
                 speed: sliderStateFor(sliderFor(voice, 'speed')),
-                wave: trackWaves.get(voice) || null
+                wave: stateFor(track).wave
             }))
         };
     }
@@ -945,7 +971,7 @@ button.addEventListener("click", () => {
             const directory = typeof settings.directory === 'string'
                 ? settings.directory
                 : '';
-            window.external.invoke(`R${directory}`);
+            native.loadDirectory(directory);
         }
 
         if (settings.version < 3) {
@@ -996,7 +1022,7 @@ button.addEventListener("click", () => {
         });
 
         TRACKS.forEach(({ track, voice }) => {
-            const muteState = trackMuted.get(track) ? 1 : 0;
+            const muteState = stateFor(track).muted ? 1 : 0;
             voiceCommands.push(`v${voice}m${muteState};v${voice + 1}m${muteState}`);
         });
 
@@ -1019,7 +1045,7 @@ button.addEventListener("click", () => {
             };
             setSettingsStatus('loading waves...');
             waves.forEach(wave => {
-                window.external.invoke(`W${wave.voice}:${wave.path}`);
+                native.loadWave(wave.voice, wave.path);
             });
         } else {
             applyVoiceCommands(voiceCommands);
@@ -1032,15 +1058,26 @@ button.addEventListener("click", () => {
         const max = parseFloat(slider.getAttribute('max'));
         const clamped = Math.min(max, Math.max(min, value));
         slider.value = clamped;
-        return (slider.getAttribute('format') || '$1').replaceAll('$1', clamped);
+        return commandForSlider(slider, clamped);
+    }
+
+    function commandForSlider(slider, value) {
+        if (slider.id === 'master-vol') return `;V${value};`;
+
+        const match = /^v(\d+)-(volume|freq)$/.exec(slider.id);
+        if (!match) return '';
+        const voice = Number(match[1]);
+        const command = match[2] === 'volume' ? 'a' : 'n';
+        return `v${voice}${command}${value};v${voice + 1}${command}${value}`;
     }
 
     function applyVoiceCommands(commands) {
-        if (commands.length === 0) return;
-        const combined = commands
+        const validCommands = commands.filter(Boolean);
+        if (validCommands.length === 0) return;
+        const combined = validCommands
             .map(command => command.startsWith('!') ? command.slice(1) : command)
             .join(';');
-        window.external.invoke('!' + combined);
+        native.sendCommands(combined);
     }
 
     function waveFileLoaded() {
@@ -1064,11 +1101,11 @@ button.addEventListener("click", () => {
 
     function saveSettingsFile() {
         const json = JSON.stringify(getSettings(), null, 2);
-        window.external.invoke('JS' + json);
+        native.saveSettings(json);
     }
 
     function loadSettingsFile() {
-        window.external.invoke('JL');
+        native.loadSettings();
     }
 
     function settingsFileSaved() {
@@ -1086,12 +1123,12 @@ button.addEventListener("click", () => {
     }
 
     function refreshAudioDevices() {
-        if (!window.external || !window.external.invoke) {
+        if (!native.available()) {
             setTimeout(refreshAudioDevices, 50);
             return;
         }
         setAudioDeviceStatus('refreshing devices...');
-        window.external.invoke('DR');
+        native.refreshAudioDevices();
     }
 
     function clearAudioDevices() {
@@ -1141,7 +1178,7 @@ button.addEventListener("click", () => {
             name: option.dataset.name
         };
         setAudioDeviceStatus(`connecting ${kind} device...`);
-        window.external.invoke(`DA${kind === 'input' ? 1 : 0}:${selection}`);
+        native.applyAudioDevice(kind === 'input', selection);
     }
 
     function audioDeviceApplied(kind, success, status) {
@@ -1161,7 +1198,7 @@ button.addEventListener("click", () => {
     }
 
     function randomizeAllTracks() {
-        masterControlledTracks().forEach(track => lrand(track.voice));
+        masterControlledTracks().forEach(track => loadRandomWave(track.voice));
     }
 
     function setAllTracksPlaying(playing) {
@@ -1183,15 +1220,16 @@ button.addEventListener("click", () => {
     }
 
     function setTrackPlayingState(track, playing) {
-        if (!TRACKS[track]) return;
-        trackPlaying.set(track, playing);
+        const state = stateFor(track);
+        if (!state) return;
+        state.playing = playing;
         updateTrackPlayingIndicator(track);
     }
 
     function updateTrackPlayingIndicator(track) {
         const indicator = document.getElementById(`track-state-${track}`);
         if (!indicator) return;
-        const playing = trackPlaying.get(track);
+        const playing = stateFor(track).playing;
         const state = playing ? 'running' : 'stopped';
         indicator.classList.toggle('playing', playing);
         indicator.classList.toggle('stopped', !playing);
@@ -1202,22 +1240,23 @@ button.addEventListener("click", () => {
     function toggleTrackMute(track) {
         const config = TRACKS[track];
         if (!config) return;
-        const muted = !trackMuted.get(track);
+        const muted = !stateFor(track).muted;
         const state = muted ? 1 : 0;
         skode(`v${config.voice}m${state}v${config.voice + 1}m${state}`);
         setTrackMutedState(track, muted);
     }
 
     function setTrackMutedState(track, muted) {
-        if (!TRACKS[track]) return;
-        trackMuted.set(track, muted);
+        const state = stateFor(track);
+        if (!state) return;
+        state.muted = muted;
         updateTrackMuteButton(track);
     }
 
     function updateTrackMuteButton(track) {
         const button = document.getElementById(`track-mute-${track}`);
         if (!button) return;
-        const muted = trackMuted.get(track);
+        const muted = stateFor(track).muted;
         const action = muted ? 'Unmute' : 'Mute';
         button.classList.toggle('muted', muted);
         button.setAttribute('aria-pressed', muted);
@@ -1228,13 +1267,13 @@ button.addEventListener("click", () => {
 
     function masterControlledTracks() {
         return TRACKS.filter(({ track }) =>
-            trackVisibility.get(track) && !trackLocks.get(track)
+            stateFor(track).visible && !stateFor(track).locked
         );
     }
 
     function applyTrackControls(voice) {
         const track = voice >> 1;
-        const muteState = trackMuted.get(track) ? 1 : 0;
+        const muteState = stateFor(track).muted ? 1 : 0;
         const commands = ['volume', 'speed']
             .map(kind => sliderFor(voice, kind))
             .filter(Boolean)
@@ -1248,41 +1287,31 @@ button.addEventListener("click", () => {
     setTimeout(refreshAudioDevices, 0);
 
     // --- SYSTEM INTEGRATION ---
-    let files = [];
-    
-    function lclear() {
-      files = [];
+    let waveFiles = [];
+
+    function clearWaveFiles() {
+      waveFiles = [];
     }
 
-    let lndx = 600;
+    function addWaveFile(filename) {
+      waveFiles.push(filename);
+    }
 
-    function lstuff(value) {
-      files.push(value);
+    function loadRandomWave(voice) {
+      if (waveFiles.length === 0) return;
+      const index = Math.floor(Math.random() * waveFiles.length);
+      native.loadWave(voice, `${waveDirectory}/${waveFiles[index]}`);
     }
-    
-    function lrand(v) {
-      if (files.length == 0) { return; }
-      let r = Math.floor(Math.random() * files.length);
-      let f = files[r];
-      let d = document.getElementById("dir").textContent;
-      let t = `${d}/${f}`;
-      const leftWave = lndx;
-      const rightWave = lndx + 1;
-        skode(`[${t}] /ws ${leftWave} 0 v${v+0} p-1 w${leftWave} a0 B1 f440 t1 0 1 1 ; [${f}] wt ${leftWave};`);
-        skode(`[${t}] /ws ${rightWave} 1 v${v+1} p1  w${rightWave} a0 B1 f440 t1 0 1 1 ; [${f}] wt ${rightWave};`);
-        applyTrackControls(v);
-        lndx+=2;
-        if (lndx >= 998) { lndx = 0; }
-      setTrackWave(v, t, f, leftWave, rightWave);
-    }
-    
+
     function setTrackWave(id, path, name, leftWave, rightWave) {
         const wave = { path, name };
         if (Number.isInteger(leftWave) && Number.isInteger(rightWave)) {
             wave.wavetables = [leftWave, rightWave];
         }
-        trackWaves.set(id, wave);
-        let nid = id >> 1;
+        const nid = id >> 1;
+        const state = stateFor(nid);
+        if (!state) return;
+        state.wave = wave;
         setTrackPlayingState(nid, false);
         const element = document.getElementById("v"+nid);
         if (element) element.textContent = name;
@@ -1295,20 +1324,14 @@ button.addEventListener("click", () => {
         }
     }
 
-    function assign(id, value) {
-        setTrackWave(id, value, value);
-    }
-
-    function vassign(id, value) {
-        const element = document.getElementById(id);
-        if (element) element.textContent = value;
+    function setWaveDirectory(directory) {
+        waveDirectory = directory;
+        document.getElementById('dir').textContent = directory;
     }
 
     document.addEventListener('update', (e) => {
-        //console.log("Slider Action:", e.detail.formatted);
-        if (window.external && window.external.invoke) {
-            window.external.invoke(e.detail.formatted);
-        }
+        const command = commandForSlider(e.target, e.detail.value);
+        if (command) native.sendCommands(command);
     });
 
     function getcmd() {
@@ -1318,37 +1341,104 @@ button.addEventListener("click", () => {
     function skode(s) {
         if (s.length > 0) {
             addLog(s);
-            window.external.invoke("!" + s);
+            native.sendCommands(s);
         }
     }
 
-// Get the input element by its ID
-const skodeInput = document.getElementById('skode-input');
-
-// Listen for any key being pressed while the user is typing in the box
-skodeInput.addEventListener('keypress', function (e) {
-    // Check if the key pressed was 'Enter'
-    if (e.key === 'Enter') {
-        // Prevent the default behavior (like refreshing the page)
-        e.preventDefault();
-        // Trigger the same function the orange button uses
-        sendSkode();
+    function getSpeed(voice) {
+        const slider = sliderFor(voice, 'speed');
+        return {
+            slider,
+            value: slider.value,
+            min: parseFloat(slider.getAttribute('min')),
+            max: parseFloat(slider.getAttribute('max'))
+        };
     }
-});
+
+    function setSpeed(voice, value) {
+        const speed = getSpeed(voice);
+        const clamped = Math.min(speed.max, Math.max(speed.min, value));
+        speed.slider.value = clamped;
+        skode(`v${voice}n${clamped}`);
+        skode(`v${voice + 1}n${clamped}`);
+    }
+
+    function unity(voice) { setSpeed(voice, 69); }
+    function double(voice) { setSpeed(voice, getSpeed(voice).value + 12); }
+    function half(voice) { setSpeed(voice, getSpeed(voice).value - 12); }
+    function adder(voice) { setSpeed(voice, getSpeed(voice).value + 1); }
+    function subber(voice) { setSpeed(voice, getSpeed(voice).value - 1); }
+
+    document.addEventListener('click', (event) => {
+        const control = event.target.closest('[data-action]');
+        if (!control) return;
+
+        const track = Number(control.dataset.track);
+        const voice = Number(control.dataset.voice);
+        const playing = control.dataset.playing === 'true';
+
+        switch (control.dataset.action) {
+            case 'choose-directory': native.chooseDirectory(); break;
+            case 'randomize-all': randomizeAllTracks(); break;
+            case 'set-all-playing': setAllTracksPlaying(playing); break;
+            case 'apply-audio-device': applyAudioDevice(control.dataset.kind); break;
+            case 'refresh-audio-devices': refreshAudioDevices(); break;
+            case 'load-settings': loadSettingsFile(); break;
+            case 'save-settings': saveSettingsFile(); break;
+            case 'send-command': skode(getcmd()); break;
+            case 'toggle-track-lock': toggleTrackLock(track); break;
+            case 'choose-wave': native.chooseWave(voice); break;
+            case 'randomize-track': loadRandomWave(voice); break;
+            case 'set-track-playing': setTrackPlaying(track, playing); break;
+            case 'flip-track':
+                skode(`v${voice}b- v${Number(control.dataset.partner)}b- `);
+                break;
+            case 'toggle-track-mute': toggleTrackMute(track); break;
+            case 'adjust-speed': {
+                const adjustments = { half, down: subber, unity, up: adder, double };
+                const adjust = adjustments[control.dataset.adjustment];
+                if (adjust) adjust(voice);
+                break;
+            }
+        }
+    });
+
+    document.addEventListener('change', (event) => {
+        if (event.target.dataset.setting === 'visibility') {
+            setTrackVisibility(Number(event.target.dataset.track), event.target.checked);
+        }
+    });
+
+    document.addEventListener('input', (event) => {
+        if (event.target.dataset.setting === 'range') {
+            updateSliderRange(
+                Number(event.target.dataset.voice),
+                event.target.dataset.kind,
+                event.target.dataset.property,
+                event.target
+            );
+        }
+    });
+
+    document.getElementById('skode-input').addEventListener('keydown', (event) => {
+        if (event.key !== 'Enter') return;
+        event.preventDefault();
+        skode(getcmd());
+    });
 
 
 window.addEventListener('keydown', (e) => {
     // Check for F5 or Ctrl+R / Cmd+R
-    const isRefresh = 
-        e.key === 'F5' || 
+    const isRefresh =
+        e.key === 'F5' ||
         ((e.ctrlKey || e.metaKey) && e.key === 'r');
 
     if (isRefresh) {
         e.preventDefault(); // Stop the browser/webview from reloading
         //console.log("Portable refresh captured!");
-        
+
         // Trigger your custom reload logic here
-        location.reload(); 
+        location.reload();
     }
 });
 

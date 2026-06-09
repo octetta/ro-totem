@@ -5,53 +5,167 @@
 #include "webview.h"
 
 #include <limits.h>
+#include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <unistd.h>
 #include <dirent.h>
 #include <string.h>
+#include <strings.h>
+#include <unistd.h>
 
 #ifdef __APPLE__
 #include <CoreFoundation/CoreFoundation.h>
-void get_resource_path(const char *filename, char *out_path) {
+static int get_resource_path(const char *filename, char *out_path, size_t out_size) {
   CFBundleRef mainBundle = CFBundleGetMainBundle();
   CFURLRef resourcesURL = CFBundleCopyResourcesDirectoryURL(mainBundle);
   char path[PATH_MAX];
-    
-  if (CFURLGetFileSystemRepresentation(resourcesURL, true, (UInt8 *)path, PATH_MAX)) {
-    snprintf(out_path, PATH_MAX, "%s/%s", path, filename);
-  }
 
+  if (!resourcesURL) return 0;
+  int found = CFURLGetFileSystemRepresentation(
+    resourcesURL, true, (UInt8 *)path, sizeof(path));
   CFRelease(resourcesURL);
+  if (!found) return 0;
+  int written = snprintf(out_path, out_size, "%s/%s", path, filename);
+  return written >= 0 && (size_t)written < out_size;
 }
 #else
 #include <sys/wait.h>
-void get_resource_path(const char *filename, char *out_path) {
+static int get_resource_path(const char *filename, char *out_path, size_t out_size) {
   char path[PATH_MAX];
-  ssize_t len = readlink("/proc/self/exe", path, sizeof(path)-1);
-  if (len >= 0) path[len] = '\0';
+  ssize_t len = readlink("/proc/self/exe", path, sizeof(path) - 1);
+  if (len < 0 || (size_t)len >= sizeof(path) - 1) return 0;
+  path[len] = '\0';
   char *last = strrchr(path, '/');
-  if (last) *last = '\0';
-  sprintf(out_path, "%s/%s", path, filename);
+  if (!last) return 0;
+  *last = '\0';
+  int written = snprintf(out_path, out_size, "%s/%s", path, filename);
+  return written >= 0 && (size_t)written < out_size;
 }
 #endif
 
-void get_bundle_resource_path(const char *filename, char *out_path, int max_len) {
-#ifdef __APPLE__
-  CFBundleRef mainBundle = CFBundleGetMainBundle();
-  CFURLRef resURL = CFBundleCopyResourceURL(mainBundle, 
-    CFStringCreateWithCString(NULL, filename, kCFStringEncodingUTF8), NULL, NULL);
-  if (!resURL) return;
-  CFURLGetFileSystemRepresentation(resURL, true, (UInt8 *)out_path, max_len);
-  CFRelease(resURL);
-#else
-  strcpy(out_path, filename);
-#endif
+static int make_file_url(const char *path, char *url, size_t url_size) {
+  static const char hex[] = "0123456789ABCDEF";
+  const char *prefix = "file://";
+  size_t used = strlen(prefix);
+  if (url_size <= used) return 0;
+  memcpy(url, prefix, used);
+
+  for (const unsigned char *p = (const unsigned char *)path; *p; p++) {
+    int literal = (*p >= 'a' && *p <= 'z') ||
+                  (*p >= 'A' && *p <= 'Z') ||
+                  (*p >= '0' && *p <= '9') ||
+                  *p == '/' || *p == ':' || *p == '-' ||
+                  *p == '_' || *p == '.' || *p == '~';
+    size_t needed = literal ? 1 : 3;
+    if (used + needed >= url_size) return 0;
+    if (literal) {
+      url[used++] = (char)*p;
+    } else {
+      url[used++] = '%';
+      url[used++] = hex[*p >> 4];
+      url[used++] = hex[*p & 0x0f];
+    }
+  }
+  url[used] = '\0';
+  return 1;
 }
 
-void addLog(struct webview *w, char *out);
+struct script_builder {
+  char *data;
+  size_t length;
+  size_t capacity;
+};
 
-int handle_audio_command(const char *line) {
+static int script_reserve(struct script_builder *script, size_t extra) {
+  if (script->length == SIZE_MAX ||
+      extra > SIZE_MAX - script->length - 1) return 0;
+  size_t required = script->length + extra + 1;
+  if (required <= script->capacity) return 1;
+
+  size_t capacity = script->capacity ? script->capacity : 128;
+  while (capacity < required) {
+    if (capacity > SIZE_MAX / 2) {
+      capacity = required;
+      break;
+    }
+    capacity *= 2;
+  }
+
+  char *data = realloc(script->data, capacity);
+  if (!data) return 0;
+  script->data = data;
+  script->capacity = capacity;
+  return 1;
+}
+
+static int script_append_n(
+    struct script_builder *script, const char *text, size_t length) {
+  if (!script_reserve(script, length)) return 0;
+  memcpy(script->data + script->length, text, length);
+  script->length += length;
+  script->data[script->length] = '\0';
+  return 1;
+}
+
+static int script_append(struct script_builder *script, const char *text) {
+  return script_append_n(script, text, strlen(text));
+}
+
+static int script_appendf(struct script_builder *script, const char *format, ...) {
+  va_list args;
+  va_start(args, format);
+  va_list copy;
+  va_copy(copy, args);
+  int length = vsnprintf(NULL, 0, format, copy);
+  va_end(copy);
+  if (length < 0 || !script_reserve(script, (size_t)length)) {
+    va_end(args);
+    return 0;
+  }
+  vsnprintf(
+    script->data + script->length,
+    script->capacity - script->length,
+    format,
+    args);
+  va_end(args);
+  script->length += (size_t)length;
+  return 1;
+}
+
+static int script_append_js_string(
+    struct script_builder *script, const char *value) {
+  if (!value) value = "";
+  if (!script_append(script, "'")) return 0;
+  for (const unsigned char *p = (const unsigned char *)value; *p; p++) {
+    switch (*p) {
+      case '\\': if (!script_append(script, "\\\\")) return 0; break;
+      case '\'': if (!script_append(script, "\\'")) return 0; break;
+      case '\n': if (!script_append(script, "\\n")) return 0; break;
+      case '\r': if (!script_append(script, "\\r")) return 0; break;
+      case '\t': if (!script_append(script, "\\t")) return 0; break;
+      default:
+        if (*p < 0x20) {
+          if (!script_appendf(script, "\\u%04x", *p)) return 0;
+        } else if (!script_append_n(script, (const char *)p, 1)) {
+          return 0;
+        }
+        break;
+    }
+  }
+  return script_append(script, "'");
+}
+
+static void script_eval(struct webview *w, struct script_builder *script) {
+  if (script->data) webview_eval(w, script->data);
+  free(script->data);
+  script->data = NULL;
+  script->length = 0;
+  script->capacity = 0;
+}
+
+static void addLog(struct webview *w, const char *message);
+
+static int handle_audio_command(const char *line) {
   int result = skred_audio_command(line);
   if (result == 0) return 0;
   const char *message = skred_audio_message();
@@ -59,7 +173,7 @@ int handle_audio_command(const char *line) {
   return 1;
 }
 
-char *skoder(const char *msg, char flag) {
+static char *skoder(const char *msg) {
   char *log = "";
   if (handle_audio_command(msg)) {
     log = skred_audio_message();
@@ -70,54 +184,71 @@ char *skoder(const char *msg, char flag) {
   return log;
 }
 
-void addSkodeLog(struct webview *w, char *log) {
+static void addSkodeLog(struct webview *w, const char *log) {
   if (log && log[0] != '\0') {
+    size_t length = strlen(log);
+    char *copy = malloc(length + 1);
+    if (!copy) {
+      addLog(w, log);
+      return;
+    }
+    memcpy(copy, log, length + 1);
+
     char *end;
-    char *s = log;
+    char *s = copy;
     while ((end = strchr(s, '\n'))) {
-      *end = '\0'; // Terminate at newline
-      // Pointer math: check one byte back for '\r' and strip it
+      *end = '\0';
       if (end > s && end[-1] == '\r') end[-1] = '\0';
-      //printf("Line: %s\n", s); // Pass 's' to your evaluator here
       addLog(w, s);
-      s = end + 1; // Advance pointer past the newline
+      s = end + 1;
     }
-    // Handle the final segment if it lacks a trailing newline
-    if (*s) {
-      //printf("Line: %s\n", s);
-      addLog(w, s);
-    }
+    if (*s) addLog(w, s);
+    free(copy);
   }
 }
 
 static int wavepointer = 300;
 
-static char *append_js_string(char *out, const char *value) {
-  *out++ = '\'';
-  for (const unsigned char *p = (const unsigned char *)value; *p; p++) {
-    switch (*p) {
-      case '\\': *out++ = '\\'; *out++ = '\\'; break;
-      case '\'': *out++ = '\\'; *out++ = '\''; break;
-      case '\n': *out++ = '\\'; *out++ = 'n'; break;
-      case '\r': *out++ = '\\'; *out++ = 'r'; break;
-      case '\t': *out++ = '\\'; *out++ = 't'; break;
-      default: *out++ = (char)*p; break;
-    }
-  }
-  *out++ = '\'';
-  return out;
-}
+/*
+ * Messages from ui.html use a small envelope protocol:
+ *
+ *   !<commands>       Pass compact commands to the audio engine.
+ *   @                 Open the wave-directory chooser.
+ *   >v<voice>         Choose a wave for a stereo voice pair.
+ *   R<directory>      Scan a directory and return its .wav filenames.
+ *   W<voice>:<path>   Load a wave into voice and voice + 1.
+ *   JS<json> / JL     Save or load settings.
+ *   DR / DA<c>:<n>    Refresh or apply an audio-device selection.
+ *
+ * The payload after '!' belongs to the audio engine, not this dispatcher.
+ * Common engine forms are v<n>a<x> (volume), v<n>n<x> (speed),
+ * v<n>l<0|1> (play), and v<n>m<0|1> (mute). Direction commands are
+ * v<n>b0 (forward), v<n>b1 (backward), and v<n>b- (invert). Prefer b-
+ * over bare b because b consumes a numeric parameter and can otherwise
+ * absorb part of the command that follows it.
+ * When extending the protocol, add a named UI bridge method and a named
+ * enum value or subcommand here so raw prefixes stay in one place.
+ */
+enum native_command {
+  NATIVE_ENGINE_COMMAND = '!',
+  NATIVE_CHOOSE_DIRECTORY = '@',
+  NATIVE_AUDIO_DEVICE = 'D',
+  NATIVE_SETTINGS = 'J',
+  NATIVE_LOAD_DIRECTORY = 'R',
+  NATIVE_LOAD_WAVE = 'W',
+  NATIVE_CHOOSE_WAVE = '>'
+};
 
 static void load_wave_directory(struct webview *w, const char *dirname) {
-  char script[PATH_MAX * 2 + 64];
-  char *out = script;
-
-  webview_eval(w, "lclear()");
-  out += sprintf(out, "vassign('dir',");
-  out = append_js_string(out, dirname);
-  *out++ = ')';
-  *out = '\0';
-  webview_eval(w, script);
+  webview_eval(w, "clearWaveFiles()");
+  struct script_builder script = {0};
+  if (script_append(&script, "setWaveDirectory(") &&
+      script_append_js_string(&script, dirname) &&
+      script_append(&script, ")")) {
+    script_eval(w, &script);
+  } else {
+    free(script.data);
+  }
 
   DIR *dp = opendir(dirname);
   if (!dp) return;
@@ -128,24 +259,27 @@ static void load_wave_directory(struct webview *w, const char *dirname) {
     size_t len = strlen(name);
     if (len <= 4 || strcasecmp(name + len - 4, ".wav") != 0) continue;
 
-    out = script;
-    out += sprintf(out, "lstuff(");
-    out = append_js_string(out, name);
-    *out++ = ')';
-    *out = '\0';
-    webview_eval(w, script);
+    script = (struct script_builder){0};
+    if (script_append(&script, "addWaveFile(") &&
+        script_append_js_string(&script, name) &&
+        script_append(&script, ")")) {
+      script_eval(w, &script);
+    } else {
+      free(script.data);
+    }
   }
   closedir(dp);
 }
 
-void addLog(struct webview *w, char *message) {
-  char script[PATH_MAX * 2 + 256];
-  char *out = script;
-  out += sprintf(out, "addLog(");
-  out = append_js_string(out, message);
-  *out++ = ')';
-  *out = '\0';
-  webview_eval(w, script);
+static void addLog(struct webview *w, const char *message) {
+  struct script_builder script = {0};
+  if (script_append(&script, "addLog(") &&
+      script_append_js_string(&script, message) &&
+      script_append(&script, ")")) {
+    script_eval(w, &script);
+  } else {
+    free(script.data);
+  }
 }
 
 static void load_wave_file(struct webview *w, const char *filename, int voice) {
@@ -168,24 +302,30 @@ static void load_wave_file(struct webview *w, const char *filename, int voice) {
       "[%s] /ws%d %d v%d p%d w%d a0 B1 f440 t1 0 1 1",
       filename, wave, j, voice + j, pan, wave);
     addLog(w, cmd);
-    log = skoder(cmd, 0);
+    log = skoder(cmd);
     addSkodeLog(w, log);
     snprintf(cmd, sizeof(cmd), "[%s] wt %d", shortname, wave);
-    log = skoder(cmd, 0);
+    log = skoder(cmd);
     addSkodeLog(w, log);
   }
 
-  char script[PATH_MAX * 2 + 64];
-  char *out = script;
-  out += sprintf(out, "setTrackWave(%d,", voice);
-  out = append_js_string(out, filename);
-  *out++ = ',';
-  out = append_js_string(out, shortname);
-  out += sprintf(out, ",%d,%d)", waves[0], waves[1]);
-  *out = '\0';
-  webview_eval(w, script);
-  snprintf(script, sizeof(script), "applyTrackControls(%d)", voice);
-  webview_eval(w, script);
+  struct script_builder script = {0};
+  if (script_appendf(&script, "setTrackWave(%d,", voice) &&
+      script_append_js_string(&script, filename) &&
+      script_append(&script, ",") &&
+      script_append_js_string(&script, shortname) &&
+      script_appendf(&script, ",%d,%d)", waves[0], waves[1])) {
+    script_eval(w, &script);
+  } else {
+    free(script.data);
+  }
+
+  script = (struct script_builder){0};
+  if (script_appendf(&script, "applyTrackControls(%d)", voice)) {
+    script_eval(w, &script);
+  } else {
+    free(script.data);
+  }
   webview_eval(w, "waveFileLoaded()");
 }
 
@@ -210,45 +350,37 @@ static void load_settings_file(struct webview *w, const char *filename) {
   }
 
   char *json = malloc((size_t)length + 1);
-  char *script = malloc((size_t)length * 6 + 32);
-  if (!json || !script) {
+  if (!json) {
     free(json);
-    free(script);
     fclose(file);
     webview_eval(w, "settingsFileError('Not enough memory to load settings.')");
     return;
   }
 
   size_t read = fread(json, 1, (size_t)length, file);
+  int read_error = ferror(file);
   fclose(file);
+  if (read != (size_t)length || read_error) {
+    free(json);
+    webview_eval(w, "settingsFileError('Could not read settings file.')");
+    return;
+  }
   json[read] = '\0';
 
-  char *out = script;
-  out += sprintf(out, "loadSettingsFromText(\"");
-  for (size_t i = 0; i < read; i++) {
-    unsigned char c = (unsigned char)json[i];
-    switch (c) {
-      case '\\': *out++ = '\\'; *out++ = '\\'; break;
-      case '"': *out++ = '\\'; *out++ = '"'; break;
-      case '\n': *out++ = '\\'; *out++ = 'n'; break;
-      case '\r': *out++ = '\\'; *out++ = 'r'; break;
-      case '\t': *out++ = '\\'; *out++ = 't'; break;
-      default:
-        if (c < 0x20) {
-          out += sprintf(out, "\\u%04x", c);
-        } else {
-          *out++ = (char)c;
-        }
-    }
+  struct script_builder script = {0};
+  if (script_append(&script, "loadSettingsFromText(") &&
+      script_append_js_string(&script, json) &&
+      script_append(&script, ")")) {
+    script_eval(w, &script);
+  } else {
+    free(script.data);
+    webview_eval(w, "settingsFileError('Not enough memory to load settings.')");
   }
-  strcpy(out, "\")");
-  webview_eval(w, script);
-  free(script);
   free(json);
 }
 
 static void save_settings_file(struct webview *w, const char *json) {
-  char filename[PATH_MAX];
+  char filename[PATH_MAX] = "";
   webview_dialog(w, WEBVIEW_DIALOG_TYPE_SAVE, WEBVIEW_DIALOG_FLAG_FILE,
                  "Save settings", "ro-totem-settings.json",
                  filename, sizeof(filename));
@@ -260,7 +392,7 @@ static void save_settings_file(struct webview *w, const char *json) {
       webview_eval(w, "settingsFileError('Settings filename is too long.')");
       return;
     }
-    strcat(filename, ".json");
+    memcpy(filename + length, ".json", 6);
   }
 
   FILE *file = fopen(filename, "wb");
@@ -278,8 +410,7 @@ static void save_settings_file(struct webview *w, const char *json) {
 }
 
 static void send_audio_devices(struct webview *w) {
-  char script[PATH_MAX * 2 + 128];
-  char *log = skoder("/als", 0);
+  char *log = skoder("/als");
   const char *status;
   addSkodeLog(w, log);
   webview_eval(w, "clearAudioDevices()");
@@ -287,22 +418,26 @@ static void send_audio_devices(struct webview *w) {
   for (int is_capture = 0; is_capture <= 1; is_capture++) {
     const char *kind = is_capture ? "input" : "output";
     for (int i = 0; i < skred_devices(is_capture); i++) {
-      char *out = script;
-      out += sprintf(out, "addAudioDevice('%s',%d,", kind, i);
-      out = append_js_string(out, skred_device_str(is_capture, i));
-      *out++ = ')';
-      *out = '\0';
-      webview_eval(w, script);
+      struct script_builder script = {0};
+      if (script_appendf(&script, "addAudioDevice('%s',%d,", kind, i) &&
+          script_append_js_string(&script, skred_device_str(is_capture, i)) &&
+          script_append(&script, ")")) {
+        script_eval(w, &script);
+      } else {
+        free(script.data);
+      }
     }
   }
 
   status = skred_audio_status();
-  char *out = script;
-  out += sprintf(out, "audioDevicesReady(");
-  out = append_js_string(out, status ? status : "");
-  *out++ = ')';
-  *out = '\0';
-  webview_eval(w, script);
+  struct script_builder script = {0};
+  if (script_append(&script, "audioDevicesReady(") &&
+      script_append_js_string(&script, status ? status : "") &&
+      script_append(&script, ")")) {
+    script_eval(w, &script);
+  } else {
+    free(script.data);
+  }
 }
 
 static void apply_audio_device(struct webview *w, const char *arg) {
@@ -317,52 +452,56 @@ static void apply_audio_device(struct webview *w, const char *arg) {
   if (result == 0) result = skred_audio_reconnect();
 
   const char *status = skred_audio_status();
-  char script[PATH_MAX * 2 + 128];
-  char *out = script;
-  out += sprintf(out, "audioDeviceApplied('%s',%s,",
-    is_capture ? "input" : "output",
-    result == 0 ? "true" : "false");
-  out = append_js_string(out, status ? status : "");
-  *out++ = ')';
-  *out = '\0';
-  webview_eval(w, script);
+  struct script_builder script = {0};
+  if (script_appendf(
+        &script,
+        "audioDeviceApplied('%s',%s,",
+        is_capture ? "input" : "output",
+        result == 0 ? "true" : "false") &&
+      script_append_js_string(&script, status ? status : "") &&
+      script_append(&script, ")")) {
+    script_eval(w, &script);
+  } else {
+    free(script.data);
+  }
 }
 
 static void invoker(struct webview *w, const char *arg) {
+  if (!arg || !arg[0]) return;
   char *log;
   switch (arg[0]) {
-    case '!':
-      log = skoder(&arg[1], 0);
+    case NATIVE_ENGINE_COMMAND:
+      log = skoder(&arg[1]);
       addSkodeLog(w, log);
       break;
-    case '@': // allow the user to select a folder, stuff dir name and wav file list into the webview
+    case NATIVE_CHOOSE_DIRECTORY:
       {
         char dirname[PATH_MAX] = "";
         webview_dialog(w, WEBVIEW_DIALOG_TYPE_OPEN, WEBVIEW_DIALOG_FLAG_DIRECTORY, "sel", "", dirname, sizeof(dirname));
         if (dirname[0]) load_wave_directory(w, dirname);
       }
       break;
-    case 'D':
+    case NATIVE_AUDIO_DEVICE:
       if (arg[1] == 'R') {
         send_audio_devices(w);
       } else if (arg[1] == 'A') {
         apply_audio_device(w, &arg[2]);
       }
       break;
-    case 'J':
+    case NATIVE_SETTINGS:
       if (arg[1] == 'S') {
         save_settings_file(w, &arg[2]);
       } else if (arg[1] == 'L') {
-        char filename[PATH_MAX];
+        char filename[PATH_MAX] = "";
         webview_dialog(w, WEBVIEW_DIALOG_TYPE_OPEN, WEBVIEW_DIALOG_FLAG_FILE,
                        "Load settings", "", filename, sizeof(filename));
         if (filename[0]) load_settings_file(w, filename);
       }
       break;
-    case 'R':
+    case NATIVE_LOAD_DIRECTORY:
       load_wave_directory(w, &arg[1]);
       break;
-    case 'W':
+    case NATIVE_LOAD_WAVE:
       {
         char *end;
         long voice = strtol(&arg[1], &end, 10);
@@ -371,13 +510,16 @@ static void invoker(struct webview *w, const char *arg) {
         }
       }
       break;
-    case '>': // tell skred to read the filename into a voice (via 'filename'), setup the voice
-      // pick in the ui
+    case NATIVE_CHOOSE_WAVE:
       if (arg[1] == 'v') {
         char filename[PATH_MAX] = "";
         webview_dialog(w, WEBVIEW_DIALOG_TYPE_OPEN, WEBVIEW_DIALOG_FLAG_FILE, "sel", "", filename, sizeof(filename));
-        int voice = atoi(&arg[2]);
-        load_wave_file(w, filename, voice);
+        char *end;
+        long voice = strtol(&arg[2], &end, 10);
+        if (filename[0] && end && *end == '\0' &&
+            voice >= 0 && voice + 1 < 32) {
+          load_wave_file(w, filename, (int)voice);
+        }
       }
       break;
     default:
@@ -385,53 +527,26 @@ static void invoker(struct webview *w, const char *arg) {
   }
 }
 
-void info(struct webview *w) {
-  static int run = 0;
-  char buf[1024];
-  
-  sprintf(buf, "# run %d", run++);
-  puts(buf);
-  addLog(w, buf);
-  strcpy(buf, "# output devices");
-  puts(buf);
-  addLog(w, buf);
-  for (int i=0; i<skred_devices(0); i++) {
-    sprintf(buf, "# %d %s", skred_device_idx(0, i), skred_device_str(0, i));
-    puts(buf);
-    addLog(w, buf);
-  }
-  
-  strcpy(buf, "# input devices");
-  puts(buf);
-  addLog(w, buf);
-  for (int i=0; i<skred_devices(1); i++) {
-    sprintf(buf, "# %d %s", skred_device_idx(1, i), skred_device_str(1, i));
-    puts(buf);
-    addLog(w, buf);
-  }
-}
-
-#define FILE_URL "file://"
-
-int main(int argc, char *argv[]) {
-  char html_path[PATH_MAX];
-  char bin_path[PATH_MAX];
+int main(void) {
+  char html_path[PATH_MAX * 3 + 8];
   char tmp[PATH_MAX];
 
-  get_resource_path("ui.html", tmp);
-  sprintf(html_path, "file://%s", tmp);
-  //printf("html_path {%s}\n", html_path);
+  if (!get_resource_path("ui.html", tmp, sizeof(tmp)) ||
+      !make_file_url(tmp, html_path, sizeof(html_path))) {
+    fputs("Could not locate ui.html\n", stderr);
+    return 1;
+  }
 
   struct webview webview;
   memset(&webview, 0, sizeof(webview));
   webview.url = html_path;
-  webview.title = "ro-totem gemini delta-three 2026";
+  webview.title = "ro-totem gemini epsilon-one 2026";
   webview.width = 884;  // window.innerWidth
   webview.height = 700; // window.innerHeight
   webview.resizable = 1;
   webview.debug = 1;
   webview.external_invoke_cb = &invoker;
-  
+
   skred_enumerate_devices(0);
   skred_enumerate_devices(1);
   int output = 0;
@@ -443,7 +558,6 @@ int main(int argc, char *argv[]) {
   for (int i=0; i<skred_devices(0); i++) {
     if (strcmp("MacBook Pro Speakers", skred_device_str(0, i)) == 0) {
       output = skred_device_idx(0, i);
-      //printf("# USED [%d]/%d for output\n", i, output);
       break;
     }
   }
@@ -451,7 +565,6 @@ int main(int argc, char *argv[]) {
   for (int i=0; i<skred_devices(1); i++) {
     if (strcmp("MacBook Pro Microphone", skred_device_str(1, i)) == 0) {
       input = skred_device_idx(1, i);
-      //printf("# USED [%d]/%d for input\n", i, input);
       break;
     }
   }
@@ -459,29 +572,27 @@ int main(int argc, char *argv[]) {
   skred_set_audio_device(output, input);
   skred_start(req, vc, -1);
   skred_logger(1);
-  
-  int r = webview_init(&webview);
-  
-  skoder("S100v0a0f440>1>2>3>4>5>6>7>8>9>10>11>12>13>14>15", 0);
 
-#if 0
-  int first = 20;
-#endif
+  int r = webview_init(&webview);
+  if (r != 0) {
+    fputs("Could not initialize the webview\n", stderr);
+    skoder("/q");
+    sleep(1);
+    return 1;
+  }
+
+  skoder("S100v0a0f440>1>2>3>4>5>6>7>8>9>10>11>12>13>14>15");
 
   do {
     r = webview_loop(&webview, 1);
-#if 0
-    if (first > 0) {
-      first--;
-      info(&webview);
-    }
-#endif
   } while (r == 0);
 
+  webview_exit(&webview);
+
   // tell it to quit...
-  skoder("/q", 0);
-  
+  skoder("/q");
+
   sleep(1);
-  
+
   return 0;
 }
