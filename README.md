@@ -1,5 +1,7 @@
 # ro-totem
 
+[![CodeFactor](https://www.codefactor.io/repository/github/octetta/ro-totem/badge)](https://www.codefactor.io/repository/github/octetta/ro-totem)
+
 ro-totem is a portable Skred audio application and the reference project for
 building native audio tools with a C host and a local WebKit user interface.
 

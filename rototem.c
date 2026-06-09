@@ -43,28 +43,40 @@ static int get_resource_path(const char *filename, char *out_path, size_t out_si
 }
 #endif
 
-static int make_file_url(const char *path, char *url, size_t url_size) {
+static int file_url_byte_is_literal(unsigned char byte) {
+  return (byte >= 'a' && byte <= 'z') ||
+         (byte >= 'A' && byte <= 'Z') ||
+         (byte >= '0' && byte <= '9') ||
+         byte == '/' || byte == ':' || byte == '-' ||
+         byte == '_' || byte == '.' || byte == '~';
+}
+
+static int append_file_url_byte(
+    char *url, size_t url_size, size_t *used, unsigned char byte) {
   static const char hex[] = "0123456789ABCDEF";
+  int literal = file_url_byte_is_literal(byte);
+  size_t needed = literal ? 1 : 3;
+  if (*used + needed >= url_size) return 0;
+
+  if (literal) {
+    url[(*used)++] = (char)byte;
+    return 1;
+  }
+
+  url[(*used)++] = '%';
+  url[(*used)++] = hex[byte >> 4];
+  url[(*used)++] = hex[byte & 0x0f];
+  return 1;
+}
+
+static int make_file_url(const char *path, char *url, size_t url_size) {
   const char *prefix = "file://";
   size_t used = strlen(prefix);
   if (url_size <= used) return 0;
   memcpy(url, prefix, used);
 
   for (const unsigned char *p = (const unsigned char *)path; *p; p++) {
-    int literal = (*p >= 'a' && *p <= 'z') ||
-                  (*p >= 'A' && *p <= 'Z') ||
-                  (*p >= '0' && *p <= '9') ||
-                  *p == '/' || *p == ':' || *p == '-' ||
-                  *p == '_' || *p == '.' || *p == '~';
-    size_t needed = literal ? 1 : 3;
-    if (used + needed >= url_size) return 0;
-    if (literal) {
-      url[used++] = (char)*p;
-    } else {
-      url[used++] = '%';
-      url[used++] = hex[*p >> 4];
-      url[used++] = hex[*p & 0x0f];
-    }
+    if (!append_file_url_byte(url, url_size, &used, *p)) return 0;
   }
   url[used] = '\0';
   return 1;
@@ -132,25 +144,26 @@ static int script_appendf(struct script_builder *script, const char *format, ...
   return 1;
 }
 
+static int script_append_js_byte(
+    struct script_builder *script, unsigned char byte) {
+  switch (byte) {
+    case '\\': return script_append(script, "\\\\");
+    case '\'': return script_append(script, "\\'");
+    case '\n': return script_append(script, "\\n");
+    case '\r': return script_append(script, "\\r");
+    case '\t': return script_append(script, "\\t");
+    default:
+      if (byte < 0x20) return script_appendf(script, "\\u%04x", byte);
+      return script_append_n(script, (const char *)&byte, 1);
+  }
+}
+
 static int script_append_js_string(
     struct script_builder *script, const char *value) {
   if (!value) value = "";
   if (!script_append(script, "'")) return 0;
   for (const unsigned char *p = (const unsigned char *)value; *p; p++) {
-    switch (*p) {
-      case '\\': if (!script_append(script, "\\\\")) return 0; break;
-      case '\'': if (!script_append(script, "\\'")) return 0; break;
-      case '\n': if (!script_append(script, "\\n")) return 0; break;
-      case '\r': if (!script_append(script, "\\r")) return 0; break;
-      case '\t': if (!script_append(script, "\\t")) return 0; break;
-      default:
-        if (*p < 0x20) {
-          if (!script_appendf(script, "\\u%04x", *p)) return 0;
-        } else if (!script_append_n(script, (const char *)p, 1)) {
-          return 0;
-        }
-        break;
-    }
+    if (!script_append_js_byte(script, *p)) return 0;
   }
   return script_append(script, "'");
 }
@@ -282,33 +295,41 @@ static void addLog(struct webview *w, const char *message) {
   }
 }
 
-static void load_wave_file(struct webview *w, const char *filename, int voice) {
-  if (!filename[0] || voice < 0 || voice + 1 >= 32) return;
+static const char *path_basename(const char *path) {
+  const char *basename = path;
+  for (const char *p = path; *p; p++) {
+    if (*p == '/' || *p == '\\') basename = p + 1;
+  }
+  return basename;
+}
 
+static int allocate_wave(void) {
+  int wave = wavepointer++;
+  if (wavepointer > 998) wavepointer = 0;
+  return wave;
+}
+
+static int load_wave_channel(
+    struct webview *w, const char *filename, const char *shortname,
+    int voice, int channel) {
   char cmd[PATH_MAX + 128];
-  char *log;
-  const char *shortname = filename;
-  int waves[2];
-  for (const char *p = filename; *p; p++) {
-    if (*p == '/' || *p == '\\') shortname = p + 1;
-  }
+  int wave = allocate_wave();
+  int pan = channel == 0 ? -1 : 1;
 
-  for (int j = 0; j < 2; j++) {
-    int wave = wavepointer++;
-    waves[j] = wave;
-    if (wavepointer > 998) wavepointer = 0;
-    int pan = (j & 1) ? 1 : -1;
-    snprintf(cmd, sizeof(cmd),
-      "[%s] /ws%d %d v%d p%d w%d a0 B1 f440 t1 0 1 1",
-      filename, wave, j, voice + j, pan, wave);
-    addLog(w, cmd);
-    log = skoder(cmd);
-    addSkodeLog(w, log);
-    snprintf(cmd, sizeof(cmd), "[%s] wt %d", shortname, wave);
-    log = skoder(cmd);
-    addSkodeLog(w, log);
-  }
+  snprintf(cmd, sizeof(cmd),
+    "[%s] /ws%d %d v%d p%d w%d a0 B1 f440 t1 0 1 1",
+    filename, wave, channel, voice + channel, pan, wave);
+  addLog(w, cmd);
+  addSkodeLog(w, skoder(cmd));
 
+  snprintf(cmd, sizeof(cmd), "[%s] wt %d", shortname, wave);
+  addSkodeLog(w, skoder(cmd));
+  return wave;
+}
+
+static void notify_wave_loaded(
+    struct webview *w, const char *filename, const char *shortname,
+    int voice, const int waves[2]) {
   struct script_builder script = {0};
   if (script_appendf(&script, "setTrackWave(%d,", voice) &&
       script_append_js_string(&script, filename) &&
@@ -319,14 +340,30 @@ static void load_wave_file(struct webview *w, const char *filename, int voice) {
   } else {
     free(script.data);
   }
+}
 
-  script = (struct script_builder){0};
+static void apply_loaded_wave_controls(struct webview *w, int voice) {
+  struct script_builder script = {0};
   if (script_appendf(&script, "applyTrackControls(%d)", voice)) {
     script_eval(w, &script);
   } else {
     free(script.data);
   }
   webview_eval(w, "waveFileLoaded()");
+}
+
+static void load_wave_file(struct webview *w, const char *filename, int voice) {
+  if (!filename[0] || voice < 0 || voice + 1 >= 32) return;
+
+  const char *shortname = path_basename(filename);
+  int waves[2];
+  for (int channel = 0; channel < 2; channel++) {
+    waves[channel] =
+      load_wave_channel(w, filename, shortname, voice, channel);
+  }
+
+  notify_wave_loaded(w, filename, shortname, voice, waves);
+  apply_loaded_wave_controls(w, voice);
 }
 
 static void load_settings_file(struct webview *w, const char *filename) {
@@ -440,24 +477,30 @@ static void send_audio_devices(struct webview *w) {
   }
 }
 
-static void apply_audio_device(struct webview *w, const char *arg) {
+static int parse_audio_device(
+    const char *arg, int *is_capture, int *selection) {
   char *end;
-  long is_capture = strtol(arg, &end, 10);
-  if (!end || *end != ':' || (is_capture != 0 && is_capture != 1)) return;
+  long capture = strtol(arg, &end, 10);
+  if (end == arg || *end != ':' || (capture != 0 && capture != 1)) return 0;
 
-  long selection = strtol(end + 1, &end, 10);
-  if (!end || *end != '\0' || selection < -2 || selection > INT_MAX) return;
+  const char *selection_arg = end + 1;
+  long selected = strtol(selection_arg, &end, 10);
+  if (end == selection_arg || *end != '\0' ||
+      selected < -2 || selected > INT_MAX) return 0;
 
-  int result = skred_audio_select((int)is_capture, (int)selection);
-  if (result == 0) result = skred_audio_reconnect();
+  *is_capture = (int)capture;
+  *selection = (int)selected;
+  return 1;
+}
 
-  const char *status = skred_audio_status();
+static void notify_audio_device_applied(
+    struct webview *w, int is_capture, int success, const char *status) {
   struct script_builder script = {0};
   if (script_appendf(
         &script,
         "audioDeviceApplied('%s',%s,",
         is_capture ? "input" : "output",
-        result == 0 ? "true" : "false") &&
+        success ? "true" : "false") &&
       script_append_js_string(&script, status ? status : "") &&
       script_append(&script, ")")) {
     script_eval(w, &script);
@@ -466,61 +509,97 @@ static void apply_audio_device(struct webview *w, const char *arg) {
   }
 }
 
+static void apply_audio_device(struct webview *w, const char *arg) {
+  int is_capture;
+  int selection;
+  if (!parse_audio_device(arg, &is_capture, &selection)) return;
+
+  int result = skred_audio_select(is_capture, selection);
+  if (result == 0) result = skred_audio_reconnect();
+  notify_audio_device_applied(
+    w, is_capture, result == 0, skred_audio_status());
+}
+
+static void choose_wave_directory(struct webview *w) {
+  char dirname[PATH_MAX] = "";
+  webview_dialog(
+    w, WEBVIEW_DIALOG_TYPE_OPEN, WEBVIEW_DIALOG_FLAG_DIRECTORY,
+    "sel", "", dirname, sizeof(dirname));
+  if (dirname[0]) load_wave_directory(w, dirname);
+}
+
+static void handle_audio_device_command(struct webview *w, const char *arg) {
+  if (arg[0] == 'R') {
+    send_audio_devices(w);
+  } else if (arg[0] == 'A') {
+    apply_audio_device(w, &arg[1]);
+  }
+}
+
+static void load_settings_dialog(struct webview *w) {
+  char filename[PATH_MAX] = "";
+  webview_dialog(
+    w, WEBVIEW_DIALOG_TYPE_OPEN, WEBVIEW_DIALOG_FLAG_FILE,
+    "Load settings", "", filename, sizeof(filename));
+  if (filename[0]) load_settings_file(w, filename);
+}
+
+static void handle_settings_command(struct webview *w, const char *arg) {
+  if (arg[0] == 'S') {
+    save_settings_file(w, &arg[1]);
+  } else if (arg[0] == 'L') {
+    load_settings_dialog(w);
+  }
+}
+
+static void handle_load_wave_command(struct webview *w, const char *arg) {
+  char *end;
+  long voice = strtol(arg, &end, 10);
+  if (end != arg && *end == ':' && voice >= 0 && voice + 1 < 32) {
+    load_wave_file(w, end + 1, (int)voice);
+  }
+}
+
+static void choose_wave_file(struct webview *w, const char *arg) {
+  if (arg[0] != 'v') return;
+
+  char filename[PATH_MAX] = "";
+  webview_dialog(
+    w, WEBVIEW_DIALOG_TYPE_OPEN, WEBVIEW_DIALOG_FLAG_FILE,
+    "sel", "", filename, sizeof(filename));
+
+  char *end;
+  long voice = strtol(&arg[1], &end, 10);
+  if (filename[0] && end != &arg[1] && *end == '\0' &&
+      voice >= 0 && voice + 1 < 32) {
+    load_wave_file(w, filename, (int)voice);
+  }
+}
+
 static void invoker(struct webview *w, const char *arg) {
   if (!arg || !arg[0]) return;
-  char *log;
+
   switch (arg[0]) {
     case NATIVE_ENGINE_COMMAND:
-      log = skoder(&arg[1]);
-      addSkodeLog(w, log);
+      addSkodeLog(w, skoder(&arg[1]));
       break;
     case NATIVE_CHOOSE_DIRECTORY:
-      {
-        char dirname[PATH_MAX] = "";
-        webview_dialog(w, WEBVIEW_DIALOG_TYPE_OPEN, WEBVIEW_DIALOG_FLAG_DIRECTORY, "sel", "", dirname, sizeof(dirname));
-        if (dirname[0]) load_wave_directory(w, dirname);
-      }
+      choose_wave_directory(w);
       break;
     case NATIVE_AUDIO_DEVICE:
-      if (arg[1] == 'R') {
-        send_audio_devices(w);
-      } else if (arg[1] == 'A') {
-        apply_audio_device(w, &arg[2]);
-      }
+      handle_audio_device_command(w, &arg[1]);
       break;
     case NATIVE_SETTINGS:
-      if (arg[1] == 'S') {
-        save_settings_file(w, &arg[2]);
-      } else if (arg[1] == 'L') {
-        char filename[PATH_MAX] = "";
-        webview_dialog(w, WEBVIEW_DIALOG_TYPE_OPEN, WEBVIEW_DIALOG_FLAG_FILE,
-                       "Load settings", "", filename, sizeof(filename));
-        if (filename[0]) load_settings_file(w, filename);
-      }
+      handle_settings_command(w, &arg[1]);
       break;
     case NATIVE_LOAD_DIRECTORY:
       load_wave_directory(w, &arg[1]);
       break;
     case NATIVE_LOAD_WAVE:
-      {
-        char *end;
-        long voice = strtol(&arg[1], &end, 10);
-        if (end && *end == ':' && voice >= 0 && voice + 1 < 32) {
-          load_wave_file(w, end + 1, (int)voice);
-        }
-      }
+      handle_load_wave_command(w, &arg[1]);
       break;
     case NATIVE_CHOOSE_WAVE:
-      if (arg[1] == 'v') {
-        char filename[PATH_MAX] = "";
-        webview_dialog(w, WEBVIEW_DIALOG_TYPE_OPEN, WEBVIEW_DIALOG_FLAG_FILE, "sel", "", filename, sizeof(filename));
-        char *end;
-        long voice = strtol(&arg[2], &end, 10);
-        if (filename[0] && end && *end == '\0' &&
-            voice >= 0 && voice + 1 < 32) {
-          load_wave_file(w, filename, (int)voice);
-        }
-      }
+      choose_wave_file(w, &arg[1]);
       break;
     default:
       break;
