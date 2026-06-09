@@ -28,7 +28,7 @@ See [ARCHITECTURE.md](ARCHITECTURE.md) for:
   libraries.
 - `vendor/webview/`: vendored portable webview implementation and platform
   backends.
-- `Makefile`: Linux build and macOS bundle targets.
+- `Makefile`: host-aware Linux, macOS, and preliminary Windows build targets.
 
 ## Linux Build
 
@@ -68,5 +68,19 @@ make
 The default target builds, signs, and archives `ro-totem.app`. The application
 bundle includes `ui.html` and its icon under `Contents/Resources`.
 
-The Makefile detects Linux and macOS automatically. Explicit
-`linux-package` and `macos-package` targets are also available.
+The Makefile detects Linux, macOS, and Windows automatically. Explicit
+platform package targets are also available.
+
+## Windows Build
+
+The preliminary Windows target uses Zig's C compiler with the
+`x86_64-windows-gnu` target:
+
+```sh
+make windows-check
+make windows-package
+```
+
+`windows-check` lists the Windows Skred and WebView2 files that still need to
+be supplied. The resulting package will keep `ro-totem.exe` and `ui.html`
+together under `dist/`.

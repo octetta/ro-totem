@@ -525,7 +525,8 @@ is the reusable design.
   libraries.
 - `vendor/webview/`: vendored native webview abstraction and platform
   backends.
-- `Makefile`: Linux compilation and macOS application-bundle example.
+- `Makefile`: Linux, macOS, and preliminary Zig-based Windows build and
+  packaging targets.
 - `assets/Info.plist`: macOS bundle metadata.
 
 ro-totem should remain a working example first and a framework second. New
