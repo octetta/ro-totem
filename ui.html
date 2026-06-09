@@ -154,10 +154,85 @@
         .master-volume { width: 100%; margin-top: 10px; }
         .advanced-row { margin-top: 10px; }
 
-        .command-card {
+        .repl-launch {
             margin-top: 10px;
-            border-top-color: #ff9800;
+            background: #ff9800;
+            color: white;
+        }
+
+        .repl-launch:hover {
+            background: #e68900;
+        }
+
+        .repl-window {
+            position: fixed;
+            top: 90px;
+            left: 50%;
+            z-index: 1000;
+            display: flex;
+            width: min(620px, calc(100vw - 32px));
+            height: min(390px, calc(100vh - 32px));
+            min-width: 320px;
+            min-height: 220px;
+            max-width: calc(100vw - 16px);
+            max-height: calc(100vh - 16px);
+            overflow: hidden;
+            resize: both;
+            transform: translateX(-50%);
+            border: 1px solid #7a3e00;
+            border-radius: 9px;
             background: #fffaf0;
+            box-shadow: 0 14px 36px rgba(0,0,0,0.3);
+            flex-direction: column;
+        }
+
+        .repl-window[hidden] {
+            display: none;
+        }
+
+        .repl-window.positioned {
+            transform: none;
+        }
+
+        .repl-titlebar {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 10px;
+            background: #7a3e00;
+            color: white;
+            cursor: move;
+            user-select: none;
+            touch-action: none;
+        }
+
+        .repl-title {
+            flex: 1;
+            font-weight: bold;
+        }
+
+        .repl-titlebar button {
+            padding: 4px 9px;
+            background: #fff3df;
+            color: #4a3200;
+        }
+
+        .repl-titlebar button:hover {
+            background: #ffd7a3;
+        }
+
+        .repl-body {
+            display: flex;
+            min-height: 0;
+            padding: 10px;
+            gap: 10px;
+            flex: 1;
+            flex-direction: column;
+        }
+
+        .repl-command-row {
+            display: flex;
+            gap: 8px;
         }
 
         .command-input {
@@ -175,14 +250,15 @@
         }
 
         .log-container {
-            height: 300px;
-            overflow-y: scroll;
+            min-height: 0;
+            overflow-y: auto;
             padding: 10px;
             border: 1px solid #ccc;
             border-radius: 4px;
             background: #fdfdfd;
             color: #333;
             font-family: "Courier New", monospace;
+            flex: 1;
         }
 
         .log-output { margin: 0; white-space: pre-wrap; }
@@ -490,27 +566,7 @@
             <span id="audio-device-status" role="status"></span>
           </div>
           <div id="range-settings" class="range-settings"></div>
-          <div class="voice-card command-card">
-            <div class="row">
-              <input type="text"
-                id="skode-input"
-                placeholder="Enter command..."
-                autocapitalize="none"
-                autocorrect="off"
-                spellcheck="false"
-                autocomplete="off"
-                class="command-input">
-              <button id="skode-send" class="command-send" data-action="send-command">send</button>
-            </div>
-            <details class="custom-accordion">
-              <summary>log</summary>
-              <div class="accordion-content">
-                <div id="log-container" class="log-container">
-                  <pre id="log-output" class="log-output"></pre>
-                </div>
-              </div>
-            </details>
-          </div>
+          <button type="button" class="repl-launch" data-action="open-repl">open REPL</button>
         </details>
 
         </div>
@@ -520,11 +576,38 @@
 
 </div>
 
+<section id="repl-window" class="repl-window" aria-label="Command REPL" hidden>
+    <header id="repl-titlebar" class="repl-titlebar">
+        <span class="repl-title">REPL</span>
+        <button type="button" data-action="clear-repl">clear</button>
+        <button type="button" data-action="close-repl" aria-label="Close REPL">close</button>
+    </header>
+    <div class="repl-body">
+        <div id="log-container" class="log-container" role="log" aria-live="polite">
+            <pre id="log-output" class="log-output"></pre>
+        </div>
+        <div class="repl-command-row">
+            <input type="text"
+                id="skode-input"
+                placeholder="Enter command..."
+                autocapitalize="none"
+                autocorrect="off"
+                spellcheck="false"
+                autocomplete="off"
+                class="command-input">
+            <button id="skode-send" class="command-send" data-action="send-command">send</button>
+        </div>
+    </div>
+</section>
+
 <script>
     // --- CONSTANTS AND NATIVE BRIDGE ---
     const MAX_LOG_LINES = 20;
     const logOutput = document.getElementById('log-output');
     const logContainer = document.getElementById('log-container');
+    const replWindow = document.getElementById('repl-window');
+    const replTitlebar = document.getElementById('repl-titlebar');
+    const replInput = document.getElementById('skode-input');
 
     /*
      * UI-to-native protocol handled by invoker() in rototem.c:
@@ -572,6 +655,69 @@
         logOutput.textContent = lines.join('\n');
         logContainer.scrollTop = logContainer.scrollHeight;
     }
+
+    function positionReplWithinViewport() {
+        if (replWindow.hidden) return;
+        const rect = replWindow.getBoundingClientRect();
+        const maxLeft = Math.max(0, window.innerWidth - rect.width);
+        const maxTop = Math.max(0, window.innerHeight - rect.height);
+        replWindow.style.left = `${Math.min(maxLeft, Math.max(0, rect.left))}px`;
+        replWindow.style.top = `${Math.min(maxTop, Math.max(0, rect.top))}px`;
+        replWindow.classList.add('positioned');
+    }
+
+    function openRepl() {
+        replWindow.hidden = false;
+        requestAnimationFrame(() => {
+            positionReplWithinViewport();
+            replInput.focus();
+        });
+    }
+
+    function closeRepl() {
+        replWindow.hidden = true;
+    }
+
+    function clearRepl() {
+        logOutput.textContent = '';
+        replInput.focus();
+    }
+
+    let replDrag = null;
+
+    replTitlebar.addEventListener('pointerdown', (event) => {
+        if (event.target.closest('button')) return;
+        const rect = replWindow.getBoundingClientRect();
+        replWindow.style.left = `${rect.left}px`;
+        replWindow.style.top = `${rect.top}px`;
+        replWindow.classList.add('positioned');
+        replDrag = {
+            pointerId: event.pointerId,
+            offsetX: event.clientX - rect.left,
+            offsetY: event.clientY - rect.top
+        };
+        replTitlebar.setPointerCapture(event.pointerId);
+    });
+
+    replTitlebar.addEventListener('pointermove', (event) => {
+        if (!replDrag || event.pointerId !== replDrag.pointerId) return;
+        const maxLeft = Math.max(0, window.innerWidth - replWindow.offsetWidth);
+        const maxTop = Math.max(0, window.innerHeight - replWindow.offsetHeight);
+        const left = Math.min(maxLeft, Math.max(0, event.clientX - replDrag.offsetX));
+        const top = Math.min(maxTop, Math.max(0, event.clientY - replDrag.offsetY));
+        replWindow.style.left = `${left}px`;
+        replWindow.style.top = `${top}px`;
+    });
+
+    function endReplDrag(event) {
+        if (!replDrag || event.pointerId !== replDrag.pointerId) return;
+        replDrag = null;
+        replTitlebar.releasePointerCapture(event.pointerId);
+    }
+
+    replTitlebar.addEventListener('pointerup', endReplDrag);
+    replTitlebar.addEventListener('pointercancel', endReplDrag);
+    window.addEventListener('resize', positionReplWithinViewport);
 
     // --- CUSTOM ELEMENTS ---
     class ControlSlider extends HTMLElement {
@@ -1428,6 +1574,9 @@
             case 'refresh-audio-devices': refreshAudioDevices(); break;
             case 'load-settings': loadSettingsFile(); break;
             case 'save-settings': saveSettingsFile(); break;
+            case 'open-repl': openRepl(); break;
+            case 'close-repl': closeRepl(); break;
+            case 'clear-repl': clearRepl(); break;
             case 'send-command': skode(getcmd()); break;
             case 'toggle-track-lock': toggleTrackLock(track); break;
             case 'choose-wave': native.chooseWave(voice); break;
@@ -1469,6 +1618,9 @@
         skode(getcmd());
     });
 
+    document.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape' && !replWindow.hidden) closeRepl();
+    });
 
 window.addEventListener('keydown', (e) => {
     // Check for F5 or Ctrl+R / Cmd+R
