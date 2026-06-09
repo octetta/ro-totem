@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=ro-totem
+Comment=Portable Skred audio application
+Exec=ro-totem
+Icon=ro-totem
+Terminal=false
+Categories=AudioVideo;Audio;

@@ -17,6 +17,10 @@ LINUX_BINARY := $(LINUX_BUILD_DIR)/$(APP_NAME)
 LINUX_PACKAGE_NAME := $(APP_NAME)-linux-$(HOST_ARCH)
 LINUX_PACKAGE_DIR := $(DIST_DIR)/$(LINUX_PACKAGE_NAME)
 LINUX_ARCHIVE := $(DIST_DIR)/$(LINUX_PACKAGE_NAME).tar.gz
+APPDIR := $(DIST_DIR)/$(APP_NAME).AppDir
+APPDIR_USR := $(APPDIR)/usr
+APPIMAGE := $(DIST_DIR)/$(APP_NAME)-linux-$(HOST_ARCH).AppImage
+APPIMAGETOOL ?= appimagetool
 LINUX_CFLAGS = $(shell pkg-config --cflags gtk+-3.0 webkit2gtk-4.0)
 LINUX_LIBS = $(shell pkg-config --libs gtk+-3.0 webkit2gtk-4.0)
 
@@ -38,7 +42,8 @@ endif
 
 .DEFAULT_GOAL := all
 
-.PHONY: all linux linux-bundle linux-package macos bundle macos-package clean
+.PHONY: all linux linux-bundle linux-package appdir appimage \
+	macos bundle macos-package clean
 
 all: $(DEFAULT_TARGET)
 
@@ -64,6 +69,28 @@ linux-package: $(LINUX_BINARY)
 
 # Compatibility with the previous Linux target name.
 linux-bundle: linux-package
+
+appdir: $(LINUX_BINARY)
+	rm -rf $(APPDIR)
+	mkdir -p $(APPDIR_USR)/bin
+	mkdir -p $(APPDIR_USR)/share/applications
+	mkdir -p $(APPDIR_USR)/share/icons/hicolor/728x728/apps
+	cp $(LINUX_BINARY) $(APPDIR_USR)/bin/$(APP_NAME)
+	cp ui.html $(APPDIR_USR)/bin/
+	cp packaging/linux/AppRun $(APPDIR)/
+	cp packaging/linux/$(APP_NAME).desktop $(APPDIR)/
+	cp packaging/linux/$(APP_NAME).desktop \
+		$(APPDIR_USR)/share/applications/
+	cp $(ASSETS_DIR)/rototem.png $(APPDIR)/$(APP_NAME).png
+	cp $(ASSETS_DIR)/rototem.png \
+		$(APPDIR_USR)/share/icons/hicolor/728x728/apps/$(APP_NAME).png
+	ln -s $(APP_NAME).png $(APPDIR)/.DirIcon
+	chmod +x $(APPDIR)/AppRun $(APPDIR_USR)/bin/$(APP_NAME)
+
+appimage: appdir
+	ARCH=$(HOST_ARCH) APPIMAGE_EXTRACT_AND_RUN=1 \
+		$(APPIMAGETOOL) $(APPDIR) $(APPIMAGE)
+	chmod +x $(APPIMAGE)
 
 $(MACOS_BINARY): $(COMMON_SOURCES) $(WEBVIEW_DIR)/webview-cocoa.c \
 		$(SKRED_DIR)/lib/macos/libapi.a

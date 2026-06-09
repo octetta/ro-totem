@@ -1,0 +1,4 @@
+[tools."github:AppImage/appimagetool"]
+version = "1.9.0"
+asset_pattern = "appimagetool-x86_64.AppImage"
+bin = "appimagetool"

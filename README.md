@@ -45,6 +45,18 @@ instructions together. Extract it and run `./rototem`.
 
 Use `make linux` to compile only the executable under `build/linux/`.
 
+For AppImage packaging:
+
+```sh
+mise install
+make appdir
+make appimage
+```
+
+These targets create `dist/ro-totem.AppDir/` and an executable AppImage under
+`dist/`. The AppImage currently relies on the host GTK 3 and WebKitGTK runtime
+libraries.
+
 ## macOS Build
 
 With Xcode command-line tools installed:
