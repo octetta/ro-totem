@@ -619,9 +619,13 @@ int main(void) {
   struct webview webview;
   memset(&webview, 0, sizeof(webview));
   webview.url = html_path;
-  webview.title = "ro-totem gemini epsilon-two 2026";
+  webview.title = "ro-totem gemini epsilon-three 2026";
   webview.width = 884;  // window.innerWidth
-  webview.height = 700; // window.innerHeight
+#ifdef __linux__
+  webview.height = 740;
+#else
+  webview.height = 700;
+#endif
   webview.resizable = 1;
   webview.debug = 1;
   webview.external_invoke_cb = &invoker;

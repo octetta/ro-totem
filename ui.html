@@ -133,9 +133,25 @@
             margin-top: 10px;
         }
 
-        .master-controls-row { align-items: flex-end; gap: 20px; }
-        .master-volume { flex: 2; }
-        .master-buttons { flex: 1; }
+        .row.master-toolbar {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+            width: 100%;
+            gap: 8px;
+        }
+
+        .master-toolbar-group {
+            display: flex;
+            gap: 8px;
+            flex: 0 0 auto;
+        }
+
+        .master-toolbar-left { justify-self: start; }
+        .master-toolbar-center { justify-self: center; }
+        .master-toolbar-right { justify-self: end; }
+        .master-directory { margin-top: 8px; color: #666; }
+        .master-directory.has-directory { color: inherit; }
+        .master-volume { width: 100%; margin-top: 10px; }
         .advanced-row { margin-top: 10px; }
 
         .command-card {
@@ -404,6 +420,9 @@
         .flip-btn { color: #4a3200; background: #ffc857; }
         .flip-btn:hover { background: #f2ad2e; }
 
+        .settings-btn { color: #4a3200; background: #ffb347; }
+        .settings-btn:hover { background: #f29a2e; }
+
         .mute-btn {
             color: #fff;
             background: #5468d4;
@@ -433,21 +452,25 @@
 <div class="dashboard">
 
     <div class="voice-card master-card">
-        <div class="row">
-            <button data-action="choose-directory">dir</button>
-            <div id="dir" class="mono"></div>
-            <button class="xtra-btn" data-action="randomize-all">rand</button>
-        </div>
-
-        <div class="row master-controls-row">
-            <div class="master-volume">
-                <control-slider id="master-vol" label="volume" step=".01" min="-90" max="0" value="-20"></control-slider>
+        <div class="row master-toolbar">
+            <div class="master-toolbar-group master-toolbar-left">
+                <button data-action="choose-directory">dir</button>
+                <button class="xtra-btn" data-action="randomize-all">rand</button>
             </div>
-            <div class="button-group master-buttons">
+            <div class="master-toolbar-group master-toolbar-center">
                 <button class="start-btn" data-action="set-all-playing" data-playing="true">all go</button>
                 <button class="stop-btn" data-action="set-all-playing" data-playing="false">all end</button>
             </div>
+            <div class="master-toolbar-group master-toolbar-right">
+                <button class="settings-btn" type="button" data-action="load-settings">load</button>
+                <button class="settings-btn" type="button" data-action="save-settings">save</button>
+            </div>
+        </div>
+        <div id="dir" class="mono master-directory">choose a directory of WAV files</div>
+        <span id="settings-status" role="status"></span>
 
+        <div class="master-volume">
+            <control-slider id="master-vol" label="volume" step=".01" min="-60" max="0" value="-20"></control-slider>
         </div>
 
         <div class="row advanced-row">
@@ -467,11 +490,6 @@
             <span id="audio-device-status" role="status"></span>
           </div>
           <div id="range-settings" class="range-settings"></div>
-          <div class="settings-actions">
-            <button type="button" data-action="load-settings">load JSON</button>
-            <button type="button" data-action="save-settings">save JSON</button>
-            <span id="settings-status" role="status"></span>
-          </div>
           <div class="voice-card command-card">
             <div class="row">
               <input type="text"
@@ -597,7 +615,13 @@
             input.step = this.getAttribute('step') || 1;
             const labelText = this.getAttribute('label') || 'Slider';
             if (label) label.textContent = labelText;
-            input.classList.toggle('volume', labelText.toLowerCase() === 'volume');
+            const sliderKind = labelText.toLowerCase();
+            input.classList.toggle('volume', sliderKind === 'volume');
+            input.classList.toggle('speed', sliderKind === 'speed');
+            input.classList.toggle(
+                'colored-range',
+                sliderKind === 'volume' || sliderKind === 'speed'
+            );
 
             const min = parseFloat(input.min);
             const max = parseFloat(input.max);
@@ -620,6 +644,10 @@
             const step = this.getAttribute('step') || 1;
             const val = this.getAttribute('value') || min;
             const label = this.getAttribute('label') || 'Slider';
+            const sliderKind = label.toLowerCase();
+            const sliderClass = ['volume', 'speed'].includes(sliderKind)
+                ? `colored-range ${sliderKind}`
+                : '';
             this.defaultValue = parseFloat(val);
 
             this.shadowRoot.innerHTML = `
@@ -629,48 +657,61 @@
                 .row { display: flex; align-items: center; gap: 10px; }
                 input { flex-grow: 1; accent-color: #6200ee; cursor: pointer; }
                 input.volume {
+                    --range-low: #c9b8f4;
+                    --range-marker: #4a3b63;
+                    --range-high: #6200ee;
+                    --range-thumb: #6200ee;
+                }
+                input.speed {
+                    --range-low: #ffd7a3;
+                    --range-marker: #7a3e00;
+                    --range-high: #f57c00;
+                    --range-thumb: #f57c00;
+                    accent-color: #f57c00;
+                }
+                input.colored-range {
                     appearance: none;
                     height: 18px;
                     background: transparent;
                 }
-                input.volume::-webkit-slider-runnable-track {
+                input.colored-range::-webkit-slider-runnable-track {
                     height: 6px;
                     border-radius: 3px;
                     background: linear-gradient(to right,
-                        #c9b8f4 0,
-                        #c9b8f4 calc(var(--default-position) - 1px),
-                        #4a3b63 calc(var(--default-position) - 1px),
-                        #4a3b63 calc(var(--default-position) + 1px),
-                        #6200ee calc(var(--default-position) + 1px),
-                        #6200ee 100%);
+                        var(--range-low) 0,
+                        var(--range-low) calc(var(--default-position) - 1px),
+                        var(--range-marker) calc(var(--default-position) - 1px),
+                        var(--range-marker) calc(var(--default-position) + 1px),
+                        var(--range-high) calc(var(--default-position) + 1px),
+                        var(--range-high) 100%);
                 }
-                input.volume::-webkit-slider-thumb {
+                input.colored-range::-webkit-slider-thumb {
                     appearance: none;
                     width: 16px;
                     height: 16px;
                     margin-top: -5px;
                     border: 2px solid #fff;
                     border-radius: 50%;
-                    background: #6200ee;
+                    background: var(--range-thumb);
                     box-shadow: 0 1px 3px rgba(0,0,0,0.3);
                 }
-                input.volume::-moz-range-track {
+                input.colored-range::-moz-range-track {
                     height: 6px;
                     border-radius: 3px;
                     background: linear-gradient(to right,
-                        #c9b8f4 0,
-                        #c9b8f4 calc(var(--default-position) - 1px),
-                        #4a3b63 calc(var(--default-position) - 1px),
-                        #4a3b63 calc(var(--default-position) + 1px),
-                        #6200ee calc(var(--default-position) + 1px),
-                        #6200ee 100%);
+                        var(--range-low) 0,
+                        var(--range-low) calc(var(--default-position) - 1px),
+                        var(--range-marker) calc(var(--default-position) - 1px),
+                        var(--range-marker) calc(var(--default-position) + 1px),
+                        var(--range-high) calc(var(--default-position) + 1px),
+                        var(--range-high) 100%);
                 }
-                input.volume::-moz-range-thumb {
+                input.colored-range::-moz-range-thumb {
                     width: 12px;
                     height: 12px;
                     border: 2px solid #fff;
                     border-radius: 50%;
-                    background: #6200ee;
+                    background: var(--range-thumb);
                     box-shadow: 0 1px 3px rgba(0,0,0,0.3);
                 }
                 span { font-family: monospace; font-size: 0.85rem; min-width: 45px; text-align: right; }
@@ -678,7 +719,7 @@
             <div class="wrapper">
                 <label>${label}</label>
                 <div class="row">
-                    <input class="${label.toLowerCase() === 'volume' ? 'volume' : ''}"
+                    <input class="${sliderClass}"
                         type="range" min="${min}" max="${max}" step="${step}" value="${val}">
                     <span class="display">${val}</span>
                 </div>
@@ -1326,7 +1367,9 @@
 
     function setWaveDirectory(directory) {
         waveDirectory = directory;
-        document.getElementById('dir').textContent = directory;
+        const display = document.getElementById('dir');
+        display.textContent = directory || 'choose a directory of WAV files';
+        display.classList.toggle('has-directory', Boolean(directory));
     }
 
     document.addEventListener('update', (e) => {
