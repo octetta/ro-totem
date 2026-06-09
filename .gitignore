@@ -7,3 +7,5 @@ ro-totem.app
 rototem.app/Contents/MacOS/rototem
 .vscode/*
 *.json
+build/
+dist/

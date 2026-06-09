@@ -36,10 +36,14 @@ Install GTK 3 and WebKitGTK development packages. On Fedora:
 
 ```sh
 sudo dnf install gtk3-devel webkit2gtk4.0-devel
-make linux-bundle
+make
 ```
 
-This creates the `rototem` executable in the repository root.
+On Linux, the default target creates a portable archive under `dist/`. The
+archive keeps the `rototem` executable, `ui.html`, icon, and launch
+instructions together. Extract it and run `./rototem`.
+
+Use `make linux` to compile only the executable under `build/linux/`.
 
 ## macOS Build
 
@@ -51,3 +55,6 @@ make
 
 The default target builds, signs, and archives `ro-totem.app`. The application
 bundle includes `ui.html` and its icon under `Contents/Resources`.
+
+The Makefile detects Linux and macOS automatically. Explicit
+`linux-package` and `macos-package` targets are also available.
