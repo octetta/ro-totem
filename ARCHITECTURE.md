@@ -141,6 +141,11 @@ to perform:
 | `W<voice>:<path>` | Load a WAV file into a stereo voice pair |
 | `JS<json>` | Save settings JSON |
 | `JL` | Load settings JSON |
+| `PB` | Begin saving a project ZIP |
+| `PW<index>:<archive-path>:<source-path>` | Add a WAV to the pending project ZIP |
+| `PF<json>` | Add settings and finish the pending project ZIP |
+| `PL` | Load a project ZIP |
+| `PA` / `PR` | Accept or reject an extracted project after UI validation |
 | `DR` | Refresh audio-device choices |
 | `DA<capture>:<selection>` | Apply an audio-device selection |
 
@@ -327,6 +332,17 @@ all requested wave loads report completion.
 
 Keep settings declarative. Save values such as ranges, device identity, wave
 paths, and mute state rather than replaying an opaque history of UI actions.
+
+Project ZIP files contain `settings.json` and WAV entries under `waves/`.
+Original WAV basenames are preserved. If distinct source paths share a
+basename, later entries receive a suffix such as ` (2)`; characters that are
+not portable as Windows filenames are replaced with `_`. The archived settings
+use those relative paths. Native loading validates the complete ZIP, rejects
+unexpected names and duplicate entries, applies size and count limits, and
+extracts into an app-owned temporary directory. JavaScript resolves the
+relative paths before calling the normal settings restoration flow. Temporary
+project files are removed when a different project is loaded or the
+application exits.
 
 ## Application Lifecycle
 

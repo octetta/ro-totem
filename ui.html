@@ -538,8 +538,10 @@
                 <button class="stop-btn" data-action="set-all-playing" data-playing="false">all end</button>
             </div>
             <div class="master-toolbar-group master-toolbar-right">
-                <button class="settings-btn" type="button" data-action="load-settings">load</button>
-                <button class="settings-btn" type="button" data-action="save-settings">save</button>
+                <button class="settings-btn" type="button" data-action="load-project"
+                    title="Load settings and WAV files from a ZIP archive">load zip</button>
+                <button class="settings-btn" type="button" data-action="save-project"
+                    title="Save settings and WAV files to a ZIP archive">save zip</button>
             </div>
         </div>
         <div id="dir" class="mono master-directory">choose a directory of WAV files</div>
@@ -564,6 +566,10 @@
           <div class="settings-actions">
             <button type="button" data-action="refresh-audio-devices">refresh devices</button>
             <span id="audio-device-status" role="status"></span>
+          </div>
+          <div class="settings-actions">
+            <button type="button" data-action="load-settings">load settings json</button>
+            <button type="button" data-action="save-settings">save settings json</button>
           </div>
           <div id="range-settings" class="range-settings"></div>
           <button type="button" class="repl-launch" data-action="open-repl">open REPL</button>
@@ -642,6 +648,14 @@
         loadWave(voice, path) { return this.invoke(`W${voice}:${path}`); },
         saveSettings(json) { return this.invoke(`JS${json}`); },
         loadSettings() { return this.invoke('JL'); },
+        beginProjectSave() { return this.invoke('PB'); },
+        addProjectWave(index, archivePath, path) {
+            return this.invoke(`PW${index}:${archivePath}:${path}`);
+        },
+        finishProjectSave(json) { return this.invoke(`PF${json}`); },
+        loadProject() { return this.invoke('PL'); },
+        acceptProject() { return this.invoke('PA'); },
+        rejectProject() { return this.invoke('PR'); },
         refreshAudioDevices() { return this.invoke('DR'); },
         applyAudioDevice(isInput, selection) {
             return this.invoke(`DA${isInput ? 1 : 0}:${selection}`);
@@ -676,6 +690,14 @@
 
     function closeRepl() {
         replWindow.hidden = true;
+    }
+
+    function toggleRepl() {
+        if (replWindow.hidden) {
+            openRepl();
+        } else {
+            closeRepl();
+        }
     }
 
     function clearRepl() {
@@ -983,6 +1005,7 @@
     };
     let pendingAudioDeviceSettings = null;
     let pendingVoiceRestore = null;
+    let pendingProjectSave = null;
 
     function stateFor(track) {
         return trackState[track] || null;
@@ -1286,6 +1309,29 @@
         }
     }
 
+    function loadProjectFromText(text, rootDirectory) {
+        try {
+            const settings = JSON.parse(text);
+            if (!settings || !Array.isArray(settings.tracks)) {
+                throw new Error('The project settings are invalid.');
+            }
+            const root = rootDirectory.replace(/[\\/]$/, '');
+            settings.directory = `${root}/waves`;
+            settings.tracks.forEach(track => {
+                if (!track || !track.wave || typeof track.wave.path !== 'string') return;
+                if (!/^waves\/[^/\\]+\.wav$/i.test(track.wave.path)) {
+                    throw new Error('The project contains an invalid WAV path.');
+                }
+                track.wave.path = `${root}/${track.wave.path}`;
+            });
+            applySettings(settings);
+            native.acceptProject();
+        } catch (error) {
+            native.rejectProject();
+            settingsFileError(error.message);
+        }
+    }
+
     function saveSettingsFile() {
         const json = JSON.stringify(getSettings(), null, 2);
         native.saveSettings(json);
@@ -1295,8 +1341,76 @@
         native.loadSettings();
     }
 
+    function saveProjectFile() {
+        const settings = getSettings();
+        const archivedPaths = new Map();
+        const archiveNames = new Set();
+        const waves = [];
+
+        settings.tracks.forEach(track => {
+            if (!track.wave || typeof track.wave.path !== 'string') return;
+
+            let archivePath = archivedPaths.get(track.wave.path);
+            if (!archivePath) {
+                const index = waves.length;
+                const originalName =
+                    track.wave.path.split(/[\\/]/).pop() || `wave-${index}.wav`;
+                const sourceName = originalName
+                    .replace(/[<>:"|?*\u0000-\u001f]/g, '_')
+                    .replace(/[. ]+$/, '') || `wave-${index}.wav`;
+                const hasWavExtension = sourceName.toLowerCase().endsWith('.wav');
+                const extensionIndex = hasWavExtension ? sourceName.length - 4 : sourceName.length;
+                const stem = sourceName.slice(0, extensionIndex) || `wave-${index}`;
+                const extension = hasWavExtension ? sourceName.slice(-4) : '.wav';
+                let archiveName = `${stem}${extension}`;
+                let duplicate = 2;
+                while (archiveNames.has(archiveName.toLowerCase())) {
+                    archiveName = `${stem} (${duplicate++})${extension}`;
+                }
+                archiveNames.add(archiveName.toLowerCase());
+                archivePath = `waves/${archiveName}`;
+                archivedPaths.set(track.wave.path, archivePath);
+                waves.push({ index, archivePath, path: track.wave.path });
+            }
+            track.wave.path = archivePath;
+        });
+        settings.directory = waves.length > 0 ? 'waves' : null;
+
+        pendingProjectSave = {
+            waves,
+            json: JSON.stringify(settings, null, 2)
+        };
+        setSettingsStatus('choose where to save the project...');
+        native.beginProjectSave();
+    }
+
+    function projectSaveReady() {
+        if (!pendingProjectSave) return;
+        const { waves, json } = pendingProjectSave;
+        pendingProjectSave = null;
+        setSettingsStatus('saving project...');
+        waves.forEach(wave =>
+            native.addProjectWave(wave.index, wave.archivePath, wave.path)
+        );
+        native.finishProjectSave(json);
+    }
+
+    function loadProjectFile() {
+        native.loadProject();
+    }
+
     function settingsFileSaved() {
         setSettingsStatus('settings saved');
+    }
+
+    function projectFileSaved(filename) {
+        pendingProjectSave = null;
+        setSettingsStatus(filename ? `project saved: ${filename}` : 'project saved');
+    }
+
+    function projectFileCancelled() {
+        pendingProjectSave = null;
+        setSettingsStatus('project save cancelled');
     }
 
     function settingsFileError(message) {
@@ -1574,6 +1688,8 @@
             case 'refresh-audio-devices': refreshAudioDevices(); break;
             case 'load-settings': loadSettingsFile(); break;
             case 'save-settings': saveSettingsFile(); break;
+            case 'load-project': loadProjectFile(); break;
+            case 'save-project': saveProjectFile(); break;
             case 'open-repl': openRepl(); break;
             case 'close-repl': closeRepl(); break;
             case 'clear-repl': clearRepl(); break;
@@ -1619,6 +1735,12 @@
     });
 
     document.addEventListener('keydown', (event) => {
+        if (event.ctrlKey && event.code === 'Backquote' && !event.repeat) {
+            event.preventDefault();
+            toggleRepl();
+            return;
+        }
+
         if (event.key === 'Escape' && !replWindow.hidden) closeRepl();
     });
 

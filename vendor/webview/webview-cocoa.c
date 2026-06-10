@@ -605,6 +605,10 @@ WEBVIEW_API void webview_dialog(struct webview *w,
     ((void(*)(id, SEL, int))objc_msgSend)(panel, sel_registerName("setCanSelectHiddenExtension:"), 0);
     ((void(*)(id, SEL, int))objc_msgSend)(panel, sel_registerName("setTreatsFilePackagesAsDirectories:"),
                  1);
+    if (dlgtype == WEBVIEW_DIALOG_TYPE_SAVE && arg != NULL && arg[0] != '\0') {
+      ((void(*)(id, SEL, id))objc_msgSend)(
+          panel, sel_registerName("setNameFieldStringValue:"), get_nsstring(arg));
+    }
     ((void(*)(id, SEL, id, void (^)(id)))objc_msgSend)(
         panel, sel_registerName("beginSheetModalForWindow:completionHandler:"),
         w->priv.window, ^(id result) {

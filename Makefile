@@ -25,9 +25,12 @@ DIST_DIR := dist
 PACKAGING_DIR := packaging
 SKRED_DIR := vendor/skred
 WEBVIEW_DIR := vendor/webview
+MINIZ_DIR := vendor/miniz
+MINIZ_SOURCE := $(MINIZ_DIR)/miniz.c
 
 COMMON_SOURCES := rototem.c ui.html \
 	$(SKRED_DIR)/include/api.h \
+	$(MINIZ_DIR)/miniz.h $(MINIZ_SOURCE) \
 	$(WEBVIEW_DIR)/webview.h
 
 ifeq ($(HOST_OS),Windows)
@@ -67,7 +70,7 @@ $(LINUX_BINARY): $(COMMON_SOURCES) $(WEBVIEW_DIR)/webview-gtk.c \
 		$(SKRED_DIR)/lib/linux/libapi.a
 	mkdir -p $(LINUX_BUILD_DIR)
 	$(CC) $(CPPFLAGS) $(CFLAGS) $(LINUX_CFLAGS) \
-		-DWEBVIEW_GTK=1 rototem.c \
+		-DWEBVIEW_GTK=1 rototem.c $(MINIZ_SOURCE) \
 		-L$(SKRED_DIR)/lib/linux -lapi $(LINUX_LIBS) -lm \
 		-o $@
 
@@ -126,13 +129,14 @@ MACOS_APP := $(APP_NAME).app
 MACOS_CONTENTS := $(MACOS_APP)/Contents
 MACOS_EXECUTABLES := $(MACOS_CONTENTS)/MacOS
 MACOS_RESOURCES := $(MACOS_CONTENTS)/Resources
-MACOS_ARCHIVE := ro-totem-gemini-epsilon-three-2026.zip
+MACOS_ARCHIVE := ro-totem-gemini-epsilon-four-2026.zip
 
 $(MACOS_BINARY): $(COMMON_SOURCES) $(WEBVIEW_DIR)/webview-cocoa.c \
 		$(SKRED_DIR)/lib/macos/libapi.a
 	mkdir -p $(MACOS_BUILD_DIR)
 	$(CC) $(CPPFLAGS) $(CFLAGS) -g -ObjC \
-		-DOBJC_OLD_DISPATCH_PROTOTYPES=1 -DWEBVIEW_COCOA=1 rototem.c \
+		-DOBJC_OLD_DISPATCH_PROTOTYPES=1 -DWEBVIEW_COCOA=1 \
+		rototem.c $(MINIZ_SOURCE) \
 		-framework WebKit -framework CoreFoundation \
 		-L$(SKRED_DIR)/lib/macos -lapi \
 		-o $@
@@ -206,7 +210,7 @@ $(WINDOWS_BINARY): $(COMMON_SOURCES) $(WEBVIEW_DIR)/webview-win32.c \
 		$(WINDOWS_OPTIONAL_INPUTS)
 	mkdir -p $(WINDOWS_BUILD_DIR)
 	$(WINDOWS_CC) $(CPPFLAGS) $(CFLAGS) \
-		-I$(WEBVIEW_DIR) -DWEBVIEW_WINAPI=1 rototem.c \
+		-I$(WEBVIEW_DIR) -DWEBVIEW_WINAPI=1 rototem.c $(MINIZ_SOURCE) \
 		-L$(SKRED_DIR)/lib/windows -lapi \
 		$(WINDOWS_SYSTEM_LIBS) $(WINDOWS_LDFLAGS) -o $@
 
