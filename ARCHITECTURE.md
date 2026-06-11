@@ -312,7 +312,7 @@ Settings files have a format identifier and integer version:
 ```json
 {
   "format": "ro-totem-slider-settings",
-  "version": 7,
+  "version": 9,
   "tracks": []
 }
 ```
@@ -329,6 +329,21 @@ When changing settings:
 ro-totem uses pending restore state because wave loading is asynchronous from
 the UI's perspective. The saved slider and mute commands are applied only after
 all requested wave loads report completion.
+
+The configurable Controls window is stored in the same settings payload under
+`commandSliders`. Each entry preserves its command template, minimum, maximum,
+step, and current value. Four sliders are created by default; users can keep
+between four and eight, and the array length restores that count. Those
+commands are restored after any project WAV files finish loading, before saved
+track and master controls so the dedicated controls remain authoritative when
+both target the same engine parameter.
+
+The project also stores the main content size plus the dimensions and open
+state of the REPL and Controls windows under `uiWindows`. Window positions are
+intentionally not portable project state. The main size is restored through
+the native bridge; floating-panel dimensions preserve their current positions
+where possible, are clamped to the current viewport, and then their saved
+visibility is restored.
 
 Keep settings declarative. Save values such as ranges, device identity, wave
 paths, and mute state rather than replaying an opaque history of UI actions.

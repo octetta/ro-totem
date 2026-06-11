@@ -129,7 +129,7 @@ MACOS_APP := $(APP_NAME).app
 MACOS_CONTENTS := $(MACOS_APP)/Contents
 MACOS_EXECUTABLES := $(MACOS_CONTENTS)/MacOS
 MACOS_RESOURCES := $(MACOS_CONTENTS)/Resources
-MACOS_ARCHIVE := ro-totem-gemini-epsilon-four-2026.zip
+MACOS_ARCHIVE := ro-totem-gemini-epsilon-five-2026.zip
 
 $(MACOS_BINARY): $(COMMON_SOURCES) $(WEBVIEW_DIR)/webview-cocoa.c \
 		$(SKRED_DIR)/lib/macos/libapi.a

@@ -164,6 +164,16 @@
             background: #e68900;
         }
 
+        .controls-launch {
+            margin-top: 10px;
+            background: #5468d4;
+            color: white;
+        }
+
+        .controls-launch:hover {
+            background: #4052b5;
+        }
+
         .repl-window {
             position: fixed;
             top: 90px;
@@ -247,6 +257,124 @@
             min-width: 100px;
             background: #ff9800;
             color: white;
+        }
+
+        .controls-window {
+            top: 130px;
+            width: min(760px, calc(100vw - 32px));
+            height: auto;
+            min-height: 250px;
+            resize: both;
+            border-color: #35458f;
+            background: #f7f8ff;
+        }
+
+        .controls-window .repl-titlebar {
+            background: #35458f;
+        }
+
+        .controls-window .repl-titlebar button {
+            background: #eef0ff;
+            color: #26336b;
+        }
+
+        .controls-window .repl-titlebar button:hover {
+            background: #dce1ff;
+        }
+
+        .controls-window .repl-body {
+            overflow-y: auto;
+        }
+
+        .command-slider-row {
+            display: grid;
+            grid-template-columns:
+                minmax(130px, 1.6fr)
+                repeat(3, minmax(64px, 0.55fr))
+                minmax(90px, 0.7fr)
+                minmax(140px, 2fr);
+            gap: 7px;
+            align-items: center;
+        }
+
+        #command-slider-list {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .command-slider-head {
+            color: #5d6472;
+            font-size: 0.72rem;
+            font-weight: bold;
+            text-align: center;
+        }
+
+        .command-slider-row input {
+            min-width: 0;
+            box-sizing: border-box;
+        }
+
+        .command-slider-row input:not([type="range"]) {
+            width: 100%;
+            padding: 7px;
+            border: 1px solid #ccd2da;
+            border-radius: 4px;
+            background: white;
+        }
+
+        .command-slider-template {
+            font-family: monospace;
+        }
+
+        .command-slider {
+            width: 100%;
+        }
+
+        .command-slider-status {
+            min-height: 1.2em;
+            color: #555;
+            font-family: monospace;
+            font-size: 0.8rem;
+        }
+
+        .command-slider-actions {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .command-slider-actions button {
+            background: #5468d4;
+        }
+
+        .command-slider-actions button:hover {
+            background: #4052b5;
+        }
+
+        .command-slider-actions button:disabled {
+            background: #aeb5d8;
+            cursor: default;
+        }
+
+        #command-slider-count {
+            color: #555;
+            font-size: 0.8rem;
+        }
+
+        @media (max-width: 680px) {
+            .command-slider-row {
+                grid-template-columns: repeat(4, minmax(52px, 1fr));
+            }
+
+            .command-slider-template,
+            .command-slider {
+                grid-column: 1 / -1;
+            }
+
+            .command-slider-head {
+                display: none;
+            }
         }
 
         .log-container {
@@ -573,6 +701,7 @@
           </div>
           <div id="range-settings" class="range-settings"></div>
           <button type="button" class="repl-launch" data-action="open-repl">open REPL</button>
+          <button type="button" class="controls-launch" data-action="open-controls">open controls</button>
         </details>
 
         </div>
@@ -606,6 +735,74 @@
     </div>
 </section>
 
+<section id="controls-window" class="repl-window controls-window"
+    aria-label="Configurable command controls" hidden>
+    <header id="controls-titlebar" class="repl-titlebar">
+        <span class="repl-title">CONTROLS</span>
+        <button type="button" data-action="close-controls" aria-label="Close controls">close</button>
+    </header>
+    <div class="repl-body">
+        <div class="command-slider-row command-slider-head" aria-hidden="true">
+            <span>command</span>
+            <span>min</span>
+            <span>max</span>
+            <span>step</span>
+            <span>value</span>
+            <span>control</span>
+        </div>
+        <div id="command-slider-list">
+        <div class="command-slider-row">
+            <input class="command-slider-template" value="v0 n {}"
+                aria-label="Slider 1 command template" title="Use {} for the slider value">
+            <input type="number" class="command-slider-min" value="24" aria-label="Slider 1 minimum">
+            <input type="number" class="command-slider-max" value="84" aria-label="Slider 1 maximum">
+            <input type="number" class="command-slider-step" value=".01" aria-label="Slider 1 step">
+            <input type="number" class="command-slider-value" value="69" aria-label="Slider 1 value">
+            <input type="range" class="command-slider" min="24" max="84" step=".01" value="69"
+                aria-label="Command slider 1">
+        </div>
+        <div class="command-slider-row">
+            <input class="command-slider-template" value="v0 a {}"
+                aria-label="Slider 2 command template" title="Use {} for the slider value">
+            <input type="number" class="command-slider-min" value="-60" aria-label="Slider 2 minimum">
+            <input type="number" class="command-slider-max" value="0" aria-label="Slider 2 maximum">
+            <input type="number" class="command-slider-step" value=".01" aria-label="Slider 2 step">
+            <input type="number" class="command-slider-value" value="-20" aria-label="Slider 2 value">
+            <input type="range" class="command-slider" min="-60" max="0" step=".01" value="-20"
+                aria-label="Command slider 2">
+        </div>
+        <div class="command-slider-row">
+            <input class="command-slider-template" value="v2 n {}"
+                aria-label="Slider 3 command template" title="Use {} for the slider value">
+            <input type="number" class="command-slider-min" value="24" aria-label="Slider 3 minimum">
+            <input type="number" class="command-slider-max" value="84" aria-label="Slider 3 maximum">
+            <input type="number" class="command-slider-step" value=".01" aria-label="Slider 3 step">
+            <input type="number" class="command-slider-value" value="69" aria-label="Slider 3 value">
+            <input type="range" class="command-slider" min="24" max="84" step=".01" value="69"
+                aria-label="Command slider 3">
+        </div>
+        <div class="command-slider-row">
+            <input class="command-slider-template" value="v2 a {}"
+                aria-label="Slider 4 command template" title="Use {} for the slider value">
+            <input type="number" class="command-slider-min" value="-60" aria-label="Slider 4 minimum">
+            <input type="number" class="command-slider-max" value="0" aria-label="Slider 4 maximum">
+            <input type="number" class="command-slider-step" value=".01" aria-label="Slider 4 step">
+            <input type="number" class="command-slider-value" value="-20" aria-label="Slider 4 value">
+            <input type="range" class="command-slider" min="-60" max="0" step=".01" value="-20"
+                aria-label="Command slider 4">
+        </div>
+        </div>
+        <div class="command-slider-actions">
+            <button type="button" data-action="add-command-slider">add slider</button>
+            <button type="button" data-action="remove-command-slider">remove slider</button>
+            <span id="command-slider-count"></span>
+        </div>
+        <div id="command-slider-status" class="command-slider-status" role="status">
+            Use {} in a command template for the slider value.
+        </div>
+    </div>
+</section>
+
 <script>
     // --- CONSTANTS AND NATIVE BRIDGE ---
     const MAX_LOG_LINES = 20;
@@ -614,6 +811,13 @@
     const replWindow = document.getElementById('repl-window');
     const replTitlebar = document.getElementById('repl-titlebar');
     const replInput = document.getElementById('skode-input');
+    const controlsWindow = document.getElementById('controls-window');
+    const controlsTitlebar = document.getElementById('controls-titlebar');
+    const commandSliderList = document.getElementById('command-slider-list');
+    const commandSliderCount = document.getElementById('command-slider-count');
+    const commandSliderStatus = document.getElementById('command-slider-status');
+    const MIN_COMMAND_SLIDERS = 4;
+    const MAX_COMMAND_SLIDERS = 8;
 
     /*
      * UI-to-native protocol handled by invoker() in rototem.c:
@@ -624,6 +828,7 @@
      *   W<voice>:<path>   load a wave into a stereo voice pair
      *   JS<json> / JL     save or load the settings file
      *   DR / DA<c>:<n>    refresh or select audio devices
+     *   G<width>:<height> resize the native main window content area
      *
      * Audio-engine commands are a separate compact language. Common forms:
      *   v<n>a<x> volume, v<n>n<x> speed, v<n>l<0|1> play,
@@ -656,6 +861,9 @@
         loadProject() { return this.invoke('PL'); },
         acceptProject() { return this.invoke('PA'); },
         rejectProject() { return this.invoke('PR'); },
+        resizeMainWindow(width, height) {
+            return this.invoke(`G${width}:${height}`);
+        },
         refreshAudioDevices() { return this.invoke('DR'); },
         applyAudioDevice(isInput, selection) {
             return this.invoke(`DA${isInput ? 1 : 0}:${selection}`);
@@ -670,76 +878,327 @@
         logContainer.scrollTop = logContainer.scrollHeight;
     }
 
-    function positionReplWithinViewport() {
-        if (replWindow.hidden) return;
-        const rect = replWindow.getBoundingClientRect();
-        const maxLeft = Math.max(0, window.innerWidth - rect.width);
-        const maxTop = Math.max(0, window.innerHeight - rect.height);
-        replWindow.style.left = `${Math.min(maxLeft, Math.max(0, rect.left))}px`;
-        replWindow.style.top = `${Math.min(maxTop, Math.max(0, rect.top))}px`;
-        replWindow.classList.add('positioned');
-    }
+    let floatingWindowZ = 1000;
 
-    function openRepl() {
-        replWindow.hidden = false;
-        requestAnimationFrame(() => {
-            positionReplWithinViewport();
-            replInput.focus();
-        });
-    }
+    function makeFloatingWindow(panel, titlebar, defaultSize) {
+        let drag = null;
+        let size = {
+            width: defaultSize.width,
+            height: defaultSize.height
+        };
 
-    function closeRepl() {
-        replWindow.hidden = true;
-    }
-
-    function toggleRepl() {
-        if (replWindow.hidden) {
-            openRepl();
-        } else {
-            closeRepl();
+        function rememberSize() {
+            if (panel.hidden) return;
+            const rect = panel.getBoundingClientRect();
+            if (rect.width > 0 && rect.height > 0) {
+                size = { width: rect.width, height: rect.height };
+            }
         }
+
+        function bringToFront() {
+            floatingWindowZ += 1;
+            panel.style.zIndex = floatingWindowZ;
+        }
+
+        function positionWithinViewport() {
+            if (panel.hidden) return;
+            const rect = panel.getBoundingClientRect();
+            const maxLeft = Math.max(0, window.innerWidth - rect.width);
+            const maxTop = Math.max(0, window.innerHeight - rect.height);
+            panel.style.left = `${Math.min(maxLeft, Math.max(0, rect.left))}px`;
+            panel.style.top = `${Math.min(maxTop, Math.max(0, rect.top))}px`;
+            panel.classList.add('positioned');
+        }
+
+        function open(focusTarget) {
+            panel.hidden = false;
+            bringToFront();
+            requestAnimationFrame(() => {
+                positionWithinViewport();
+                if (focusTarget) focusTarget.focus();
+            });
+        }
+
+        function close() {
+            rememberSize();
+            panel.hidden = true;
+        }
+
+        function toggle(focusTarget) {
+            if (panel.hidden) {
+                open(focusTarget);
+            } else {
+                close();
+            }
+        }
+
+        titlebar.addEventListener('pointerdown', (event) => {
+            bringToFront();
+            if (event.target.closest('button')) return;
+            const rect = panel.getBoundingClientRect();
+            panel.style.left = `${rect.left}px`;
+            panel.style.top = `${rect.top}px`;
+            panel.classList.add('positioned');
+            drag = {
+                pointerId: event.pointerId,
+                offsetX: event.clientX - rect.left,
+                offsetY: event.clientY - rect.top
+            };
+            titlebar.setPointerCapture(event.pointerId);
+        });
+
+        titlebar.addEventListener('pointermove', (event) => {
+            if (!drag || event.pointerId !== drag.pointerId) return;
+            const maxLeft = Math.max(0, window.innerWidth - panel.offsetWidth);
+            const maxTop = Math.max(0, window.innerHeight - panel.offsetHeight);
+            const left = Math.min(maxLeft, Math.max(0, event.clientX - drag.offsetX));
+            const top = Math.min(maxTop, Math.max(0, event.clientY - drag.offsetY));
+            panel.style.left = `${left}px`;
+            panel.style.top = `${top}px`;
+        });
+
+        function endDrag(event) {
+            if (!drag || event.pointerId !== drag.pointerId) return;
+            drag = null;
+            if (titlebar.hasPointerCapture(event.pointerId)) {
+                titlebar.releasePointerCapture(event.pointerId);
+            }
+        }
+
+        titlebar.addEventListener('pointerup', endDrag);
+        titlebar.addEventListener('pointercancel', endDrag);
+        panel.addEventListener('pointerdown', bringToFront);
+        window.addEventListener('resize', positionWithinViewport);
+
+        if (typeof ResizeObserver === 'function') {
+            new ResizeObserver(rememberSize).observe(panel);
+        }
+
+        function getSize() {
+            rememberSize();
+            return {
+                width: Math.round(size.width),
+                height: Math.round(size.height)
+            };
+        }
+
+        function setSize(savedSize) {
+            if (!savedSize ||
+                !Number.isFinite(savedSize.width) ||
+                !Number.isFinite(savedSize.height)) {
+                return;
+            }
+
+            const width = Math.min(
+                Math.max(320, savedSize.width),
+                Math.max(320, window.innerWidth - 16)
+            );
+            const height = Math.min(
+                Math.max(220, savedSize.height),
+                Math.max(220, window.innerHeight - 16)
+            );
+            size = { width, height };
+            panel.style.width = `${width}px`;
+            panel.style.height = `${height}px`;
+            positionWithinViewport();
+        }
+
+        function isOpen() {
+            return !panel.hidden;
+        }
+
+        return { open, close, toggle, getSize, setSize, isOpen };
     }
+
+    const replPanel = makeFloatingWindow(
+        replWindow,
+        replTitlebar,
+        { width: 620, height: 390 }
+    );
+    const controlsPanel = makeFloatingWindow(
+        controlsWindow,
+        controlsTitlebar,
+        { width: 760, height: 390 }
+    );
+
+    function openRepl() { replPanel.open(replInput); }
+    function closeRepl() { replPanel.close(); }
+    function toggleRepl() { replPanel.toggle(replInput); }
+    function openControls() { controlsPanel.open(); }
+    function closeControls() { controlsPanel.close(); }
+    function toggleControls() { controlsPanel.toggle(); }
 
     function clearRepl() {
         logOutput.textContent = '';
         replInput.focus();
     }
 
-    let replDrag = null;
-
-    replTitlebar.addEventListener('pointerdown', (event) => {
-        if (event.target.closest('button')) return;
-        const rect = replWindow.getBoundingClientRect();
-        replWindow.style.left = `${rect.left}px`;
-        replWindow.style.top = `${rect.top}px`;
-        replWindow.classList.add('positioned');
-        replDrag = {
-            pointerId: event.pointerId,
-            offsetX: event.clientX - rect.left,
-            offsetY: event.clientY - rect.top
+    function commandSliderParts(row) {
+        return {
+            template: row.querySelector('.command-slider-template'),
+            min: row.querySelector('.command-slider-min'),
+            max: row.querySelector('.command-slider-max'),
+            step: row.querySelector('.command-slider-step'),
+            value: row.querySelector('.command-slider-value'),
+            slider: row.querySelector('.command-slider')
         };
-        replTitlebar.setPointerCapture(event.pointerId);
-    });
-
-    replTitlebar.addEventListener('pointermove', (event) => {
-        if (!replDrag || event.pointerId !== replDrag.pointerId) return;
-        const maxLeft = Math.max(0, window.innerWidth - replWindow.offsetWidth);
-        const maxTop = Math.max(0, window.innerHeight - replWindow.offsetHeight);
-        const left = Math.min(maxLeft, Math.max(0, event.clientX - replDrag.offsetX));
-        const top = Math.min(maxTop, Math.max(0, event.clientY - replDrag.offsetY));
-        replWindow.style.left = `${left}px`;
-        replWindow.style.top = `${top}px`;
-    });
-
-    function endReplDrag(event) {
-        if (!replDrag || event.pointerId !== replDrag.pointerId) return;
-        replDrag = null;
-        replTitlebar.releasePointerCapture(event.pointerId);
     }
 
-    replTitlebar.addEventListener('pointerup', endReplDrag);
-    replTitlebar.addEventListener('pointercancel', endReplDrag);
-    window.addEventListener('resize', positionReplWithinViewport);
+    function commandSliderRows() {
+        return Array.from(commandSliderList.querySelectorAll('.command-slider-row'));
+    }
+
+    function configureCommandSlider(row) {
+        const parts = commandSliderParts(row);
+        let min = Number(parts.min.value);
+        let max = Number(parts.max.value);
+        let step = Number(parts.step.value);
+        let value = Number(parts.value.value);
+
+        if (!Number.isFinite(min)) min = 0;
+        if (!Number.isFinite(max)) max = 1;
+        if (max < min) [min, max] = [max, min];
+        if (!Number.isFinite(step) || step <= 0) step = 1;
+        if (!Number.isFinite(value)) value = min;
+        value = Math.min(max, Math.max(min, value));
+
+        parts.min.value = min;
+        parts.max.value = max;
+        parts.step.value = step;
+        parts.value.value = value;
+        parts.slider.min = min;
+        parts.slider.max = max;
+        parts.slider.step = step;
+        parts.slider.value = value;
+    }
+
+    function formatCommandSliderValue(value, step) {
+        const number = Number(value);
+        const increment = Number(step);
+        if (!Number.isFinite(number)) return '0';
+        if (!Number.isFinite(increment) || increment <= 0) return String(number);
+        const stepText = String(increment);
+        const decimal = stepText.indexOf('.');
+        const places = decimal < 0 ? 0 : Math.min(8, stepText.length - decimal - 1);
+        return number.toFixed(places).replace(/\.?0+$/, '');
+    }
+
+    function commandForCommandSlider(row) {
+        const parts = commandSliderParts(row);
+        const template = parts.template.value.trim();
+        if (!template) return '';
+
+        const value = formatCommandSliderValue(parts.slider.value, parts.slider.step);
+        parts.value.value = value;
+        return template.includes('{}')
+            ? template.replaceAll('{}', value)
+            : `${template}${value}`;
+    }
+
+    function sendCommandSlider(row) {
+        const command = commandForCommandSlider(row);
+        if (!command) {
+            commandSliderStatus.textContent = 'Enter a command template first.';
+            return;
+        }
+
+        if (native.sendCommands(command)) {
+            commandSliderStatus.textContent = command;
+        } else {
+            commandSliderStatus.textContent = 'Native command bridge is unavailable.';
+        }
+    }
+
+    function bindCommandSliderRow(row) {
+        const parts = commandSliderParts(row);
+        parts.min.addEventListener('change', () => configureCommandSlider(row));
+        parts.max.addEventListener('change', () => configureCommandSlider(row));
+        parts.step.addEventListener('change', () => configureCommandSlider(row));
+        parts.value.addEventListener('change', () => {
+            configureCommandSlider(row);
+            sendCommandSlider(row);
+        });
+        parts.slider.addEventListener('input', () => sendCommandSlider(row));
+        configureCommandSlider(row);
+    }
+
+    function labelCommandSliderRow(row, index) {
+        const number = index + 1;
+        const parts = commandSliderParts(row);
+        parts.template.setAttribute('aria-label', `Slider ${number} command template`);
+        parts.min.setAttribute('aria-label', `Slider ${number} minimum`);
+        parts.max.setAttribute('aria-label', `Slider ${number} maximum`);
+        parts.step.setAttribute('aria-label', `Slider ${number} step`);
+        parts.value.setAttribute('aria-label', `Slider ${number} value`);
+        parts.slider.setAttribute('aria-label', `Command slider ${number}`);
+    }
+
+    function updateCommandSliderControls() {
+        const rows = commandSliderRows();
+        rows.forEach(labelCommandSliderRow);
+        commandSliderCount.textContent = `${rows.length} of ${MAX_COMMAND_SLIDERS} sliders`;
+        document.querySelector('[data-action="add-command-slider"]').disabled =
+            rows.length >= MAX_COMMAND_SLIDERS;
+        document.querySelector('[data-action="remove-command-slider"]').disabled =
+            rows.length <= MIN_COMMAND_SLIDERS;
+    }
+
+    function createCommandSliderRow() {
+        const row = document.createElement('div');
+        row.className = 'command-slider-row';
+        row.innerHTML = `
+            <input class="command-slider-template" value=""
+                title="Use {} for the slider value">
+            <input type="number" class="command-slider-min" value="0">
+            <input type="number" class="command-slider-max" value="1">
+            <input type="number" class="command-slider-step" value=".01">
+            <input type="number" class="command-slider-value" value="0">
+            <input type="range" class="command-slider" min="0" max="1" step=".01" value="0">
+        `;
+        bindCommandSliderRow(row);
+        return row;
+    }
+
+    function setCommandSliderCount(count) {
+        const requested = Math.trunc(Number(count));
+        const target = Math.min(
+            MAX_COMMAND_SLIDERS,
+            Math.max(
+                MIN_COMMAND_SLIDERS,
+                Number.isFinite(requested) ? requested : MIN_COMMAND_SLIDERS
+            )
+        );
+        let rows = commandSliderRows();
+
+        while (rows.length < target) {
+            commandSliderList.appendChild(createCommandSliderRow());
+            rows = commandSliderRows();
+        }
+        while (rows.length > target) {
+            rows[rows.length - 1].remove();
+            rows = commandSliderRows();
+        }
+        updateCommandSliderControls();
+    }
+
+    function addCommandSlider() {
+        const count = commandSliderRows().length;
+        if (count >= MAX_COMMAND_SLIDERS) return;
+        setCommandSliderCount(count + 1);
+        commandSliderStatus.textContent = `Added slider ${count + 1}.`;
+    }
+
+    function removeCommandSlider() {
+        const count = commandSliderRows().length;
+        if (count <= MIN_COMMAND_SLIDERS) return;
+        setCommandSliderCount(count - 1);
+        commandSliderStatus.textContent = `Removed slider ${count}.`;
+    }
+
+    commandSliderRows().forEach(bindCommandSliderRow);
+    updateCommandSliderControls();
+    const defaultCommandSliderSettings =
+        commandSliderRows().map(commandSliderStateFor);
 
     // --- CUSTOM ELEMENTS ---
     class ControlSlider extends HTMLElement {
@@ -1121,9 +1580,24 @@
     function getSettings() {
         return {
             format: 'ro-totem-slider-settings',
-            version: 7,
+            version: 11,
             directory: waveDirectory || null,
             master: sliderStateFor(document.getElementById('master-vol')),
+            commandSliders: commandSliderRows().map(commandSliderStateFor),
+            uiWindows: {
+                main: {
+                    width: Math.round(window.innerWidth),
+                    height: Math.round(window.innerHeight)
+                },
+                repl: {
+                    ...replPanel.getSize(),
+                    open: replPanel.isOpen()
+                },
+                controls: {
+                    ...controlsPanel.getSize(),
+                    open: controlsPanel.isOpen()
+                }
+            },
             audioDevices: {
                 output: audioDeviceSelections.output,
                 input: audioDeviceSelections.input
@@ -1137,6 +1611,17 @@
                 speed: sliderStateFor(sliderFor(voice, 'speed')),
                 wave: stateFor(track).wave
             }))
+        };
+    }
+
+    function commandSliderStateFor(row) {
+        const parts = commandSliderParts(row);
+        return {
+            template: parts.template.value,
+            min: Number(parts.slider.min),
+            max: Number(parts.slider.max),
+            step: Number(parts.slider.step),
+            value: Number(parts.slider.value)
         };
     }
 
@@ -1166,11 +1651,13 @@
 
     function applySettings(settings) {
         if (!settings || settings.format !== 'ro-totem-slider-settings' ||
-            ![1, 2, 3, 4, 5, 6, 7].includes(settings.version) || !Array.isArray(settings.tracks)) {
+            ![1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11].includes(settings.version) ||
+            !Array.isArray(settings.tracks)) {
             throw new Error('This is not a supported ro-totem settings file.');
         }
 
         const voiceCommands = [];
+        const commandSliderCommands = [];
         const waves = [];
 
         pendingAudioDeviceSettings = settings.version >= 4 && settings.audioDevices
@@ -1246,19 +1733,95 @@
             }
         }
 
+        if (settings.version >= 8 && Array.isArray(settings.commandSliders)) {
+            setCommandSliderCount(settings.commandSliders.length);
+            commandSliderRows().forEach((row, index) => {
+                const saved = settings.commandSliders[index];
+                if (!saved || typeof saved.template !== 'string' || !validRange(saved)) {
+                    return;
+                }
+
+                const parts = commandSliderParts(row);
+                parts.template.value = saved.template;
+                parts.min.value = saved.min;
+                parts.max.value = saved.max;
+                parts.step.value = saved.step;
+                parts.value.value = Number.isFinite(saved.value)
+                    ? saved.value
+                    : saved.min;
+                configureCommandSlider(row);
+
+                const command = commandForCommandSlider(row);
+                if (command) commandSliderCommands.push(command);
+            });
+        } else {
+            setCommandSliderCount(MIN_COMMAND_SLIDERS);
+            commandSliderRows().forEach((row, index) => {
+                const saved = defaultCommandSliderSettings[index];
+                const parts = commandSliderParts(row);
+                parts.template.value = saved.template;
+                parts.min.value = saved.min;
+                parts.max.value = saved.max;
+                parts.step.value = saved.step;
+                parts.value.value = saved.value;
+                configureCommandSlider(row);
+            });
+        }
+
+        if (settings.version >= 10 && settings.uiWindows) {
+            const main = settings.uiWindows.main;
+            if (main &&
+                Number.isFinite(main.width) &&
+                Number.isFinite(main.height)) {
+                native.resizeMainWindow(
+                    Math.round(main.width),
+                    Math.round(main.height)
+                );
+            }
+        }
+
+        if (settings.version >= 9 && settings.uiWindows) {
+            const restoreFloatingWindows = () => {
+                const repl = settings.uiWindows.repl;
+                const controls = settings.uiWindows.controls;
+                replPanel.setSize(repl);
+                controlsPanel.setSize(controls);
+
+                if (settings.version >= 11) {
+                    if (repl && typeof repl.open === 'boolean') {
+                        if (repl.open) openRepl();
+                        else closeRepl();
+                    }
+                    if (controls && typeof controls.open === 'boolean') {
+                        if (controls.open) openControls();
+                        else closeControls();
+                    }
+                }
+            };
+            if (settings.version >= 10) {
+                requestAnimationFrame(restoreFloatingWindows);
+            } else {
+                restoreFloatingWindows();
+            }
+        }
+
+        // Generic controls restore first so saved track and master values win
+        // when a command slider targets the same engine parameter.
+        const restoreCommands = [...commandSliderCommands, ...voiceCommands];
+
         renderRangeSettings();
         if (pendingAudioDeviceSettings) refreshAudioDevices();
         if (waves.length > 0) {
             pendingVoiceRestore = {
                 wavesRemaining: waves.length,
-                commands: voiceCommands
+                commands: restoreCommands
             };
             setSettingsStatus('loading waves...');
             waves.forEach(wave => {
                 native.loadWave(wave.voice, wave.path);
             });
         } else {
-            applyVoiceCommands(voiceCommands);
+            applyVoiceCommands(restoreCommands);
             setSettingsStatus('settings loaded');
         }
     }
@@ -1693,6 +2256,10 @@
             case 'open-repl': openRepl(); break;
             case 'close-repl': closeRepl(); break;
             case 'clear-repl': clearRepl(); break;
+            case 'open-controls': openControls(); break;
+            case 'close-controls': closeControls(); break;
+            case 'add-command-slider': addCommandSlider(); break;
+            case 'remove-command-slider': removeCommandSlider(); break;
             case 'send-command': skode(getcmd()); break;
             case 'toggle-track-lock': toggleTrackLock(track); break;
             case 'choose-wave': native.chooseWave(voice); break;
@@ -1735,13 +2302,22 @@
     });
 
     document.addEventListener('keydown', (event) => {
+        if (event.ctrlKey && event.shiftKey && event.code === 'Backquote' && !event.repeat) {
+            event.preventDefault();
+            toggleControls();
+            return;
+        }
+
         if (event.ctrlKey && event.code === 'Backquote' && !event.repeat) {
             event.preventDefault();
             toggleRepl();
             return;
         }
 
-        if (event.key === 'Escape' && !replWindow.hidden) closeRepl();
+        if (event.key === 'Escape') {
+            if (!controlsWindow.hidden) closeControls();
+            else if (!replWindow.hidden) closeRepl();
+        }
     });
 
 window.addEventListener('keydown', (e) => {

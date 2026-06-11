@@ -241,6 +241,7 @@ static int wavepointer = 300;
  *   JS<json> / JL     Save or load settings.
  *   PB / PW / PF / PL Save or load a project ZIP containing settings and WAVs.
  *   DR / DA<c>:<n>    Refresh or apply an audio-device selection.
+ *   G<width>:<height> Resize the native main window content area.
  *
  * The payload after '!' belongs to the audio engine, not this dispatcher.
  * Common engine forms are v<n>a<x> (volume), v<n>n<x> (speed),
@@ -257,6 +258,7 @@ enum native_command {
   NATIVE_AUDIO_DEVICE = 'D',
   NATIVE_SETTINGS = 'J',
   NATIVE_PROJECT = 'P',
+  NATIVE_WINDOW_GEOMETRY = 'G',
   NATIVE_LOAD_DIRECTORY = 'R',
   NATIVE_LOAD_WAVE = 'W',
   NATIVE_CHOOSE_WAVE = '>'
@@ -977,6 +979,36 @@ static void choose_wave_directory(struct webview *w) {
   if (dirname[0]) load_wave_directory(w, dirname);
 }
 
+static void resize_main_window(struct webview *w, const char *arg) {
+  char *end;
+  long width = strtol(arg, &end, 10);
+  if (end == arg || *end != ':' || width < 320 || width > 10000) return;
+
+  const char *height_arg = end + 1;
+  long height = strtol(height_arg, &end, 10);
+  if (end == height_arg || *end != '\0' ||
+      height < 240 || height > 10000) {
+    return;
+  }
+
+#if defined(WEBVIEW_GTK)
+  gtk_window_resize(GTK_WINDOW(w->priv.window), (int)width, (int)height);
+#elif defined(WEBVIEW_COCOA)
+  CGSize size = CGSizeMake((CGFloat)width, (CGFloat)height);
+  ((void(*)(id, SEL, CGSize))objc_msgSend)(
+    w->priv.window, sel_registerName("setContentSize:"), size);
+#elif defined(WEBVIEW_WINAPI)
+  RECT rect = {0, 0, (LONG)width, (LONG)height};
+  DWORD style = (DWORD)GetWindowLongPtr(w->priv.hwnd, GWL_STYLE);
+  DWORD ex_style = (DWORD)GetWindowLongPtr(w->priv.hwnd, GWL_EXSTYLE);
+  if (!AdjustWindowRectEx(&rect, style, FALSE, ex_style)) return;
+  SetWindowPos(
+    w->priv.hwnd, NULL, 0, 0,
+    rect.right - rect.left, rect.bottom - rect.top,
+    SWP_NOMOVE | SWP_NOZORDER | SWP_NOACTIVATE);
+#endif
+}
+
 static void handle_audio_device_command(struct webview *w, const char *arg) {
   if (arg[0] == 'R') {
     send_audio_devices(w);
@@ -1044,6 +1076,9 @@ static void invoker(struct webview *w, const char *arg) {
     case NATIVE_PROJECT:
       handle_project_command(w, &arg[1]);
       break;
+    case NATIVE_WINDOW_GEOMETRY:
+      resize_main_window(w, &arg[1]);
+      break;
     case NATIVE_LOAD_DIRECTORY:
       load_wave_directory(w, &arg[1]);
       break;
@@ -1071,7 +1106,7 @@ int main(void) {
   struct webview webview;
   memset(&webview, 0, sizeof(webview));
   webview.url = html_path;
-  webview.title = "ro-totem gemini epsilon-four 2026";
+  webview.title = "ro-totem gemini epsilon-five 2026";
   webview.width = 884;  // window.innerWidth
 #ifdef __linux__
   webview.height = 740;
