@@ -3,6 +3,7 @@
 #define WEBVIEW_IMPLEMENTATION
 /* Define WEBVIEW_WINAPI, WEBVIEW_GTK, or WEBVIEW_COCOA when compiling. */
 #include "vendor/webview/webview.h"
+#include "vendor/miniz/miniz.h"
 
 #include <limits.h>
 #include <stdarg.h>
@@ -12,6 +13,13 @@
 #include <string.h>
 #include <strings.h>
 #include <unistd.h>
+
+#ifdef _WIN32
+#include <direct.h>
+#include <windows.h>
+#else
+#include <sys/stat.h>
+#endif
 
 #ifdef __APPLE__
 #include <CoreFoundation/CoreFoundation.h>
@@ -231,7 +239,9 @@ static int wavepointer = 300;
  *   R<directory>      Scan a directory and return its .wav filenames.
  *   W<voice>:<path>   Load a wave into voice and voice + 1.
  *   JS<json> / JL     Save or load settings.
+ *   PB / PW / PF / PL Save or load a project ZIP containing settings and WAVs.
  *   DR / DA<c>:<n>    Refresh or apply an audio-device selection.
+ *   G<width>:<height> Resize the native main window content area.
  *
  * The payload after '!' belongs to the audio engine, not this dispatcher.
  * Common engine forms are v<n>a<x> (volume), v<n>n<x> (speed),
@@ -247,6 +257,8 @@ enum native_command {
   NATIVE_CHOOSE_DIRECTORY = '@',
   NATIVE_AUDIO_DEVICE = 'D',
   NATIVE_SETTINGS = 'J',
+  NATIVE_PROJECT = 'P',
+  NATIVE_WINDOW_GEOMETRY = 'G',
   NATIVE_LOAD_DIRECTORY = 'R',
   NATIVE_LOAD_WAVE = 'W',
   NATIVE_CHOOSE_WAVE = '>'
@@ -446,6 +458,445 @@ static void save_settings_file(struct webview *w, const char *json) {
     : "settingsFileError('Could not write settings file.')");
 }
 
+#define PROJECT_MAX_WAVES 32
+#define PROJECT_MAX_SETTINGS_SIZE (1024 * 1024)
+#define PROJECT_MAX_WAVE_SIZE ((mz_uint64)1024 * 1024 * 1024)
+#define PROJECT_MAX_TOTAL_WAVE_SIZE ((mz_uint64)4 * 1024 * 1024 * 1024)
+
+struct project_writer {
+  mz_zip_archive archive;
+  char filename[PATH_MAX];
+  char temp_filename[PATH_MAX];
+  int active;
+  int failed;
+};
+
+static struct project_writer project_writer;
+static char project_temp_directory[PATH_MAX];
+static char pending_project_temp_directory[PATH_MAX];
+
+static void project_file_error(struct webview *w, const char *message) {
+  struct script_builder script = {0};
+  if (script_append(&script, "settingsFileError(") &&
+      script_append_js_string(&script, message) &&
+      script_append(&script, ")")) {
+    script_eval(w, &script);
+  } else {
+    free(script.data);
+  }
+}
+
+static int append_filename_extension(
+    char *filename, size_t filename_size, const char *extension) {
+  size_t length = strlen(filename);
+  size_t extension_length = strlen(extension);
+  if (length >= extension_length &&
+      strcasecmp(filename + length - extension_length, extension) == 0) {
+    return 1;
+  }
+  if (length + extension_length >= filename_size) return 0;
+  memcpy(filename + length, extension, extension_length + 1);
+  return 1;
+}
+
+static void discard_project_writer(int remove_partial_file) {
+  if (!project_writer.active) return;
+  mz_zip_writer_end(&project_writer.archive);
+  project_writer.active = 0;
+  if (remove_partial_file && project_writer.temp_filename[0]) {
+    remove(project_writer.temp_filename);
+  }
+}
+
+static int replace_file(const char *source, const char *destination) {
+#ifdef _WIN32
+  return MoveFileExA(
+    source, destination,
+    MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH) != 0;
+#else
+  return rename(source, destination) == 0;
+#endif
+}
+
+static void begin_project_save(struct webview *w) {
+  discard_project_writer(1);
+  memset(&project_writer, 0, sizeof(project_writer));
+
+  webview_dialog(
+    w, WEBVIEW_DIALOG_TYPE_SAVE, WEBVIEW_DIALOG_FLAG_FILE,
+    "Save project", "ro-totem-project.zip",
+    project_writer.filename, sizeof(project_writer.filename));
+  if (!project_writer.filename[0]) {
+    webview_eval(w, "projectFileCancelled()");
+    return;
+  }
+  if (!append_filename_extension(
+        project_writer.filename, sizeof(project_writer.filename), ".zip")) {
+    project_file_error(w, "Project filename is too long.");
+    return;
+  }
+  int written = snprintf(
+    project_writer.temp_filename, sizeof(project_writer.temp_filename),
+    "%s.ro-totem-tmp", project_writer.filename);
+  if (written < 0 ||
+      (size_t)written >= sizeof(project_writer.temp_filename)) {
+    project_file_error(w, "Project filename is too long.");
+    return;
+  }
+  remove(project_writer.temp_filename);
+
+  memset(&project_writer.archive, 0, sizeof(project_writer.archive));
+  if (!mz_zip_writer_init_file(
+        &project_writer.archive, project_writer.temp_filename, 0)) {
+    project_file_error(w, "Could not create project archive.");
+    remove(project_writer.temp_filename);
+    return;
+  }
+  project_writer.active = 1;
+  webview_eval(w, "projectSaveReady()");
+}
+
+static int parse_project_wave_argument(
+    const char *arg, int *index, char *archive_name,
+    size_t archive_name_size, const char **filename) {
+  char *end;
+  long parsed = strtol(arg, &end, 10);
+  if (end == arg || *end != ':' ||
+      parsed < 0 || parsed >= PROJECT_MAX_WAVES) {
+    return 0;
+  }
+
+  const char *archive_start = end + 1;
+  const char *archive_end = strchr(archive_start, ':');
+  if (!archive_end || archive_end == archive_start || !archive_end[1]) return 0;
+  size_t length = (size_t)(archive_end - archive_start);
+  if (length >= archive_name_size) return 0;
+  memcpy(archive_name, archive_start, length);
+  archive_name[length] = '\0';
+
+  *index = (int)parsed;
+  *filename = archive_end + 1;
+  return 1;
+}
+
+static int valid_project_wave_name(const char *name) {
+  static const char prefix[] = "waves/";
+  size_t prefix_length = sizeof(prefix) - 1;
+  if (strncmp(name, prefix, prefix_length) != 0) return 0;
+
+  const char *basename = name + prefix_length;
+  size_t length = strlen(basename);
+  if (length <= 4 ||
+      strcasecmp(basename + length - 4, ".wav") != 0 ||
+      strcmp(basename, ".") == 0 || strcmp(basename, "..") == 0) {
+    return 0;
+  }
+  for (const unsigned char *p = (const unsigned char *)basename; *p; p++) {
+    if (*p == '/' || *p == '\\' || *p == ':' || *p == '<' || *p == '>' ||
+        *p == '"' || *p == '|' || *p == '?' || *p == '*' ||
+        *p < 0x20 || *p == 0x7f) {
+      return 0;
+    }
+  }
+  return 1;
+}
+
+static void add_project_wave(struct webview *w, const char *arg) {
+  int index;
+  char archive_name[MZ_ZIP_MAX_ARCHIVE_FILENAME_SIZE];
+  const char *filename;
+  if (!project_writer.active || project_writer.failed) return;
+  if (!parse_project_wave_argument(
+        arg, &index, archive_name, sizeof(archive_name), &filename) ||
+      !valid_project_wave_name(archive_name)) {
+    project_writer.failed = 1;
+    project_file_error(w, "Could not save a WAV with an invalid path.");
+    return;
+  }
+  (void)index;
+
+  if (!mz_zip_writer_add_file(
+        &project_writer.archive, archive_name, filename,
+        NULL, 0, MZ_NO_COMPRESSION)) {
+    project_writer.failed = 1;
+    project_file_error(w, "Could not add a WAV file to the project archive.");
+  }
+}
+
+static void finish_project_save(struct webview *w, const char *json) {
+  if (!project_writer.active) return;
+
+  int ok = !project_writer.failed &&
+    strlen(json) <= PROJECT_MAX_SETTINGS_SIZE &&
+    mz_zip_writer_add_mem(
+      &project_writer.archive, "settings.json", json, strlen(json),
+      MZ_BEST_COMPRESSION) &&
+    mz_zip_writer_finalize_archive(&project_writer.archive);
+  ok = mz_zip_writer_end(&project_writer.archive) && ok;
+  project_writer.active = 0;
+
+  if (!ok || !replace_file(
+        project_writer.temp_filename, project_writer.filename)) {
+    remove(project_writer.temp_filename);
+    project_file_error(w, "Could not finish writing the project archive.");
+    return;
+  }
+  struct script_builder script = {0};
+  if (script_append(&script, "projectFileSaved(") &&
+      script_append_js_string(&script, project_writer.filename) &&
+      script_append(&script, ")")) {
+    script_eval(w, &script);
+  } else {
+    free(script.data);
+    webview_eval(w, "projectFileSaved('')");
+  }
+}
+
+static int make_directory(const char *path) {
+#ifdef _WIN32
+  return _mkdir(path) == 0;
+#else
+  return mkdir(path, 0700) == 0;
+#endif
+}
+
+static int remove_directory(const char *path) {
+#ifdef _WIN32
+  return _rmdir(path);
+#else
+  return rmdir(path);
+#endif
+}
+
+static int join_path(
+    char *path, size_t path_size, const char *directory, const char *name) {
+  int written = snprintf(path, path_size, "%s/%s", directory, name);
+  return written >= 0 && (size_t)written < path_size;
+}
+
+static void cleanup_project_directory(const char *directory) {
+  if (!directory || !directory[0]) return;
+
+  char waves_directory[PATH_MAX];
+  if (!join_path(
+        waves_directory, sizeof(waves_directory), directory, "waves")) {
+    return;
+  }
+
+  DIR *dp = opendir(waves_directory);
+  if (dp) {
+    struct dirent *entry;
+    while ((entry = readdir(dp))) {
+      if (strcmp(entry->d_name, ".") == 0 ||
+          strcmp(entry->d_name, "..") == 0) {
+        continue;
+      }
+      char filename[PATH_MAX];
+      if (join_path(
+            filename, sizeof(filename), waves_directory, entry->d_name)) {
+        remove(filename);
+      }
+    }
+    closedir(dp);
+  }
+  remove_directory(waves_directory);
+  remove_directory(directory);
+}
+
+static int create_project_temp_directory(char *path, size_t path_size) {
+#ifdef _WIN32
+  char temp_path[MAX_PATH];
+  char temp_file[MAX_PATH];
+  if (!GetTempPathA(sizeof(temp_path), temp_path) ||
+      !GetTempFileNameA(temp_path, "rot", 0, temp_file)) {
+    return 0;
+  }
+  DeleteFileA(temp_file);
+  if (!CreateDirectoryA(temp_file, NULL)) return 0;
+  int written = snprintf(path, path_size, "%s", temp_file);
+  return written >= 0 && (size_t)written < path_size;
+#else
+  const char *temp_root = getenv("TMPDIR");
+  if (!temp_root || !temp_root[0]) temp_root = "/tmp";
+  int written = snprintf(
+    path, path_size, "%s/ro-totem-project-XXXXXX", temp_root);
+  if (written < 0 || (size_t)written >= path_size) return 0;
+  return mkdtemp(path) != NULL;
+#endif
+}
+
+struct project_archive_contents {
+  int settings_index;
+  int wave_count;
+  struct {
+    int file_index;
+    char name[MZ_ZIP_MAX_ARCHIVE_FILENAME_SIZE];
+  } waves[PROJECT_MAX_WAVES];
+};
+
+static int inspect_project_archive(
+    mz_zip_archive *archive, struct project_archive_contents *contents) {
+  mz_uint file_count = mz_zip_reader_get_num_files(archive);
+  if (file_count == 0 || file_count > PROJECT_MAX_WAVES + 1) return 0;
+
+  memset(contents, 0, sizeof(*contents));
+  contents->settings_index = -1;
+
+  mz_uint64 total_wave_size = 0;
+  for (mz_uint i = 0; i < file_count; i++) {
+    mz_zip_archive_file_stat stat;
+    if (!mz_zip_reader_file_stat(archive, i, &stat) ||
+        mz_zip_reader_is_file_a_directory(archive, i)) {
+      return 0;
+    }
+
+    if (strcmp(stat.m_filename, "settings.json") == 0) {
+      if (contents->settings_index >= 0 ||
+          stat.m_uncomp_size > PROJECT_MAX_SETTINGS_SIZE) {
+        return 0;
+      }
+      contents->settings_index = (int)i;
+      continue;
+    }
+
+    if (!valid_project_wave_name(stat.m_filename) ||
+        contents->wave_count >= PROJECT_MAX_WAVES ||
+        stat.m_uncomp_size > PROJECT_MAX_WAVE_SIZE ||
+        total_wave_size > PROJECT_MAX_TOTAL_WAVE_SIZE - stat.m_uncomp_size) {
+      return 0;
+    }
+
+    for (int j = 0; j < contents->wave_count; j++) {
+      if (strcasecmp(contents->waves[j].name, stat.m_filename) == 0) return 0;
+    }
+    contents->waves[contents->wave_count].file_index = (int)i;
+    snprintf(
+      contents->waves[contents->wave_count].name,
+      sizeof(contents->waves[contents->wave_count].name),
+      "%s", stat.m_filename);
+    contents->wave_count++;
+    total_wave_size += stat.m_uncomp_size;
+  }
+  return contents->settings_index >= 0;
+}
+
+static int extract_project_waves(
+    mz_zip_archive *archive, const struct project_archive_contents *contents,
+    const char *directory) {
+  char waves_directory[PATH_MAX];
+  if (!join_path(
+        waves_directory, sizeof(waves_directory), directory, "waves") ||
+      !make_directory(waves_directory)) {
+    return 0;
+  }
+
+  for (int i = 0; i < contents->wave_count; i++) {
+    char filename[PATH_MAX];
+    const char *basename = contents->waves[i].name + strlen("waves/");
+    if (!join_path(filename, sizeof(filename), waves_directory, basename) ||
+        !mz_zip_reader_extract_to_file(
+          archive, (mz_uint)contents->waves[i].file_index, filename, 0)) {
+      return 0;
+    }
+  }
+  return 1;
+}
+
+static void accept_loaded_project(void);
+static void reject_loaded_project(void);
+
+static void load_project_file(struct webview *w, const char *filename) {
+  mz_zip_archive archive;
+  memset(&archive, 0, sizeof(archive));
+  if (!mz_zip_reader_init_file(&archive, filename, 0)) {
+    project_file_error(w, "Could not open project archive.");
+    return;
+  }
+
+  struct project_archive_contents contents;
+  if (!mz_zip_validate_archive(&archive, 0) ||
+      !inspect_project_archive(&archive, &contents)) {
+    mz_zip_reader_end(&archive);
+    project_file_error(w, "This is not a valid ro-totem project archive.");
+    return;
+  }
+
+  size_t json_size = 0;
+  void *json_data = mz_zip_reader_extract_to_heap(
+    &archive, (mz_uint)contents.settings_index, &json_size, 0);
+  char *json = malloc(json_size + 1);
+  char temp_directory[PATH_MAX] = "";
+  int ok = json_data && json &&
+    create_project_temp_directory(temp_directory, sizeof(temp_directory));
+  if (ok) {
+    memcpy(json, json_data, json_size);
+    json[json_size] = '\0';
+    ok = extract_project_waves(&archive, &contents, temp_directory);
+  }
+  mz_free(json_data);
+  mz_zip_reader_end(&archive);
+
+  if (!ok) {
+    free(json);
+    cleanup_project_directory(temp_directory);
+    project_file_error(w, "Could not extract the project archive.");
+    return;
+  }
+
+  cleanup_project_directory(pending_project_temp_directory);
+  snprintf(
+    pending_project_temp_directory, sizeof(pending_project_temp_directory),
+    "%s", temp_directory);
+
+  struct script_builder script = {0};
+  if (script_append(&script, "loadProjectFromText(") &&
+      script_append_js_string(&script, json) &&
+      script_append(&script, ",") &&
+      script_append_js_string(&script, pending_project_temp_directory) &&
+      script_append(&script, ")")) {
+    script_eval(w, &script);
+  } else {
+    free(script.data);
+    reject_loaded_project();
+    project_file_error(w, "Not enough memory to load the project.");
+  }
+  free(json);
+}
+
+static void accept_loaded_project(void) {
+  if (!pending_project_temp_directory[0]) return;
+  cleanup_project_directory(project_temp_directory);
+  snprintf(
+    project_temp_directory, sizeof(project_temp_directory),
+    "%s", pending_project_temp_directory);
+  pending_project_temp_directory[0] = '\0';
+}
+
+static void reject_loaded_project(void) {
+  cleanup_project_directory(pending_project_temp_directory);
+  pending_project_temp_directory[0] = '\0';
+}
+
+static void load_project_dialog(struct webview *w) {
+  char filename[PATH_MAX] = "";
+  webview_dialog(
+    w, WEBVIEW_DIALOG_TYPE_OPEN, WEBVIEW_DIALOG_FLAG_FILE,
+    "Load project", "", filename, sizeof(filename));
+  if (filename[0]) load_project_file(w, filename);
+}
+
+static void handle_project_command(struct webview *w, const char *arg) {
+  switch (arg[0]) {
+    case 'B': begin_project_save(w); break;
+    case 'W': add_project_wave(w, &arg[1]); break;
+    case 'F': finish_project_save(w, &arg[1]); break;
+    case 'L': load_project_dialog(w); break;
+    case 'A': accept_loaded_project(); break;
+    case 'R': reject_loaded_project(); break;
+    default: break;
+  }
+}
+
 static void send_audio_devices(struct webview *w) {
   char *log = skoder("/als");
   const char *status;
@@ -528,6 +979,36 @@ static void choose_wave_directory(struct webview *w) {
   if (dirname[0]) load_wave_directory(w, dirname);
 }
 
+static void resize_main_window(struct webview *w, const char *arg) {
+  char *end;
+  long width = strtol(arg, &end, 10);
+  if (end == arg || *end != ':' || width < 320 || width > 10000) return;
+
+  const char *height_arg = end + 1;
+  long height = strtol(height_arg, &end, 10);
+  if (end == height_arg || *end != '\0' ||
+      height < 240 || height > 10000) {
+    return;
+  }
+
+#if defined(WEBVIEW_GTK)
+  gtk_window_resize(GTK_WINDOW(w->priv.window), (int)width, (int)height);
+#elif defined(WEBVIEW_COCOA)
+  CGSize size = CGSizeMake((CGFloat)width, (CGFloat)height);
+  ((void(*)(id, SEL, CGSize))objc_msgSend)(
+    w->priv.window, sel_registerName("setContentSize:"), size);
+#elif defined(WEBVIEW_WINAPI)
+  RECT rect = {0, 0, (LONG)width, (LONG)height};
+  DWORD style = (DWORD)GetWindowLongPtr(w->priv.hwnd, GWL_STYLE);
+  DWORD ex_style = (DWORD)GetWindowLongPtr(w->priv.hwnd, GWL_EXSTYLE);
+  if (!AdjustWindowRectEx(&rect, style, FALSE, ex_style)) return;
+  SetWindowPos(
+    w->priv.hwnd, NULL, 0, 0,
+    rect.right - rect.left, rect.bottom - rect.top,
+    SWP_NOMOVE | SWP_NOZORDER | SWP_NOACTIVATE);
+#endif
+}
+
 static void handle_audio_device_command(struct webview *w, const char *arg) {
   if (arg[0] == 'R') {
     send_audio_devices(w);
@@ -592,6 +1073,12 @@ static void invoker(struct webview *w, const char *arg) {
     case NATIVE_SETTINGS:
       handle_settings_command(w, &arg[1]);
       break;
+    case NATIVE_PROJECT:
+      handle_project_command(w, &arg[1]);
+      break;
+    case NATIVE_WINDOW_GEOMETRY:
+      resize_main_window(w, &arg[1]);
+      break;
     case NATIVE_LOAD_DIRECTORY:
       load_wave_directory(w, &arg[1]);
       break;
@@ -619,7 +1106,7 @@ int main(void) {
   struct webview webview;
   memset(&webview, 0, sizeof(webview));
   webview.url = html_path;
-  webview.title = "ro-totem gemini epsilon-three 2026";
+  webview.title = "ro-totem gemini epsilon-five 2026";
   webview.width = 884;  // window.innerWidth
 #ifdef __linux__
   webview.height = 740;
@@ -671,6 +1158,9 @@ int main(void) {
   } while (r == 0);
 
   webview_exit(&webview);
+  discard_project_writer(1);
+  cleanup_project_directory(project_temp_directory);
+  cleanup_project_directory(pending_project_temp_directory);
 
   // tell it to quit...
   skoder("/q");

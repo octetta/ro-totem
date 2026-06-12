@@ -1228,6 +1228,13 @@ WEBVIEW_API void webview_dialog(struct webview *w,
     if (dlg->lpVtbl->SetOptions(dlg, opts) != S_OK) {
       goto error_dlg;
     }
+    if (dlgtype == WEBVIEW_DIALOG_TYPE_SAVE && arg != NULL && arg[0] != '\0') {
+      WCHAR *default_name = webview_to_utf16(arg);
+      if (default_name != NULL) {
+        dlg->lpVtbl->SetFileName(dlg, default_name);
+        GlobalFree(default_name);
+      }
+    }
     if (dlg->lpVtbl->Show(dlg, w->priv.hwnd) != S_OK) {
       goto error_dlg;
     }

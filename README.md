@@ -26,9 +26,18 @@ See [ARCHITECTURE.md](ARCHITECTURE.md) for:
 - `ui.html`: complete WebKit interface, state model, controls, and actions.
 - `vendor/skred/`: externally produced Skred API header and platform static
   libraries.
+- `vendor/miniz/`: miniz 3.1.1 amalgamated ZIP implementation and license.
 - `vendor/webview/`: vendored portable webview implementation and platform
   backends.
 - `Makefile`: host-aware Linux, macOS, and preliminary Windows build targets.
+
+## Projects and Settings
+
+The main `load zip` and `save zip` actions use a portable project archive
+containing `settings.json` and the WAV files used by the current tracks. WAV
+basenames are preserved, with numbered suffixes only when names collide.
+Standalone JSON settings import and export remain available under `advanced`;
+those files continue to reference WAVs by their original filesystem paths.
 
 ## Linux Build
 

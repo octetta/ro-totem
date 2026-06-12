@@ -215,6 +215,9 @@ WEBVIEW_API void webview_dialog(struct webview *w,
     gtk_file_chooser_set_show_hidden(GTK_FILE_CHOOSER(dlg), TRUE);
     gtk_file_chooser_set_do_overwrite_confirmation(GTK_FILE_CHOOSER(dlg), TRUE);
     gtk_file_chooser_set_create_folders(GTK_FILE_CHOOSER(dlg), TRUE);
+    if (dlgtype == WEBVIEW_DIALOG_TYPE_SAVE && arg != NULL && arg[0] != '\0') {
+      gtk_file_chooser_set_current_name(GTK_FILE_CHOOSER(dlg), arg);
+    }
     gint response = gtk_dialog_run(GTK_DIALOG(dlg));
     if (response == GTK_RESPONSE_ACCEPT) {
       gchar *filename = gtk_file_chooser_get_filename(GTK_FILE_CHOOSER(dlg));

@@ -141,6 +141,11 @@ to perform:
 | `W<voice>:<path>` | Load a WAV file into a stereo voice pair |
 | `JS<json>` | Save settings JSON |
 | `JL` | Load settings JSON |
+| `PB` | Begin saving a project ZIP |
+| `PW<index>:<archive-path>:<source-path>` | Add a WAV to the pending project ZIP |
+| `PF<json>` | Add settings and finish the pending project ZIP |
+| `PL` | Load a project ZIP |
+| `PA` / `PR` | Accept or reject an extracted project after UI validation |
 | `DR` | Refresh audio-device choices |
 | `DA<capture>:<selection>` | Apply an audio-device selection |
 
@@ -307,7 +312,7 @@ Settings files have a format identifier and integer version:
 ```json
 {
   "format": "ro-totem-slider-settings",
-  "version": 7,
+  "version": 9,
   "tracks": []
 }
 ```
@@ -325,8 +330,34 @@ ro-totem uses pending restore state because wave loading is asynchronous from
 the UI's perspective. The saved slider and mute commands are applied only after
 all requested wave loads report completion.
 
+The configurable Controls window is stored in the same settings payload under
+`commandSliders`. Each entry preserves its command template, minimum, maximum,
+step, and current value. Four sliders are created by default; users can keep
+between four and eight, and the array length restores that count. Those
+commands are restored after any project WAV files finish loading, before saved
+track and master controls so the dedicated controls remain authoritative when
+both target the same engine parameter.
+
+The project also stores the main content size plus the dimensions and open
+state of the REPL and Controls windows under `uiWindows`. Window positions are
+intentionally not portable project state. The main size is restored through
+the native bridge; floating-panel dimensions preserve their current positions
+where possible, are clamped to the current viewport, and then their saved
+visibility is restored.
+
 Keep settings declarative. Save values such as ranges, device identity, wave
 paths, and mute state rather than replaying an opaque history of UI actions.
+
+Project ZIP files contain `settings.json` and WAV entries under `waves/`.
+Original WAV basenames are preserved. If distinct source paths share a
+basename, later entries receive a suffix such as ` (2)`; characters that are
+not portable as Windows filenames are replaced with `_`. The archived settings
+use those relative paths. Native loading validates the complete ZIP, rejects
+unexpected names and duplicate entries, applies size and count limits, and
+extracts into an app-owned temporary directory. JavaScript resolves the
+relative paths before calling the normal settings restoration flow. Temporary
+project files are removed when a different project is loaded or the
+application exits.
 
 ## Application Lifecycle
 
