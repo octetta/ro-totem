@@ -8,3 +8,5 @@ into these files.
 The Windows backend references `WebView2.h` and `webview-win32-edge.c`, which
 are not included in this repository. Windows builds require those external
 WebView2 components.
+
+Check out the author's web page talking about this stuff here https://zserge.com/posts/webview/
