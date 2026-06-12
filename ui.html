@@ -174,6 +174,26 @@
             background: #4052b5;
         }
 
+        .commands-launch {
+            margin-top: 10px;
+            background: #26736a;
+            color: white;
+        }
+
+        .commands-launch:hover {
+            background: #1d5b54;
+        }
+
+        .files-launch {
+            margin-top: 10px;
+            background: #6d4c8d;
+            color: white;
+        }
+
+        .files-launch:hover {
+            background: #563b70;
+        }
+
         .repl-window {
             position: fixed;
             top: 90px;
@@ -374,6 +394,385 @@
 
             .command-slider-head {
                 display: none;
+            }
+        }
+
+        .commands-window {
+            top: 110px;
+            width: min(700px, calc(100vw - 32px));
+            height: min(520px, calc(100vh - 32px));
+            border-color: #1d5b54;
+            background: #f5fbfa;
+        }
+
+        .commands-window .repl-titlebar {
+            background: #1d5b54;
+        }
+
+        .commands-window .repl-titlebar button {
+            background: #e4f3f0;
+            color: #164740;
+        }
+
+        .commands-window .repl-titlebar button:hover {
+            background: #cde7e2;
+        }
+
+        .commands-window .repl-body {
+            overflow: hidden;
+        }
+
+        .command-entry-list {
+            display: flex;
+            min-height: 0;
+            overflow-y: scroll;
+            scrollbar-gutter: stable;
+            gap: 8px;
+            flex: 1;
+            flex-direction: column;
+            padding-right: 4px;
+        }
+
+        .command-entry {
+            flex: 0 0 auto;
+            border: 1px solid #b9d4cf;
+            border-radius: 6px;
+            background: white;
+            overflow: hidden;
+        }
+
+        .command-entry.dragging {
+            opacity: 0.45;
+        }
+
+        .command-entry.drop-before {
+            border-top: 3px solid #26736a;
+        }
+
+        .command-entry.drop-after {
+            border-bottom: 3px solid #26736a;
+        }
+
+        .command-entry-header {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            padding: 5px;
+            background: #edf7f5;
+        }
+
+        .command-entry-header button {
+            padding: 4px 7px;
+            border-radius: 4px;
+            background: transparent;
+            color: #244b46;
+            font-size: 0.78rem;
+        }
+
+        .command-entry-header button:hover {
+            background: #d7ebe7;
+        }
+
+        .command-entry-toggle,
+        .command-entry-drag {
+            min-width: 28px;
+        }
+
+        .command-entry-drag {
+            cursor: grab;
+        }
+
+        .command-entry-title {
+            min-width: 0;
+            overflow: hidden;
+            flex: 1;
+            color: #244b46;
+            font-family: monospace;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .command-entry-number {
+            min-width: 2em;
+            color: #26736a;
+            font-family: monospace;
+            font-weight: bold;
+            text-align: center;
+        }
+
+        .command-entry-send {
+            color: white !important;
+            background: #26736a !important;
+        }
+
+        .command-entry-send:hover {
+            background: #1d5b54 !important;
+        }
+
+        .command-entry-delete {
+            color: #8a2f2f !important;
+        }
+
+        .command-entry-text {
+            display: block;
+            width: 100%;
+            min-height: 120px;
+            padding: 10px;
+            box-sizing: border-box;
+            resize: vertical;
+            border: 0;
+            border-top: 1px solid #d9e8e5;
+            outline-color: #26736a;
+            background: white;
+            font-family: monospace;
+            line-height: 1.4;
+        }
+
+        .command-entry.collapsed .command-entry-text {
+            display: none;
+        }
+
+        .command-entry-actions {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .command-entry-actions button {
+            background: #26736a;
+        }
+
+        .command-entry-actions button:hover {
+            background: #1d5b54;
+        }
+
+        .command-entry-status {
+            min-height: 1.2em;
+            flex: 1;
+            color: #45625e;
+            font-family: monospace;
+            font-size: 0.8rem;
+            text-align: right;
+        }
+
+        .files-window {
+            top: 140px;
+            width: min(720px, calc(100vw - 32px));
+            height: min(430px, calc(100vh - 32px));
+            border-color: #563b70;
+            background: #faf7fc;
+        }
+
+        .pads-window {
+            top: 125px;
+            width: min(700px, calc(100vw - 32px));
+            height: min(520px, calc(100vh - 32px));
+            border-color: #8a3b32;
+            background: #fff8f5;
+        }
+
+        .pads-window .repl-titlebar {
+            background: #8a3b32;
+        }
+
+        .pad-layout-options {
+            display: flex;
+            gap: 4px;
+        }
+
+        .pads-window .pad-layout-options button,
+        .pads-window .repl-titlebar > button {
+            padding: 4px 7px;
+            background: #f9e6df;
+            color: #662b25;
+            font-size: 0.75rem;
+        }
+
+        .pads-window .pad-layout-options button:hover,
+        .pads-window .repl-titlebar > button:hover {
+            background: #efcfc4;
+        }
+
+        .pads-window .pad-layout-options button.active {
+            color: white;
+            background: #c45c4e;
+        }
+
+        .pads-window .repl-body {
+            overflow: hidden;
+        }
+
+        .pad-grid {
+            display: grid;
+            min-height: 0;
+            gap: 12px;
+            flex: 1;
+        }
+
+        .pad-grid[data-layout="1x4"] {
+            grid-template-columns: repeat(4, 1fr);
+            grid-template-rows: 1fr;
+        }
+
+        .pad-grid[data-layout="2x2"] {
+            grid-template-columns: repeat(2, 1fr);
+            grid-template-rows: repeat(2, 1fr);
+        }
+
+        .pad-grid[data-layout="2x4"] {
+            grid-template-columns: repeat(4, 1fr);
+            grid-template-rows: repeat(2, 1fr);
+        }
+
+        .pad-grid[data-layout="1x8"] {
+            grid-template-columns: repeat(8, 1fr);
+            grid-template-rows: 1fr;
+        }
+
+        .drum-pad {
+            min-width: 0;
+            min-height: 70px;
+            border: 2px solid #692d27;
+            border-radius: 14px;
+            background: #bd5548;
+            box-shadow: none;
+            color: white;
+            font-size: clamp(1.5rem, 5vw, 3.5rem);
+            font-weight: bold;
+        }
+
+        .drum-pad:hover {
+            background: #ca6658;
+        }
+
+        .drum-pad:active {
+            background: #984137;
+        }
+
+        .drum-pad:disabled {
+            border-color: #a99591;
+            background: #c9bdb9;
+            box-shadow: none;
+            cursor: default;
+        }
+
+        .pad-status {
+            min-height: 1.2em;
+            color: #6c4b46;
+            font-family: monospace;
+            font-size: 0.8rem;
+            text-align: right;
+        }
+
+        .files-window .repl-titlebar {
+            background: #563b70;
+        }
+
+        .files-window .repl-titlebar button {
+            background: #f1eaf7;
+            color: #452f5b;
+        }
+
+        .files-window .repl-titlebar button:hover {
+            background: #e1d4ec;
+        }
+
+        .files-window .repl-body {
+            overflow-y: auto;
+        }
+
+        .managed-file-list {
+            display: flex;
+            gap: 8px;
+            flex-direction: column;
+        }
+
+        .managed-file-empty {
+            padding: 24px;
+            border: 1px dashed #baa7ca;
+            border-radius: 6px;
+            color: #6d5a7d;
+            text-align: center;
+        }
+
+        .managed-file-row {
+            display: grid;
+            grid-template-columns: minmax(150px, 0.8fr) minmax(180px, 1.4fr) auto;
+            gap: 7px;
+            align-items: center;
+            padding: 7px;
+            border: 1px solid #d1c2dc;
+            border-radius: 6px;
+            background: white;
+        }
+
+        .managed-file-name {
+            min-width: 0;
+            padding: 7px;
+            border: 1px solid #c8b8d4;
+            border-radius: 4px;
+            font-family: monospace;
+        }
+
+        .managed-file-name.invalid {
+            border-color: #b23a3a;
+            background: #fff2f2;
+        }
+
+        .managed-file-path {
+            min-width: 0;
+            overflow: hidden;
+            color: #685b70;
+            font-family: monospace;
+            font-size: 0.78rem;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .managed-file-buttons {
+            display: flex;
+            gap: 4px;
+        }
+
+        .managed-file-buttons button {
+            padding: 5px 7px;
+            background: #6d4c8d;
+            font-size: 0.75rem;
+        }
+
+        .managed-file-buttons button:hover {
+            background: #563b70;
+        }
+
+        .managed-file-actions {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .managed-file-actions button {
+            background: #6d4c8d;
+        }
+
+        .managed-file-actions button:hover {
+            background: #563b70;
+        }
+
+        .managed-file-status {
+            min-height: 1.2em;
+            flex: 1;
+            color: #685b70;
+            font-size: 0.8rem;
+            text-align: right;
+        }
+
+        @media (max-width: 680px) {
+            .managed-file-row {
+                grid-template-columns: 1fr;
+            }
+
+            .managed-file-buttons {
+                justify-content: flex-end;
             }
         }
 
@@ -702,6 +1101,12 @@
           <div id="range-settings" class="range-settings"></div>
           <button type="button" class="repl-launch" data-action="open-repl">open REPL</button>
           <button type="button" class="controls-launch" data-action="open-controls">open controls</button>
+          <button type="button" class="commands-launch" data-action="open-commands"
+              title="Shortcut: Ctrl+Shift+1">open commands</button>
+          <button type="button" class="commands-launch" data-action="open-pads"
+              title="Shortcut: Ctrl+Shift+2">open pads</button>
+          <button type="button" class="files-launch" data-action="open-files"
+              title="Shortcut: Ctrl+Shift+3">open files</button>
         </details>
 
         </div>
@@ -803,6 +1208,60 @@
     </div>
 </section>
 
+<section id="commands-window" class="repl-window commands-window"
+    aria-label="Saved Skred commands" hidden>
+    <header id="commands-titlebar" class="repl-titlebar">
+        <span class="repl-title">COMMANDS</span>
+        <button type="button" data-action="close-commands"
+            aria-label="Close commands">close</button>
+    </header>
+    <div class="repl-body">
+        <div id="command-entry-list" class="command-entry-list"></div>
+        <div class="command-entry-actions">
+            <button type="button" data-action="add-command-entry">add command</button>
+            <span id="command-entry-status" class="command-entry-status"
+                role="status">Ctrl+Shift+1 toggles this window.</span>
+        </div>
+    </div>
+</section>
+
+<section id="pads-window" class="repl-window pads-window"
+    aria-label="Command pads" hidden>
+    <header id="pads-titlebar" class="repl-titlebar">
+        <span class="repl-title">PADS</span>
+        <span class="pad-layout-options" aria-label="Pad layout">
+            <button type="button" data-action="set-pad-layout" data-layout="1x4">1x4</button>
+            <button type="button" data-action="set-pad-layout" data-layout="2x2">2x2</button>
+            <button type="button" data-action="set-pad-layout" data-layout="2x4">2x4</button>
+            <button type="button" data-action="set-pad-layout" data-layout="1x8">1x8</button>
+        </span>
+        <button type="button" data-action="close-pads"
+            aria-label="Close pads">close</button>
+    </header>
+    <div class="repl-body">
+        <div id="pad-grid" class="pad-grid" data-layout="2x2"></div>
+        <span id="pad-status" class="pad-status"
+            role="status">Pads run commands by number.</span>
+    </div>
+</section>
+
+<section id="files-window" class="repl-window files-window"
+    aria-label="Project files" hidden>
+    <header id="files-titlebar" class="repl-titlebar">
+        <span class="repl-title">FILES</span>
+        <button type="button" data-action="close-files"
+            aria-label="Close files">close</button>
+    </header>
+    <div class="repl-body">
+        <div id="managed-file-list" class="managed-file-list"></div>
+        <div class="managed-file-actions">
+            <button type="button" data-action="add-managed-file">add file</button>
+            <span id="managed-file-status" class="managed-file-status"
+                role="status">Use {{file:name}} in REPL or command text.</span>
+        </div>
+    </div>
+</section>
+
 <script>
     // --- CONSTANTS AND NATIVE BRIDGE ---
     const MAX_LOG_LINES = 20;
@@ -813,9 +1272,21 @@
     const replInput = document.getElementById('skode-input');
     const controlsWindow = document.getElementById('controls-window');
     const controlsTitlebar = document.getElementById('controls-titlebar');
+    const commandsWindow = document.getElementById('commands-window');
+    const commandsTitlebar = document.getElementById('commands-titlebar');
+    const padsWindow = document.getElementById('pads-window');
+    const padsTitlebar = document.getElementById('pads-titlebar');
+    const padGrid = document.getElementById('pad-grid');
+    const padStatus = document.getElementById('pad-status');
+    const filesWindow = document.getElementById('files-window');
+    const filesTitlebar = document.getElementById('files-titlebar');
     const commandSliderList = document.getElementById('command-slider-list');
     const commandSliderCount = document.getElementById('command-slider-count');
     const commandSliderStatus = document.getElementById('command-slider-status');
+    const commandEntryList = document.getElementById('command-entry-list');
+    const commandEntryStatus = document.getElementById('command-entry-status');
+    const managedFileList = document.getElementById('managed-file-list');
+    const managedFileStatus = document.getElementById('managed-file-status');
     const MIN_COMMAND_SLIDERS = 4;
     const MAX_COMMAND_SLIDERS = 8;
 
@@ -826,6 +1297,7 @@
      *   >v<voice>         open a wave chooser for a stereo voice pair
      *   R<directory>      scan a directory for .wav files
      *   W<voice>:<path>   load a wave into a stereo voice pair
+     *   K<index>          choose a managed project file
      *   JS<json> / JL     save or load the settings file
      *   DR / DA<c>:<n>    refresh or select audio devices
      *   G<width>:<height> resize the native main window content area
@@ -851,11 +1323,15 @@
         sendCommands(commands) { return this.invoke(`!${commands}`); },
         loadDirectory(directory) { return this.invoke(`R${directory}`); },
         loadWave(voice, path) { return this.invoke(`W${voice}:${path}`); },
+        chooseManagedFile(index) { return this.invoke(`K${index}`); },
         saveSettings(json) { return this.invoke(`JS${json}`); },
         loadSettings() { return this.invoke('JL'); },
         beginProjectSave() { return this.invoke('PB'); },
         addProjectWave(index, archivePath, path) {
             return this.invoke(`PW${index}:${archivePath}:${path}`);
+        },
+        addProjectFile(index, archivePath, path) {
+            return this.invoke(`PX${index}:${archivePath}:${path}`);
         },
         finishProjectSave(json) { return this.invoke(`PF${json}`); },
         loadProject() { return this.invoke('PL'); },
@@ -882,16 +1358,23 @@
 
     function makeFloatingWindow(panel, titlebar, defaultSize) {
         let drag = null;
-        let size = {
+        let geometry = {
+            left: null,
+            top: null,
             width: defaultSize.width,
             height: defaultSize.height
         };
 
-        function rememberSize() {
+        function rememberGeometry() {
             if (panel.hidden) return;
             const rect = panel.getBoundingClientRect();
             if (rect.width > 0 && rect.height > 0) {
-                size = { width: rect.width, height: rect.height };
+                geometry = {
+                    left: rect.left,
+                    top: rect.top,
+                    width: rect.width,
+                    height: rect.height
+                };
             }
         }
 
@@ -908,6 +1391,7 @@
             panel.style.left = `${Math.min(maxLeft, Math.max(0, rect.left))}px`;
             panel.style.top = `${Math.min(maxTop, Math.max(0, rect.top))}px`;
             panel.classList.add('positioned');
+            rememberGeometry();
         }
 
         function open(focusTarget) {
@@ -920,7 +1404,7 @@
         }
 
         function close() {
-            rememberSize();
+            rememberGeometry();
             panel.hidden = true;
         }
 
@@ -955,6 +1439,8 @@
             const top = Math.min(maxTop, Math.max(0, event.clientY - drag.offsetY));
             panel.style.left = `${left}px`;
             panel.style.top = `${top}px`;
+            geometry.left = left;
+            geometry.top = top;
         });
 
         function endDrag(event) {
@@ -971,35 +1457,59 @@
         window.addEventListener('resize', positionWithinViewport);
 
         if (typeof ResizeObserver === 'function') {
-            new ResizeObserver(rememberSize).observe(panel);
+            new ResizeObserver(rememberGeometry).observe(panel);
         }
 
-        function getSize() {
-            rememberSize();
+        function getGeometry() {
+            rememberGeometry();
             return {
-                width: Math.round(size.width),
-                height: Math.round(size.height)
+                left: Number.isFinite(geometry.left)
+                    ? Math.round(geometry.left)
+                    : null,
+                top: Number.isFinite(geometry.top)
+                    ? Math.round(geometry.top)
+                    : null,
+                width: Math.round(geometry.width),
+                height: Math.round(geometry.height)
             };
         }
 
-        function setSize(savedSize) {
-            if (!savedSize ||
-                !Number.isFinite(savedSize.width) ||
-                !Number.isFinite(savedSize.height)) {
+        function setGeometry(savedGeometry) {
+            if (!savedGeometry ||
+                !Number.isFinite(savedGeometry.width) ||
+                !Number.isFinite(savedGeometry.height)) {
                 return;
             }
 
             const width = Math.min(
-                Math.max(320, savedSize.width),
+                Math.max(320, savedGeometry.width),
                 Math.max(320, window.innerWidth - 16)
             );
             const height = Math.min(
-                Math.max(220, savedSize.height),
+                Math.max(220, savedGeometry.height),
                 Math.max(220, window.innerHeight - 16)
             );
-            size = { width, height };
+            geometry.width = width;
+            geometry.height = height;
             panel.style.width = `${width}px`;
             panel.style.height = `${height}px`;
+
+            if (Number.isFinite(savedGeometry.left) &&
+                Number.isFinite(savedGeometry.top)) {
+                const left = Math.min(
+                    Math.max(0, window.innerWidth - width),
+                    Math.max(0, savedGeometry.left)
+                );
+                const top = Math.min(
+                    Math.max(0, window.innerHeight - height),
+                    Math.max(0, savedGeometry.top)
+                );
+                geometry.left = left;
+                geometry.top = top;
+                panel.style.left = `${left}px`;
+                panel.style.top = `${top}px`;
+                panel.classList.add('positioned');
+            }
             positionWithinViewport();
         }
 
@@ -1007,7 +1517,7 @@
             return !panel.hidden;
         }
 
-        return { open, close, toggle, getSize, setSize, isOpen };
+        return { open, close, toggle, getGeometry, setGeometry, isOpen };
     }
 
     const replPanel = makeFloatingWindow(
@@ -1020,6 +1530,21 @@
         controlsTitlebar,
         { width: 760, height: 390 }
     );
+    const commandsPanel = makeFloatingWindow(
+        commandsWindow,
+        commandsTitlebar,
+        { width: 700, height: 520 }
+    );
+    const padsPanel = makeFloatingWindow(
+        padsWindow,
+        padsTitlebar,
+        { width: 700, height: 520 }
+    );
+    const filesPanel = makeFloatingWindow(
+        filesWindow,
+        filesTitlebar,
+        { width: 720, height: 430 }
+    );
 
     function openRepl() { replPanel.open(replInput); }
     function closeRepl() { replPanel.close(); }
@@ -1027,11 +1552,455 @@
     function openControls() { controlsPanel.open(); }
     function closeControls() { controlsPanel.close(); }
     function toggleControls() { controlsPanel.toggle(); }
+    function openCommands() { commandsPanel.open(); }
+    function closeCommands() { commandsPanel.close(); }
+    function toggleCommands() { commandsPanel.toggle(); }
+    function openPads() { padsPanel.open(); }
+    function closePads() { padsPanel.close(); }
+    function togglePads() { padsPanel.toggle(); }
+    function openFiles() { filesPanel.open(); }
+    function closeFiles() { filesPanel.close(); }
+    function toggleFiles() { filesPanel.toggle(); }
 
     function clearRepl() {
         logOutput.textContent = '';
         replInput.focus();
     }
+
+    function commandEntryRows() {
+        return Array.from(commandEntryList.querySelectorAll('.command-entry'));
+    }
+
+    function commandEntryTitle(text) {
+        const firstLine = text.split(/\r?\n/, 1)[0].trim();
+        return firstLine || 'untitled command';
+    }
+
+    function updateCommandEntry(row) {
+        const textarea = row.querySelector('.command-entry-text');
+        const title = row.querySelector('.command-entry-title');
+        const toggle = row.querySelector('.command-entry-toggle');
+        const collapsed = row.classList.contains('collapsed');
+        title.textContent = commandEntryTitle(textarea.value);
+        toggle.textContent = collapsed ? '+' : '\u2212';
+        toggle.setAttribute('aria-expanded', String(!collapsed));
+        toggle.setAttribute(
+            'aria-label',
+            `${collapsed ? 'Expand' : 'Collapse'} ${title.textContent}`
+        );
+    }
+
+    function updateCommandEntryOrderControls() {
+        const rows = commandEntryRows();
+        rows.forEach((row, index) => {
+            const number = index + 1;
+            row.querySelector('.command-entry-number').textContent = String(number);
+            row.querySelector('.command-entry-number').title = `Command ${number}`;
+            row.querySelector('[data-action="move-command-entry-up"]').disabled =
+                index === 0;
+            row.querySelector('[data-action="move-command-entry-down"]').disabled =
+                index === rows.length - 1;
+        });
+        renderPads();
+    }
+
+    function createCommandEntry(saved = {}) {
+        const row = document.createElement('article');
+        row.className = 'command-entry';
+        row.innerHTML = `
+            <div class="command-entry-header">
+                <button type="button" class="command-entry-toggle"
+                    data-action="toggle-command-entry"></button>
+                <button type="button" class="command-entry-drag" draggable="true"
+                    title="Drag to reorder" aria-label="Drag to reorder">\u2630</button>
+                <span class="command-entry-number"></span>
+                <span class="command-entry-title"></span>
+                <button type="button" data-action="move-command-entry-up"
+                    title="Move up" aria-label="Move command up">\u2191</button>
+                <button type="button" data-action="move-command-entry-down"
+                    title="Move down" aria-label="Move command down">\u2193</button>
+                <button type="button" class="command-entry-send"
+                    data-action="send-command-entry">send</button>
+                <button type="button" class="command-entry-delete"
+                    data-action="remove-command-entry" aria-label="Delete command">delete</button>
+            </div>
+            <textarea class="command-entry-text" spellcheck="false"
+                autocapitalize="none" autocorrect="off"
+                aria-label="Skred command text"></textarea>
+        `;
+        const textarea = row.querySelector('.command-entry-text');
+        textarea.value = typeof saved.text === 'string' ? saved.text : '';
+        row.classList.toggle('collapsed', saved.expanded === false);
+        updateCommandEntry(row);
+        return row;
+    }
+
+    function setCommandEntries(entries) {
+        commandEntryList.replaceChildren();
+        const savedEntries = Array.isArray(entries) ? entries : [];
+        savedEntries.forEach(saved => {
+            if (saved && typeof saved.text === 'string') {
+                commandEntryList.appendChild(createCommandEntry(saved));
+            }
+        });
+        if (commandEntryList.children.length === 0) {
+            commandEntryList.appendChild(createCommandEntry());
+        }
+        updateCommandEntryOrderControls();
+    }
+
+    function addCommandEntry() {
+        const row = createCommandEntry();
+        commandEntryList.appendChild(row);
+        updateCommandEntryOrderControls();
+        row.querySelector('.command-entry-text').focus();
+        commandEntryStatus.textContent = 'Added command.';
+    }
+
+    function removeCommandEntry(row) {
+        if (!row) return;
+        if (commandEntryRows().length === 1) {
+            const textarea = row.querySelector('.command-entry-text');
+            textarea.value = '';
+            row.classList.remove('collapsed');
+            updateCommandEntry(row);
+            textarea.focus();
+        } else {
+            row.remove();
+        }
+        updateCommandEntryOrderControls();
+        commandEntryStatus.textContent = 'Removed command.';
+    }
+
+    function moveCommandEntry(row, direction) {
+        if (!row) return;
+        const sibling = direction < 0
+            ? row.previousElementSibling
+            : row.nextElementSibling;
+        if (!sibling) return;
+        if (direction < 0) commandEntryList.insertBefore(row, sibling);
+        else commandEntryList.insertBefore(sibling, row);
+        updateCommandEntryOrderControls();
+    }
+
+    function sendCommandEntry(row, status = commandEntryStatus) {
+        if (!row) return false;
+        const command = row.querySelector('.command-entry-text').value;
+        if (!command.trim()) {
+            status.textContent = 'Enter a command first.';
+            return false;
+        }
+        let resolved;
+        try {
+            resolved = resolvePortableFiles(command);
+        } catch (error) {
+            status.textContent = error.message;
+            return false;
+        }
+        if (native.sendCommands(resolved)) {
+            addLog(resolved);
+            status.textContent =
+                `Sent: ${commandEntryTitle(command)}`;
+            return true;
+        } else {
+            status.textContent = 'Native command bridge is unavailable.';
+            return false;
+        }
+    }
+
+    const PAD_LAYOUTS = {
+        '1x4': 4,
+        '2x2': 4,
+        '2x4': 8,
+        '1x8': 8
+    };
+    let padLayout = '2x2';
+
+    function renderPads() {
+        if (!padGrid) return;
+        const count = PAD_LAYOUTS[padLayout] || PAD_LAYOUTS['2x2'];
+        const commandCount = commandEntryRows().length;
+        padGrid.dataset.layout = padLayout;
+        padGrid.replaceChildren();
+        for (let index = 0; index < count; index++) {
+            const number = index + 1;
+            const button = document.createElement('button');
+            button.type = 'button';
+            button.className = 'drum-pad';
+            button.dataset.action = 'trigger-pad';
+            button.dataset.commandIndex = String(index);
+            button.textContent = String(number);
+            button.disabled = index >= commandCount;
+            button.setAttribute(
+                'aria-label',
+                index < commandCount
+                    ? `Run command ${number}`
+                    : `Command ${number} is not available`
+            );
+            padGrid.appendChild(button);
+        }
+        document.querySelectorAll('[data-action="set-pad-layout"]').forEach(button => {
+            const active = button.dataset.layout === padLayout;
+            button.classList.toggle('active', active);
+            button.setAttribute('aria-pressed', String(active));
+        });
+    }
+
+    function setPadLayout(layout) {
+        if (!Object.prototype.hasOwnProperty.call(PAD_LAYOUTS, layout)) return;
+        padLayout = layout;
+        renderPads();
+    }
+
+    function triggerPad(index) {
+        const row = commandEntryRows()[index];
+        if (!row) {
+            padStatus.textContent = `Command ${index + 1} is not available.`;
+            return;
+        }
+        sendCommandEntry(row, padStatus);
+    }
+
+    let draggedCommandEntry = null;
+
+    commandEntryList.addEventListener('dragstart', event => {
+        const row = event.target.closest('.command-entry');
+        if (!row || !event.target.closest('.command-entry-drag')) {
+            event.preventDefault();
+            return;
+        }
+        draggedCommandEntry = row;
+        row.classList.add('dragging');
+        event.dataTransfer.effectAllowed = 'move';
+    });
+
+    commandEntryList.addEventListener('dragover', event => {
+        const row = event.target.closest('.command-entry');
+        if (!draggedCommandEntry || !row || row === draggedCommandEntry) return;
+        event.preventDefault();
+        const after = event.clientY > row.getBoundingClientRect().top +
+            row.getBoundingClientRect().height / 2;
+        commandEntryRows().forEach(entry => {
+            entry.classList.remove('drop-before', 'drop-after');
+        });
+        row.classList.add(after ? 'drop-after' : 'drop-before');
+    });
+
+    commandEntryList.addEventListener('drop', event => {
+        const row = event.target.closest('.command-entry');
+        if (!draggedCommandEntry || !row || row === draggedCommandEntry) return;
+        event.preventDefault();
+        const after = event.clientY > row.getBoundingClientRect().top +
+            row.getBoundingClientRect().height / 2;
+        commandEntryList.insertBefore(
+            draggedCommandEntry,
+            after ? row.nextElementSibling : row
+        );
+        updateCommandEntryOrderControls();
+    });
+
+    commandEntryList.addEventListener('dragend', () => {
+        commandEntryRows().forEach(row => {
+            row.classList.remove('dragging', 'drop-before', 'drop-after');
+        });
+        draggedCommandEntry = null;
+    });
+
+    setCommandEntries([]);
+
+    let managedFiles = [];
+    let lastCommandEditor = null;
+    const utf8Encoder = new TextEncoder();
+
+    function portableFileName(name, fallback = 'file') {
+        let result = String(name || '')
+            .replace(/[<>:"/\\|?*\u0000-\u001f]/g, '_')
+            .replace(/[. ]+$/, '') || fallback;
+        if (/^(con|prn|aux|nul|com[1-9]|lpt[1-9])(?:\.|$)/i.test(result)) {
+            result = `_${result}`;
+        }
+        while (utf8Encoder.encode(result).length > 240) {
+            result = result.slice(0, -1);
+        }
+        return result.replace(/[. ]+$/, '') || fallback;
+    }
+
+    function uniquePortableFileName(name, exceptIndex = -1) {
+        const safeName = portableFileName(name);
+        const dot = safeName.lastIndexOf('.');
+        const hasExtension = dot > 0;
+        const stem = hasExtension ? safeName.slice(0, dot) : safeName;
+        const extension = hasExtension ? safeName.slice(dot) : '';
+        const used = new Set(managedFiles
+            .filter((file, index) => index !== exceptIndex)
+            .map(file => file.name.toLowerCase()));
+        let candidate = `${stem}${extension}`;
+        let duplicate = 2;
+        while (used.has(candidate.toLowerCase())) {
+            candidate = `${stem} (${duplicate++})${extension}`;
+        }
+        return candidate;
+    }
+
+    function managedFileNameError(file, index) {
+        if (!file || typeof file.name !== 'string' || !file.name ||
+            file.name !== portableFileName(file.name) ||
+            utf8Encoder.encode(file.name).length > 240 ||
+            /^(con|prn|aux|nul|com[1-9]|lpt[1-9])(?:\.|$)/i.test(file.name)) {
+            return 'Use a plain filename without folders or reserved characters.';
+        }
+        if (managedFiles.some((other, otherIndex) =>
+            otherIndex !== index &&
+            other.name.toLowerCase() === file.name.toLowerCase())) {
+            return 'File names must be unique.';
+        }
+        return '';
+    }
+
+    function validateManagedFileRows() {
+        let firstError = '';
+        managedFileList.querySelectorAll('.managed-file-row').forEach(row => {
+            const index = Number(row.dataset.index);
+            const input = row.querySelector('.managed-file-name');
+            const error = managedFileNameError(managedFiles[index], index);
+            input.classList.toggle('invalid', Boolean(error));
+            input.title = error;
+            if (!firstError && error) firstError = error;
+        });
+        return firstError;
+    }
+
+    function managedFilesError() {
+        if (managedFiles.length > 64) return 'The project file limit is 64.';
+        return managedFiles.map(managedFileNameError).find(Boolean) || '';
+    }
+
+    function renderManagedFiles() {
+        managedFileList.replaceChildren();
+        if (managedFiles.length === 0) {
+            const empty = document.createElement('div');
+            empty.className = 'managed-file-empty';
+            empty.textContent = 'No project files. Add a patch or other file to bundle it.';
+            managedFileList.appendChild(empty);
+            return;
+        }
+
+        managedFiles.forEach((file, index) => {
+            const row = document.createElement('div');
+            row.className = 'managed-file-row';
+            row.dataset.index = String(index);
+            row.innerHTML = `
+                <input class="managed-file-name" aria-label="Portable file name">
+                <span class="managed-file-path"></span>
+                <span class="managed-file-buttons">
+                    <button type="button" data-action="copy-file-reference">copy ref</button>
+                    <button type="button" data-action="insert-file-reference">insert</button>
+                    <button type="button" data-action="replace-managed-file">replace</button>
+                    <button type="button" data-action="remove-managed-file">remove</button>
+                </span>
+            `;
+            row.querySelector('.managed-file-name').value = file.name;
+            const path = row.querySelector('.managed-file-path');
+            path.textContent = file.path;
+            path.title = file.path;
+            managedFileList.appendChild(row);
+        });
+        validateManagedFileRows();
+    }
+
+    function setManagedFiles(files) {
+        managedFiles = [];
+        if (Array.isArray(files)) {
+            files.forEach(file => {
+                if (!file || typeof file.name !== 'string' ||
+                    typeof file.path !== 'string' || !file.path) {
+                    return;
+                }
+                managedFiles.push({ name: file.name, path: file.path });
+            });
+        }
+        renderManagedFiles();
+        managedFileStatus.textContent = managedFiles.length === 0
+            ? 'Use {{file:name}} in REPL or command text.'
+            : `${managedFiles.length} project file${managedFiles.length === 1 ? '' : 's'} loaded.`;
+    }
+
+    function managedFileChosen(index, path, basename) {
+        if (index >= 0 && index < managedFiles.length) {
+            managedFiles[index].path = path;
+            managedFileStatus.textContent = `Replaced ${managedFiles[index].name}.`;
+        } else {
+            const name = uniquePortableFileName(basename, managedFiles.length);
+            managedFiles.push({ name, path });
+            managedFileStatus.textContent = `Added ${name}.`;
+        }
+        renderManagedFiles();
+    }
+
+    function managedFileReference(index) {
+        const file = managedFiles[index];
+        return file ? `{{file:${file.name}}}` : '';
+    }
+
+    function copyText(text) {
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            return navigator.clipboard.writeText(text);
+        }
+        const helper = document.createElement('textarea');
+        helper.value = text;
+        helper.style.position = 'fixed';
+        helper.style.opacity = '0';
+        document.body.appendChild(helper);
+        helper.select();
+        const copied = document.execCommand('copy');
+        helper.remove();
+        return copied ? Promise.resolve() : Promise.reject(new Error('copy failed'));
+    }
+
+    function copyManagedFileReference(index) {
+        const reference = managedFileReference(index);
+        if (!reference) return;
+        copyText(reference).then(() => {
+            managedFileStatus.textContent = `Copied ${reference}.`;
+        }).catch(() => {
+            managedFileStatus.textContent = `Reference: ${reference}`;
+        });
+    }
+
+    function insertManagedFileReference(index) {
+        const reference = managedFileReference(index);
+        const editor = lastCommandEditor;
+        if (!reference || !editor || !document.contains(editor)) {
+            copyManagedFileReference(index);
+            return;
+        }
+        const start = editor.selectionStart;
+        const end = editor.selectionEnd;
+        editor.setRangeText(reference, start, end, 'end');
+        editor.dispatchEvent(new Event('input', { bubbles: true }));
+        editor.focus();
+        managedFileStatus.textContent = `Inserted ${reference}.`;
+    }
+
+    function resolvePortableFiles(command) {
+        if (!command.includes('{{file:')) return command;
+        const error = validateManagedFileRows();
+        if (error) throw new Error(error);
+        const byName = new Map(
+            managedFiles.map(file => [file.name.toLowerCase(), file.path])
+        );
+        const resolved = command.replace(/\{\{file:([^{}\r\n]+)\}\}/g, (token, name) => {
+            const path = byName.get(name.trim().toLowerCase());
+            if (!path) throw new Error(`Unknown project file: ${name.trim()}`);
+            return path;
+        });
+        if (resolved.includes('{{file:')) {
+            throw new Error('Malformed project file reference.');
+        }
+        return resolved;
+    }
+
+    renderManagedFiles();
 
     function commandSliderParts(row) {
         return {
@@ -1580,22 +2549,43 @@
     function getSettings() {
         return {
             format: 'ro-totem-slider-settings',
-            version: 11,
+            version: 15,
             directory: waveDirectory || null,
             master: sliderStateFor(document.getElementById('master-vol')),
             commandSliders: commandSliderRows().map(commandSliderStateFor),
+            commandEntries: commandEntryRows().map(row => ({
+                text: row.querySelector('.command-entry-text').value,
+                expanded: !row.classList.contains('collapsed')
+            })),
+            managedFiles: managedFiles.map(file => ({
+                name: file.name,
+                path: file.path
+            })),
+            padLayout,
             uiWindows: {
                 main: {
                     width: Math.round(window.innerWidth),
                     height: Math.round(window.innerHeight)
                 },
                 repl: {
-                    ...replPanel.getSize(),
+                    ...replPanel.getGeometry(),
                     open: replPanel.isOpen()
                 },
                 controls: {
-                    ...controlsPanel.getSize(),
+                    ...controlsPanel.getGeometry(),
                     open: controlsPanel.isOpen()
+                },
+                commands: {
+                    ...commandsPanel.getGeometry(),
+                    open: commandsPanel.isOpen()
+                },
+                pads: {
+                    ...padsPanel.getGeometry(),
+                    open: padsPanel.isOpen()
+                },
+                files: {
+                    ...filesPanel.getGeometry(),
+                    open: filesPanel.isOpen()
                 }
             },
             audioDevices: {
@@ -1651,7 +2641,7 @@
 
     function applySettings(settings) {
         if (!settings || settings.format !== 'ro-totem-slider-settings' ||
-            ![1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11].includes(settings.version) ||
+            ![1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15].includes(settings.version) ||
             !Array.isArray(settings.tracks)) {
             throw new Error('This is not a supported ro-totem settings file.');
         }
@@ -1768,24 +2758,50 @@
             });
         }
 
-        if (settings.version >= 10 && settings.uiWindows) {
-            const main = settings.uiWindows.main;
-            if (main &&
-                Number.isFinite(main.width) &&
-                Number.isFinite(main.height)) {
-                native.resizeMainWindow(
-                    Math.round(main.width),
-                    Math.round(main.height)
-                );
-            }
+        if (settings.version >= 12 && Array.isArray(settings.commandEntries)) {
+            setCommandEntries(settings.commandEntries);
+        } else {
+            setCommandEntries([]);
         }
+
+        if (settings.version >= 13 && Array.isArray(settings.managedFiles)) {
+            if (settings.managedFiles.length > 64) {
+                throw new Error('The project contains too many managed files.');
+            }
+            if (settings.managedFiles.some(file =>
+                !file || typeof file.name !== 'string' ||
+                typeof file.path !== 'string' || !file.path)) {
+                throw new Error('The project contains invalid managed file settings.');
+            }
+            setManagedFiles(settings.managedFiles);
+            const managedFileError = validateManagedFileRows();
+            if (managedFileError) throw new Error(managedFileError);
+        } else {
+            setManagedFiles([]);
+        }
+
+        const savedPadLayout =
+            settings.version >= 14 && typeof settings.padLayout === 'string'
+                ? settings.padLayout
+                : '';
+        setPadLayout(
+            Object.prototype.hasOwnProperty.call(PAD_LAYOUTS, savedPadLayout)
+                ? savedPadLayout
+                : '2x2'
+        );
 
         if (settings.version >= 9 && settings.uiWindows) {
             const restoreFloatingWindows = () => {
                 const repl = settings.uiWindows.repl;
                 const controls = settings.uiWindows.controls;
-                replPanel.setSize(repl);
-                controlsPanel.setSize(controls);
+                const commands = settings.uiWindows.commands;
+                const pads = settings.uiWindows.pads;
+                const files = settings.uiWindows.files;
+                replPanel.setGeometry(repl);
+                controlsPanel.setGeometry(controls);
+                commandsPanel.setGeometry(commands);
+                padsPanel.setGeometry(pads);
+                filesPanel.setGeometry(files);
 
                 if (settings.version >= 11) {
                     if (repl && typeof repl.open === 'boolean') {
@@ -1796,10 +2812,52 @@
                         if (controls.open) openControls();
                         else closeControls();
                     }
+                    if (settings.version >= 12 &&
+                        commands && typeof commands.open === 'boolean') {
+                        if (commands.open) openCommands();
+                        else closeCommands();
+                    }
+                    if (settings.version >= 13 &&
+                        files && typeof files.open === 'boolean') {
+                        if (files.open) openFiles();
+                        else closeFiles();
+                    }
+                    if (settings.version >= 14 &&
+                        pads && typeof pads.open === 'boolean') {
+                        if (pads.open) openPads();
+                        else closePads();
+                    }
                 }
             };
-            if (settings.version >= 10) {
-                requestAnimationFrame(restoreFloatingWindows);
+
+            const main = settings.uiWindows.main;
+            if (settings.version >= 10 &&
+                main &&
+                Number.isFinite(main.width) &&
+                Number.isFinite(main.height)) {
+                const targetWidth = Math.round(main.width);
+                const targetHeight = Math.round(main.height);
+                let restored = false;
+                let fallbackTimer = null;
+
+                const finishRestore = () => {
+                    if (restored) return;
+                    restored = true;
+                    window.removeEventListener('resize', onMainWindowResize);
+                    if (fallbackTimer !== null) clearTimeout(fallbackTimer);
+                    requestAnimationFrame(restoreFloatingWindows);
+                };
+                const onMainWindowResize = () => {
+                    if (Math.abs(window.innerWidth - targetWidth) <= 2 &&
+                        Math.abs(window.innerHeight - targetHeight) <= 2) {
+                        finishRestore();
+                    }
+                };
+
+                window.addEventListener('resize', onMainWindowResize);
+                fallbackTimer = setTimeout(finishRestore, 750);
+                native.resizeMainWindow(targetWidth, targetHeight);
+                onMainWindowResize();
             } else {
                 restoreFloatingWindows();
             }
@@ -1872,13 +2930,25 @@
         }
     }
 
-    function loadProjectFromText(text, rootDirectory) {
+    function loadProjectFromText(text, rootDirectory, archivedFileNames = []) {
         try {
             const settings = JSON.parse(text);
             if (!settings || !Array.isArray(settings.tracks)) {
                 throw new Error('The project settings are invalid.');
             }
             const root = rootDirectory.replace(/[\\/]$/, '');
+            if (!Array.isArray(archivedFileNames) ||
+                archivedFileNames.some(name =>
+                    typeof name !== 'string' ||
+                    !name || name !== portableFileName(name))) {
+                throw new Error('The project contains an invalid file manifest.');
+            }
+            const archivedNames = new Map(
+                archivedFileNames.map(name => [name.toLowerCase(), name])
+            );
+            if (archivedNames.size !== archivedFileNames.length) {
+                throw new Error('The project contains duplicate managed files.');
+            }
             settings.directory = `${root}/waves`;
             settings.tracks.forEach(track => {
                 if (!track || !track.wave || typeof track.wave.path !== 'string') return;
@@ -1887,6 +2957,32 @@
                 }
                 track.wave.path = `${root}/${track.wave.path}`;
             });
+            if (settings.version >= 13 && Array.isArray(settings.managedFiles)) {
+                if (settings.managedFiles.length !== archivedFileNames.length) {
+                    throw new Error('The project file list does not match its archive.');
+                }
+                settings.managedFiles.forEach(file => {
+                    if (!file || typeof file.name !== 'string' ||
+                        typeof file.path !== 'string' ||
+                        !/^files\/[^/\\]+$/.test(file.path) ||
+                        file.path !== `files/${file.name}`) {
+                        throw new Error('The project contains an invalid managed file path.');
+                    }
+                    if (!archivedNames.delete(file.name.toLowerCase())) {
+                        throw new Error('The project file list does not match its archive.');
+                    }
+                    file.path = `${root}/${file.path}`;
+                });
+                if (archivedNames.size > 0) {
+                    throw new Error('The project file list does not match its archive.');
+                }
+            } else if (archivedFileNames.length > 0) {
+                settings.version = 13;
+                settings.managedFiles = archivedFileNames.map(name => ({
+                    name,
+                    path: `${root}/files/${name}`
+                }));
+            }
             applySettings(settings);
             native.acceptProject();
         } catch (error) {
@@ -1896,6 +2992,12 @@
     }
 
     function saveSettingsFile() {
+        const error = managedFilesError();
+        if (error) {
+            setSettingsStatus(error, true);
+            openFiles();
+            return;
+        }
         const json = JSON.stringify(getSettings(), null, 2);
         native.saveSettings(json);
     }
@@ -1905,10 +3007,17 @@
     }
 
     function saveProjectFile() {
+        const managedFileError = managedFilesError();
+        if (managedFileError) {
+            setSettingsStatus(managedFileError, true);
+            openFiles();
+            return;
+        }
         const settings = getSettings();
         const archivedPaths = new Map();
         const archiveNames = new Set();
         const waves = [];
+        const files = [];
 
         settings.tracks.forEach(track => {
             if (!track.wave || typeof track.wave.path !== 'string') return;
@@ -1938,9 +3047,18 @@
             track.wave.path = archivePath;
         });
         settings.directory = waves.length > 0 ? 'waves' : null;
+        settings.managedFiles.forEach((file, index) => {
+            files.push({
+                index,
+                archivePath: `files/${file.name}`,
+                path: file.path
+            });
+            file.path = `files/${file.name}`;
+        });
 
         pendingProjectSave = {
             waves,
+            files,
             json: JSON.stringify(settings, null, 2)
         };
         setSettingsStatus('choose where to save the project...');
@@ -1949,11 +3067,14 @@
 
     function projectSaveReady() {
         if (!pendingProjectSave) return;
-        const { waves, json } = pendingProjectSave;
+        const { waves, files, json } = pendingProjectSave;
         pendingProjectSave = null;
         setSettingsStatus('saving project...');
         waves.forEach(wave =>
             native.addProjectWave(wave.index, wave.archivePath, wave.path)
+        );
+        files.forEach(file =>
+            native.addProjectFile(file.index, file.archivePath, file.path)
         );
         native.finishProjectSave(json);
     }
@@ -2206,8 +3327,13 @@
 
     function skode(s) {
         if (s.length > 0) {
-            addLog(s);
-            native.sendCommands(s);
+            try {
+                const resolved = resolvePortableFiles(s);
+                addLog(resolved);
+                native.sendCommands(resolved);
+            } catch (error) {
+                addLog(`error: ${error.message}`);
+            }
         }
     }
 
@@ -2258,8 +3384,67 @@
             case 'clear-repl': clearRepl(); break;
             case 'open-controls': openControls(); break;
             case 'close-controls': closeControls(); break;
+            case 'open-commands': openCommands(); break;
+            case 'close-commands': closeCommands(); break;
+            case 'open-pads': openPads(); break;
+            case 'close-pads': closePads(); break;
+            case 'open-files': openFiles(); break;
+            case 'close-files': closeFiles(); break;
+            case 'set-pad-layout': setPadLayout(control.dataset.layout); break;
+            case 'trigger-pad':
+                triggerPad(Number(control.dataset.commandIndex));
+                break;
             case 'add-command-slider': addCommandSlider(); break;
             case 'remove-command-slider': removeCommandSlider(); break;
+            case 'add-command-entry': addCommandEntry(); break;
+            case 'toggle-command-entry': {
+                const row = control.closest('.command-entry');
+                row.classList.toggle('collapsed');
+                updateCommandEntry(row);
+                break;
+            }
+            case 'remove-command-entry':
+                removeCommandEntry(control.closest('.command-entry'));
+                break;
+            case 'move-command-entry-up':
+                moveCommandEntry(control.closest('.command-entry'), -1);
+                break;
+            case 'move-command-entry-down':
+                moveCommandEntry(control.closest('.command-entry'), 1);
+                break;
+            case 'send-command-entry':
+                sendCommandEntry(control.closest('.command-entry'));
+                break;
+            case 'add-managed-file':
+                if (managedFiles.length >= 64) {
+                    managedFileStatus.textContent = 'The project file limit is 64.';
+                } else {
+                    native.chooseManagedFile(-1);
+                }
+                break;
+            case 'replace-managed-file':
+                native.chooseManagedFile(
+                    Number(control.closest('.managed-file-row').dataset.index)
+                );
+                break;
+            case 'remove-managed-file': {
+                const index = Number(control.closest('.managed-file-row').dataset.index);
+                const removed = managedFiles.splice(index, 1)[0];
+                renderManagedFiles();
+                managedFileStatus.textContent =
+                    removed ? `Removed ${removed.name}.` : '';
+                break;
+            }
+            case 'copy-file-reference':
+                copyManagedFileReference(
+                    Number(control.closest('.managed-file-row').dataset.index)
+                );
+                break;
+            case 'insert-file-reference':
+                insertManagedFileReference(
+                    Number(control.closest('.managed-file-row').dataset.index)
+                );
+                break;
             case 'send-command': skode(getcmd()); break;
             case 'toggle-track-lock': toggleTrackLock(track); break;
             case 'choose-wave': native.chooseWave(voice); break;
@@ -2293,6 +3478,22 @@
                 event.target
             );
         }
+        if (event.target.classList.contains('command-entry-text')) {
+            updateCommandEntry(event.target.closest('.command-entry'));
+        }
+        if (event.target.classList.contains('managed-file-name')) {
+            const row = event.target.closest('.managed-file-row');
+            managedFiles[Number(row.dataset.index)].name = event.target.value;
+            const error = validateManagedFileRows();
+            managedFileStatus.textContent = error || 'Portable filename updated.';
+        }
+    });
+
+    document.addEventListener('focusin', event => {
+        if (event.target === replInput ||
+            event.target.classList.contains('command-entry-text')) {
+            lastCommandEditor = event.target;
+        }
     });
 
     document.getElementById('skode-input').addEventListener('keydown', (event) => {
@@ -2302,6 +3503,24 @@
     });
 
     document.addEventListener('keydown', (event) => {
+        if (event.ctrlKey && event.shiftKey && event.code === 'Digit3' && !event.repeat) {
+            event.preventDefault();
+            toggleFiles();
+            return;
+        }
+
+        if (event.ctrlKey && event.shiftKey && event.code === 'Digit2' && !event.repeat) {
+            event.preventDefault();
+            togglePads();
+            return;
+        }
+
+        if (event.ctrlKey && event.shiftKey && event.code === 'Digit1' && !event.repeat) {
+            event.preventDefault();
+            toggleCommands();
+            return;
+        }
+
         if (event.ctrlKey && event.shiftKey && event.code === 'Backquote' && !event.repeat) {
             event.preventDefault();
             toggleControls();
@@ -2315,7 +3534,10 @@
         }
 
         if (event.key === 'Escape') {
-            if (!controlsWindow.hidden) closeControls();
+            if (!filesWindow.hidden) closeFiles();
+            else if (!padsWindow.hidden) closePads();
+            else if (!commandsWindow.hidden) closeCommands();
+            else if (!controlsWindow.hidden) closeControls();
             else if (!replWindow.hidden) closeRepl();
         }
     });

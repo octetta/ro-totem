@@ -34,10 +34,18 @@ See [ARCHITECTURE.md](ARCHITECTURE.md) for:
 ## Projects and Settings
 
 The main `load zip` and `save zip` actions use a portable project archive
-containing `settings.json` and the WAV files used by the current tracks. WAV
-basenames are preserved, with numbered suffixes only when names collide.
-Standalone JSON settings import and export remain available under `advanced`;
-those files continue to reference WAVs by their original filesystem paths.
+containing `settings.json`, the WAV files used by the current tracks, and files
+added through the Files window. WAV basenames are preserved, with numbered
+suffixes only when names collide. Managed files can be referenced from the
+REPL or Commands window as `{{file:name}}`; references are resolved when a
+command is explicitly sent. Standalone JSON settings import and export remain
+available under `advanced`; those files continue to reference source files by
+their original filesystem paths.
+
+The Commands window is available with `Ctrl+Shift+1`. The Pads window uses
+`Ctrl+Shift+2` and runs command entries by number. The Files window uses
+`Ctrl+Shift+3`. Project JSON and ZIP files preserve each floating window's
+visibility, size, and position within the main window.
 
 ## Linux Build
 

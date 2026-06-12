@@ -238,8 +238,9 @@ static int wavepointer = 300;
  *   >v<voice>         Choose a wave for a stereo voice pair.
  *   R<directory>      Scan a directory and return its .wav filenames.
  *   W<voice>:<path>   Load a wave into voice and voice + 1.
+ *   K<index>          Choose a managed project file.
  *   JS<json> / JL     Save or load settings.
- *   PB / PW / PF / PL Save or load a project ZIP containing settings and WAVs.
+ *   PB / PW / PX / PF / PL Save or load a project ZIP.
  *   DR / DA<c>:<n>    Refresh or apply an audio-device selection.
  *   G<width>:<height> Resize the native main window content area.
  *
@@ -259,6 +260,7 @@ enum native_command {
   NATIVE_SETTINGS = 'J',
   NATIVE_PROJECT = 'P',
   NATIVE_WINDOW_GEOMETRY = 'G',
+  NATIVE_CHOOSE_PROJECT_FILE = 'K',
   NATIVE_LOAD_DIRECTORY = 'R',
   NATIVE_LOAD_WAVE = 'W',
   NATIVE_CHOOSE_WAVE = '>'
@@ -459,9 +461,12 @@ static void save_settings_file(struct webview *w, const char *json) {
 }
 
 #define PROJECT_MAX_WAVES 32
+#define PROJECT_MAX_FILES 64
 #define PROJECT_MAX_SETTINGS_SIZE (1024 * 1024)
 #define PROJECT_MAX_WAVE_SIZE ((mz_uint64)1024 * 1024 * 1024)
 #define PROJECT_MAX_TOTAL_WAVE_SIZE ((mz_uint64)4 * 1024 * 1024 * 1024)
+#define PROJECT_MAX_FILE_SIZE ((mz_uint64)64 * 1024 * 1024)
+#define PROJECT_MAX_TOTAL_FILE_SIZE ((mz_uint64)512 * 1024 * 1024)
 
 struct project_writer {
   mz_zip_archive archive;
@@ -556,13 +561,13 @@ static void begin_project_save(struct webview *w) {
   webview_eval(w, "projectSaveReady()");
 }
 
-static int parse_project_wave_argument(
-    const char *arg, int *index, char *archive_name,
+static int parse_project_file_argument(
+    const char *arg, int max_files, int *index, char *archive_name,
     size_t archive_name_size, const char **filename) {
   char *end;
   long parsed = strtol(arg, &end, 10);
   if (end == arg || *end != ':' ||
-      parsed < 0 || parsed >= PROJECT_MAX_WAVES) {
+      parsed < 0 || parsed >= max_files) {
     return 0;
   }
 
@@ -601,13 +606,50 @@ static int valid_project_wave_name(const char *name) {
   return 1;
 }
 
+static int valid_project_file_name(const char *name) {
+  static const char prefix[] = "files/";
+  size_t prefix_length = sizeof(prefix) - 1;
+  if (strncmp(name, prefix, prefix_length) != 0) return 0;
+
+  const char *basename = name + prefix_length;
+  size_t length = strlen(basename);
+  if (!basename[0] ||
+      length > 240 || basename[length - 1] == '.' || basename[length - 1] == ' ' ||
+      strcmp(basename, ".") == 0 || strcmp(basename, "..") == 0) {
+    return 0;
+  }
+  char stem[16];
+  size_t stem_length = strcspn(basename, ".");
+  if (stem_length < sizeof(stem)) {
+    memcpy(stem, basename, stem_length);
+    stem[stem_length] = '\0';
+    if (strcasecmp(stem, "CON") == 0 || strcasecmp(stem, "PRN") == 0 ||
+        strcasecmp(stem, "AUX") == 0 || strcasecmp(stem, "NUL") == 0 ||
+        (stem_length == 4 &&
+         (strncasecmp(stem, "COM", 3) == 0 ||
+          strncasecmp(stem, "LPT", 3) == 0) &&
+         stem[3] >= '1' && stem[3] <= '9')) {
+      return 0;
+    }
+  }
+  for (const unsigned char *p = (const unsigned char *)basename; *p; p++) {
+    if (*p == '/' || *p == '\\' || *p == ':' || *p == '<' || *p == '>' ||
+        *p == '"' || *p == '|' || *p == '?' || *p == '*' ||
+        *p < 0x20 || *p == 0x7f) {
+      return 0;
+    }
+  }
+  return 1;
+}
+
 static void add_project_wave(struct webview *w, const char *arg) {
   int index;
   char archive_name[MZ_ZIP_MAX_ARCHIVE_FILENAME_SIZE];
   const char *filename;
   if (!project_writer.active || project_writer.failed) return;
-  if (!parse_project_wave_argument(
-        arg, &index, archive_name, sizeof(archive_name), &filename) ||
+  if (!parse_project_file_argument(
+        arg, PROJECT_MAX_WAVES, &index,
+        archive_name, sizeof(archive_name), &filename) ||
       !valid_project_wave_name(archive_name)) {
     project_writer.failed = 1;
     project_file_error(w, "Could not save a WAV with an invalid path.");
@@ -620,6 +662,29 @@ static void add_project_wave(struct webview *w, const char *arg) {
         NULL, 0, MZ_NO_COMPRESSION)) {
     project_writer.failed = 1;
     project_file_error(w, "Could not add a WAV file to the project archive.");
+  }
+}
+
+static void add_project_file(struct webview *w, const char *arg) {
+  int index;
+  char archive_name[MZ_ZIP_MAX_ARCHIVE_FILENAME_SIZE];
+  const char *filename;
+  if (!project_writer.active || project_writer.failed) return;
+  if (!parse_project_file_argument(
+        arg, PROJECT_MAX_FILES, &index,
+        archive_name, sizeof(archive_name), &filename) ||
+      !valid_project_file_name(archive_name)) {
+    project_writer.failed = 1;
+    project_file_error(w, "Could not save a managed file with an invalid path.");
+    return;
+  }
+  (void)index;
+
+  if (!mz_zip_writer_add_file(
+        &project_writer.archive, archive_name, filename,
+        NULL, 0, MZ_BEST_COMPRESSION)) {
+    project_writer.failed = 1;
+    project_file_error(w, "Could not add a managed file to the project archive.");
   }
 }
 
@@ -677,29 +742,34 @@ static int join_path(
 static void cleanup_project_directory(const char *directory) {
   if (!directory || !directory[0]) return;
 
-  char waves_directory[PATH_MAX];
-  if (!join_path(
-        waves_directory, sizeof(waves_directory), directory, "waves")) {
-    return;
-  }
-
-  DIR *dp = opendir(waves_directory);
-  if (dp) {
-    struct dirent *entry;
-    while ((entry = readdir(dp))) {
-      if (strcmp(entry->d_name, ".") == 0 ||
-          strcmp(entry->d_name, "..") == 0) {
-        continue;
-      }
-      char filename[PATH_MAX];
-      if (join_path(
-            filename, sizeof(filename), waves_directory, entry->d_name)) {
-        remove(filename);
-      }
+  const char *subdirectories[] = {"waves", "files"};
+  for (size_t i = 0;
+       i < sizeof(subdirectories) / sizeof(subdirectories[0]); i++) {
+    char subdirectory[PATH_MAX];
+    if (!join_path(
+          subdirectory, sizeof(subdirectory),
+          directory, subdirectories[i])) {
+      continue;
     }
-    closedir(dp);
+
+    DIR *dp = opendir(subdirectory);
+    if (dp) {
+      struct dirent *entry;
+      while ((entry = readdir(dp))) {
+        if (strcmp(entry->d_name, ".") == 0 ||
+            strcmp(entry->d_name, "..") == 0) {
+          continue;
+        }
+        char filename[PATH_MAX];
+        if (join_path(
+              filename, sizeof(filename), subdirectory, entry->d_name)) {
+          remove(filename);
+        }
+      }
+      closedir(dp);
+    }
+    remove_directory(subdirectory);
   }
-  remove_directory(waves_directory);
   remove_directory(directory);
 }
 
@@ -732,17 +802,26 @@ struct project_archive_contents {
     int file_index;
     char name[MZ_ZIP_MAX_ARCHIVE_FILENAME_SIZE];
   } waves[PROJECT_MAX_WAVES];
+  int file_count;
+  struct {
+    int file_index;
+    char name[MZ_ZIP_MAX_ARCHIVE_FILENAME_SIZE];
+  } files[PROJECT_MAX_FILES];
 };
 
 static int inspect_project_archive(
     mz_zip_archive *archive, struct project_archive_contents *contents) {
   mz_uint file_count = mz_zip_reader_get_num_files(archive);
-  if (file_count == 0 || file_count > PROJECT_MAX_WAVES + 1) return 0;
+  if (file_count == 0 ||
+      file_count > PROJECT_MAX_WAVES + PROJECT_MAX_FILES + 1) {
+    return 0;
+  }
 
   memset(contents, 0, sizeof(*contents));
   contents->settings_index = -1;
 
   mz_uint64 total_wave_size = 0;
+  mz_uint64 total_file_size = 0;
   for (mz_uint i = 0; i < file_count; i++) {
     mz_zip_archive_file_stat stat;
     if (!mz_zip_reader_file_stat(archive, i, &stat) ||
@@ -759,23 +838,41 @@ static int inspect_project_archive(
       continue;
     }
 
-    if (!valid_project_wave_name(stat.m_filename) ||
-        contents->wave_count >= PROJECT_MAX_WAVES ||
-        stat.m_uncomp_size > PROJECT_MAX_WAVE_SIZE ||
-        total_wave_size > PROJECT_MAX_TOTAL_WAVE_SIZE - stat.m_uncomp_size) {
-      return 0;
+    if (valid_project_wave_name(stat.m_filename)) {
+      if (contents->wave_count >= PROJECT_MAX_WAVES ||
+          stat.m_uncomp_size > PROJECT_MAX_WAVE_SIZE ||
+          total_wave_size > PROJECT_MAX_TOTAL_WAVE_SIZE - stat.m_uncomp_size) {
+        return 0;
+      }
+      for (int j = 0; j < contents->wave_count; j++) {
+        if (strcasecmp(contents->waves[j].name, stat.m_filename) == 0) return 0;
+      }
+      contents->waves[contents->wave_count].file_index = (int)i;
+      snprintf(
+        contents->waves[contents->wave_count].name,
+        sizeof(contents->waves[contents->wave_count].name),
+        "%s", stat.m_filename);
+      contents->wave_count++;
+      total_wave_size += stat.m_uncomp_size;
+      continue;
     }
 
-    for (int j = 0; j < contents->wave_count; j++) {
-      if (strcasecmp(contents->waves[j].name, stat.m_filename) == 0) return 0;
+    if (!valid_project_file_name(stat.m_filename) ||
+        contents->file_count >= PROJECT_MAX_FILES ||
+        stat.m_uncomp_size > PROJECT_MAX_FILE_SIZE ||
+        total_file_size > PROJECT_MAX_TOTAL_FILE_SIZE - stat.m_uncomp_size) {
+      return 0;
     }
-    contents->waves[contents->wave_count].file_index = (int)i;
+    for (int j = 0; j < contents->file_count; j++) {
+      if (strcasecmp(contents->files[j].name, stat.m_filename) == 0) return 0;
+    }
+    contents->files[contents->file_count].file_index = (int)i;
     snprintf(
-      contents->waves[contents->wave_count].name,
-      sizeof(contents->waves[contents->wave_count].name),
+      contents->files[contents->file_count].name,
+      sizeof(contents->files[contents->file_count].name),
       "%s", stat.m_filename);
-    contents->wave_count++;
-    total_wave_size += stat.m_uncomp_size;
+    contents->file_count++;
+    total_file_size += stat.m_uncomp_size;
   }
   return contents->settings_index >= 0;
 }
@@ -796,6 +893,30 @@ static int extract_project_waves(
     if (!join_path(filename, sizeof(filename), waves_directory, basename) ||
         !mz_zip_reader_extract_to_file(
           archive, (mz_uint)contents->waves[i].file_index, filename, 0)) {
+      return 0;
+    }
+  }
+  return 1;
+}
+
+static int extract_project_files(
+    mz_zip_archive *archive, const struct project_archive_contents *contents,
+    const char *directory) {
+  if (contents->file_count == 0) return 1;
+
+  char files_directory[PATH_MAX];
+  if (!join_path(
+        files_directory, sizeof(files_directory), directory, "files") ||
+      !make_directory(files_directory)) {
+    return 0;
+  }
+
+  for (int i = 0; i < contents->file_count; i++) {
+    char filename[PATH_MAX];
+    const char *basename = contents->files[i].name + strlen("files/");
+    if (!join_path(filename, sizeof(filename), files_directory, basename) ||
+        !mz_zip_reader_extract_to_file(
+          archive, (mz_uint)contents->files[i].file_index, filename, 0)) {
       return 0;
     }
   }
@@ -831,7 +952,8 @@ static void load_project_file(struct webview *w, const char *filename) {
   if (ok) {
     memcpy(json, json_data, json_size);
     json[json_size] = '\0';
-    ok = extract_project_waves(&archive, &contents, temp_directory);
+    ok = extract_project_waves(&archive, &contents, temp_directory) &&
+      extract_project_files(&archive, &contents, temp_directory);
   }
   mz_free(json_data);
   mz_zip_reader_end(&archive);
@@ -849,11 +971,27 @@ static void load_project_file(struct webview *w, const char *filename) {
     "%s", temp_directory);
 
   struct script_builder script = {0};
+  int manifest_ok = 0;
   if (script_append(&script, "loadProjectFromText(") &&
       script_append_js_string(&script, json) &&
       script_append(&script, ",") &&
       script_append_js_string(&script, pending_project_temp_directory) &&
-      script_append(&script, ")")) {
+      script_append(&script, ",[")) {
+    manifest_ok = 1;
+    for (int i = 0; i < contents.file_count; i++) {
+      if (i > 0 && !script_append(&script, ",")) {
+        manifest_ok = 0;
+        break;
+      }
+      const char *basename = contents.files[i].name + strlen("files/");
+      if (!script_append_js_string(&script, basename)) {
+        manifest_ok = 0;
+        break;
+      }
+    }
+  }
+  if (manifest_ok &&
+      script_append(&script, "])")) {
     script_eval(w, &script);
   } else {
     free(script.data);
@@ -889,11 +1027,37 @@ static void handle_project_command(struct webview *w, const char *arg) {
   switch (arg[0]) {
     case 'B': begin_project_save(w); break;
     case 'W': add_project_wave(w, &arg[1]); break;
+    case 'X': add_project_file(w, &arg[1]); break;
     case 'F': finish_project_save(w, &arg[1]); break;
     case 'L': load_project_dialog(w); break;
     case 'A': accept_loaded_project(); break;
     case 'R': reject_loaded_project(); break;
     default: break;
+  }
+}
+
+static void choose_project_file(struct webview *w, const char *arg) {
+  char *end;
+  long index = strtol(arg, &end, 10);
+  if (end == arg || *end != '\0' || index < -1 || index >= PROJECT_MAX_FILES) {
+    return;
+  }
+
+  char filename[PATH_MAX] = "";
+  webview_dialog(
+    w, WEBVIEW_DIALOG_TYPE_OPEN, WEBVIEW_DIALOG_FLAG_FILE,
+    "Add project file", "", filename, sizeof(filename));
+  if (!filename[0]) return;
+
+  struct script_builder script = {0};
+  if (script_appendf(&script, "managedFileChosen(%ld,", index) &&
+      script_append_js_string(&script, filename) &&
+      script_append(&script, ",") &&
+      script_append_js_string(&script, path_basename(filename)) &&
+      script_append(&script, ")")) {
+    script_eval(w, &script);
+  } else {
+    free(script.data);
   }
 }
 
@@ -1079,6 +1243,9 @@ static void invoker(struct webview *w, const char *arg) {
     case NATIVE_WINDOW_GEOMETRY:
       resize_main_window(w, &arg[1]);
       break;
+    case NATIVE_CHOOSE_PROJECT_FILE:
+      choose_project_file(w, &arg[1]);
+      break;
     case NATIVE_LOAD_DIRECTORY:
       load_wave_directory(w, &arg[1]);
       break;
@@ -1106,7 +1273,7 @@ int main(void) {
   struct webview webview;
   memset(&webview, 0, sizeof(webview));
   webview.url = html_path;
-  webview.title = "ro-totem gemini epsilon-five 2026";
+  webview.title = "ro-totem gemini zeta-one equus";
   webview.width = 884;  // window.innerWidth
 #ifdef __linux__
   webview.height = 740;

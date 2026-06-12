@@ -139,10 +139,12 @@ to perform:
 | `>v<voice>` | Open a wave chooser for a stereo voice pair |
 | `R<directory>` | Scan a directory for WAV files |
 | `W<voice>:<path>` | Load a WAV file into a stereo voice pair |
+| `K<index>` | Choose a managed project file to add or replace |
 | `JS<json>` | Save settings JSON |
 | `JL` | Load settings JSON |
 | `PB` | Begin saving a project ZIP |
 | `PW<index>:<archive-path>:<source-path>` | Add a WAV to the pending project ZIP |
+| `PX<index>:<archive-path>:<source-path>` | Add a managed file to the pending project ZIP |
 | `PF<json>` | Add settings and finish the pending project ZIP |
 | `PL` | Load a project ZIP |
 | `PA` / `PR` | Accept or reject an extracted project after UI validation |
@@ -209,6 +211,7 @@ C calls named JavaScript functions with `webview_eval()`. Examples include:
 - `setTrackWave(...)`
 - `waveFileLoaded()`
 - `loadSettingsFromText(json)`
+- `loadProjectFromText(json, rootDirectory, archivedFileNames)`
 - `audioDevicesReady(status)`
 - `audioDeviceApplied(kind, success, status)`
 
@@ -338,26 +341,49 @@ commands are restored after any project WAV files finish loading, before saved
 track and master controls so the dedicated controls remain authoritative when
 both target the same engine parameter.
 
+The Commands window is stored under `commandEntries`. Each entry preserves its
+editable command text, expanded state, and array order. Loading settings only
+restores this declarative UI state; it never sends command-entry text to Skred.
+Commands are sent solely through an explicit per-entry action.
+
+The Pads window runs command entries by their current one-based list position.
+Its `1x4`, `2x2`, `2x4`, and `1x8` layouts expose four or eight numbered pads;
+missing command positions are disabled. The selected layout is stored under
+`padLayout`. Reordering Commands therefore changes pad assignments directly,
+without storing a second command mapping.
+
+The Files window is stored under `managedFiles`. Each entry has a unique,
+portable filename and a current filesystem path. REPL and Commands text may
+refer to one with `{{file:name}}`; the token is resolved only when the user
+sends that command. Text stored in settings therefore remains independent of
+the temporary extraction directory used by a loaded project. Unknown or
+ambiguous references are rejected before a command reaches Skred.
+When loading a project, native code also supplies the validated `files/`
+archive manifest. The UI reconciles settings metadata against that manifest,
+uses archive members as the source of truth, and can recover the file list
+from valid members if older metadata is absent.
+
 The project also stores the main content size plus the dimensions and open
-state of the REPL and Controls windows under `uiWindows`. Window positions are
-intentionally not portable project state. The main size is restored through
-the native bridge; floating-panel dimensions preserve their current positions
-where possible, are clamped to the current viewport, and then their saved
-visibility is restored.
+state of the REPL, Controls, Commands, Pads, and Files windows under `uiWindows`.
+The main size is restored through the native bridge. Each floating panel then
+restores its saved `left`, `top`, `width`, `height`, and visibility. Geometry
+is clamped to the current viewport so a project created on a larger display
+cannot leave a window inaccessible.
 
 Keep settings declarative. Save values such as ranges, device identity, wave
 paths, and mute state rather than replaying an opaque history of UI actions.
 
-Project ZIP files contain `settings.json` and WAV entries under `waves/`.
-Original WAV basenames are preserved. If distinct source paths share a
-basename, later entries receive a suffix such as ` (2)`; characters that are
-not portable as Windows filenames are replaced with `_`. The archived settings
-use those relative paths. Native loading validates the complete ZIP, rejects
-unexpected names and duplicate entries, applies size and count limits, and
-extracts into an app-owned temporary directory. JavaScript resolves the
-relative paths before calling the normal settings restoration flow. Temporary
-project files are removed when a different project is loaded or the
-application exits.
+Project ZIP files contain `settings.json`, WAV entries under `waves/`, and
+managed patch or data files under `files/`. Original WAV basenames are
+preserved. If distinct source paths share a basename, later entries receive a
+suffix such as ` (2)`; characters that are not portable as Windows filenames
+are replaced with `_`. Managed files use their editable portable names. The
+archived settings use relative paths in those namespaces. Native loading
+validates the complete ZIP, rejects unexpected names and duplicate entries,
+applies separate size and count limits to WAVs and managed files, and extracts
+into an app-owned temporary directory. JavaScript resolves the relative paths
+before calling the normal settings restoration flow. Temporary project files
+are removed when a different project is loaded or the application exits.
 
 ## Application Lifecycle
 
