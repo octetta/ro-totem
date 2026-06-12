@@ -58,8 +58,8 @@ LINUX_BINARY := $(LINUX_BUILD_DIR)/$(APP_NAME)
 LINUX_PACKAGE_NAME := $(APP_NAME)-linux-$(HOST_ARCH)
 LINUX_PACKAGE_DIR := $(DIST_DIR)/$(LINUX_PACKAGE_NAME)
 LINUX_ARCHIVE := $(DIST_DIR)/$(LINUX_PACKAGE_NAME).tar.gz
-LINUX_CFLAGS = $(shell pkg-config --cflags gtk+-3.0 webkit2gtk-4.0)
-LINUX_LIBS = $(shell pkg-config --libs gtk+-3.0 webkit2gtk-4.0)
+LINUX_CFLAGS = $(shell pkg-config --cflags gtk+-3.0 webkit2gtk-4.1)
+LINUX_LIBS = $(shell pkg-config --libs gtk+-3.0 webkit2gtk-4.1)
 
 linux: $(LINUX_BINARY)
 
