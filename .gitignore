@@ -1,3 +1,5 @@
+waves/*
+files/*
 *.dSYM
 *.zip
 .DS_Store
