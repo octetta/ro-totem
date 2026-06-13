@@ -42,10 +42,26 @@ command is explicitly sent. Standalone JSON settings import and export remain
 available under `advanced`; those files continue to reference source files by
 their original filesystem paths.
 
-The Commands window is available with `Ctrl+Shift+1`. The Pads window uses
-`Ctrl+Shift+2` and runs command entries by number. The Files window uses
+The Commands window is available with `Ctrl+Shift+1` and numbers entries from
+zero. Entry `0` is available for configuration; the Pads window uses
+`Ctrl+Shift+2` and maps Pads `1` through `8` to Commands `1` through `8`. The Files window uses
 `Ctrl+Shift+3`. Project JSON and ZIP files preserve each floating window's
-visibility, size, and position within the main window.
+visibility, size, and position within the main window. Each Pads layout keeps
+its own saved size and position. Floating-window order and the last focused
+window are restored as well.
+
+`Ctrl+Alt+H` temporarily hides or restores all floating windows on Linux and
+Windows. On macOS, use `Cmd+Option+H`. The restore keeps the previous visible
+set, stacking order, geometry, and focus.
+
+Advanced settings include an opt-in portable window geometry mode. It preserves
+the current platform's main-window size and restores floating windows
+proportionally, while the default mode continues using absolute saved geometry.
+
+The REPL keeps submitted commands in a history available with the Up and Down
+arrow keys. History is preserved in JSON and project ZIP files. Submitted text
+is cleared from the entry field, and the log colors entered commands separately
+from Skred output and errors.
 
 ## Linux Build
 

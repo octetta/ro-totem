@@ -1260,6 +1260,14 @@ static void invoker(struct webview *w, const char *arg) {
   }
 }
 
+static int confirm_close(struct webview *w) {
+  char result[2];
+  webview_dialog(
+    w, WEBVIEW_DIALOG_TYPE_CONFIRM, WEBVIEW_DIALOG_FLAG_WARNING,
+    "Quit ro-totem?", "Are you sure you want to quit?", result, sizeof(result));
+  return result[0] == '1';
+}
+
 int main(void) {
   char html_path[PATH_MAX * 3 + 8];
   char tmp[PATH_MAX];
@@ -1273,7 +1281,7 @@ int main(void) {
   struct webview webview;
   memset(&webview, 0, sizeof(webview));
   webview.url = html_path;
-  webview.title = "ro-totem gemini zeta-one equus";
+  webview.title = "ro-totem gemini zeta-two equus";
   webview.width = 884;  // window.innerWidth
 #ifdef __linux__
   webview.height = 740;
@@ -1283,6 +1291,7 @@ int main(void) {
   webview.resizable = 1;
   webview.debug = 1;
   webview.external_invoke_cb = &invoker;
+  webview.close_cb = &confirm_close;
 
   skred_enumerate_devices(0);
   skred_enumerate_devices(1);
@@ -1313,8 +1322,7 @@ int main(void) {
   int r = webview_init(&webview);
   if (r != 0) {
     fputs("Could not initialize the webview\n", stderr);
-    skoder("/q");
-    sleep(1);
+    skred_stop();
     return 1;
   }
 
@@ -1324,15 +1332,11 @@ int main(void) {
     r = webview_loop(&webview, 1);
   } while (r == 0);
 
+  skred_stop();
   webview_exit(&webview);
   discard_project_writer(1);
   cleanup_project_directory(project_temp_directory);
   cleanup_project_directory(pending_project_temp_directory);
-
-  // tell it to quit...
-  skoder("/q");
-
-  sleep(1);
 
   return 0;
 }

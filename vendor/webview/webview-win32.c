@@ -770,6 +770,12 @@ static LRESULT CALLBACK wndproc(HWND hwnd, UINT uMsg, WPARAM wParam,
       return TRUE;
     }
     return EmbedBrowserObject(w);
+  case WM_CLOSE:
+    if (w != NULL && w->close_cb != NULL && !w->close_cb(w)) {
+      return 0;
+    }
+    DestroyWindow(hwnd);
+    return 0;
   case WM_DESTROY:
     if (webview_webview2_enabled) {
       ReleaseWebView2(w->priv.webview2);
@@ -1189,6 +1195,9 @@ WEBVIEW_API void webview_dialog(struct webview *w,
                                 enum webview_dialog_type dlgtype, int flags,
                                 const char *title, const char *arg,
                                 char *result, size_t resultsz) {
+  if (result != NULL && resultsz > 0) {
+    result[0] = '\0';
+  }
   if (dlgtype == WEBVIEW_DIALOG_TYPE_OPEN ||
       dlgtype == WEBVIEW_DIALOG_TYPE_SAVE) {
     IFileDialog *dlg = NULL;
@@ -1253,7 +1262,8 @@ WEBVIEW_API void webview_dialog(struct webview *w,
   error_dlg:
     dlg->lpVtbl->Release(dlg);
     return;
-  } else if (dlgtype == WEBVIEW_DIALOG_TYPE_ALERT) {
+  } else if (dlgtype == WEBVIEW_DIALOG_TYPE_ALERT ||
+             dlgtype == WEBVIEW_DIALOG_TYPE_CONFIRM) {
 #if 0
     /* MinGW often doesn't contain TaskDialog, we'll use MessageBox for now */
     WCHAR *wtitle = webview_to_utf16(title);
@@ -1262,7 +1272,9 @@ WEBVIEW_API void webview_dialog(struct webview *w,
     GlobalFree(warg);
     GlobalFree(wtitle);
 #else
-    UINT type = MB_OK;
+    UINT type = dlgtype == WEBVIEW_DIALOG_TYPE_CONFIRM
+                    ? MB_YESNO | MB_DEFBUTTON2
+                    : MB_OK;
     switch (flags & WEBVIEW_DIALOG_FLAG_ALERT_MASK) {
     case WEBVIEW_DIALOG_FLAG_INFO:
       type |= MB_ICONINFORMATION;
@@ -1274,7 +1286,12 @@ WEBVIEW_API void webview_dialog(struct webview *w,
       type |= MB_ICONERROR;
       break;
     }
-    MessageBox(w->priv.hwnd, arg, title, type);
+    int response = MessageBox(w->priv.hwnd, arg, title, type);
+    if (dlgtype == WEBVIEW_DIALOG_TYPE_CONFIRM && result != NULL &&
+        resultsz > 1 && response == IDYES) {
+      result[0] = '1';
+      result[1] = '\0';
+    }
 #endif
   }
 }

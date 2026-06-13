@@ -40,9 +40,11 @@
 #define NSEventModifierFlagCommand (1 << 20)
 #define NSEventModifierFlagOption (1 << 19)
 #define NSAlertStyleInformational 1
-#define NSAlertFirstButtonReturn 1000
 #define WKNavigationActionPolicyDownload 2
 #define NSModalResponseOK 1
+#define NSAlertFirstButtonReturn 1000
+#define NSTerminateCancel 0
+#define NSTerminateNow 1
 #define WKNavigationActionPolicyDownload 2
 #define WKNavigationResponsePolicyAllow 1
 #define WKUserScriptInjectionTimeAtDocumentStart 0
@@ -67,6 +69,27 @@ static id create_menu_item(id title, const char *action, const char *key) {
 static void webview_window_will_close(id self, SEL cmd, id notification) {
   struct webview *w = (struct webview *)objc_getAssociatedObject(self, "webview");
   webview_terminate(w);
+}
+
+static BOOL webview_window_should_close(id self, SEL cmd, id sender) {
+  (void)cmd;
+  (void)sender;
+  struct webview *w = (struct webview *)objc_getAssociatedObject(self, "webview");
+  return w->close_cb == NULL || w->close_cb(w);
+}
+
+static unsigned long webview_application_should_terminate(id self, SEL cmd,
+                                                          id sender) {
+  (void)cmd;
+  (void)sender;
+  struct webview *w = (struct webview *)objc_getAssociatedObject(self, "webview");
+  if (w->priv.should_exit) {
+    return NSTerminateNow;
+  }
+  if (w->close_cb == NULL || w->close_cb(w)) {
+    webview_terminate(w);
+  }
+  return NSTerminateCancel;
 }
 
 static void webview_external_invoke(id self, SEL cmd, id contentController,
@@ -322,8 +345,15 @@ WEBVIEW_API int webview_init(struct webview *w) {
   Class __NSWindowDelegate = objc_allocateClassPair(objc_getClass("NSObject"),
                                                     "__NSWindowDelegate", 0);
   class_addProtocol(__NSWindowDelegate, objc_getProtocol("NSWindowDelegate"));
+  class_addProtocol(__NSWindowDelegate,
+                    objc_getProtocol("NSApplicationDelegate"));
   class_replaceMethod(__NSWindowDelegate, sel_registerName("windowWillClose:"),
                       (IMP)webview_window_will_close, "v@:@");
+  class_replaceMethod(__NSWindowDelegate, sel_registerName("windowShouldClose:"),
+                      (IMP)webview_window_should_close, "c@:@");
+  class_replaceMethod(
+      __NSWindowDelegate, sel_registerName("applicationShouldTerminate:"),
+      (IMP)webview_application_should_terminate, "Q@:@");
   objc_registerClassPair(__NSWindowDelegate);
 
   w->priv.windowDelegate =
@@ -355,6 +385,10 @@ WEBVIEW_API int webview_init(struct webview *w) {
   ((void(*)(id, SEL, id))objc_msgSend)(w->priv.window, sel_registerName("setTitle:"), nsTitle);
   ((void(*)(id, SEL, id))objc_msgSend)(w->priv.window, sel_registerName("setDelegate:"),
                w->priv.windowDelegate);
+  ((void(*)(id, SEL, id))objc_msgSend)(
+      ((id(*)(id, SEL))objc_msgSend)((id)objc_getClass("NSApplication"),
+                                     sel_registerName("sharedApplication")),
+      sel_registerName("setDelegate:"), w->priv.windowDelegate);
   ((void(*)(id, SEL))objc_msgSend)(w->priv.window, sel_registerName("center"));
 
   Class __WKUIDelegate =
@@ -575,6 +609,9 @@ WEBVIEW_API void webview_dialog(struct webview *w,
                                 enum webview_dialog_type dlgtype, int flags,
                                 const char *title, const char *arg,
                                 char *result, size_t resultsz) {
+  if (result != NULL && resultsz > 0) {
+    result[0] = '\0';
+  }
   if (dlgtype == WEBVIEW_DIALOG_TYPE_OPEN ||
       dlgtype == WEBVIEW_DIALOG_TYPE_SAVE) {
     id panel = (id)objc_getClass("NSSavePanel");
@@ -626,7 +663,8 @@ WEBVIEW_API void webview_dialog(struct webview *w,
       const char *filename = ((const char *(*)(id, SEL))objc_msgSend)(path, sel_registerName("UTF8String"));
       strlcpy(result, filename, resultsz);
     }
-  } else if (dlgtype == WEBVIEW_DIALOG_TYPE_ALERT) {
+  } else if (dlgtype == WEBVIEW_DIALOG_TYPE_ALERT ||
+             dlgtype == WEBVIEW_DIALOG_TYPE_CONFIRM) {
     id a = ((id(*)(id, SEL))objc_msgSend)((id)objc_getClass("NSAlert"), sel_registerName("new"));
     switch (flags & WEBVIEW_DIALOG_FLAG_ALERT_MASK) {
     case WEBVIEW_DIALOG_FLAG_INFO:
@@ -646,9 +684,20 @@ WEBVIEW_API void webview_dialog(struct webview *w,
     ((void(*)(id, SEL, int))objc_msgSend)(a, sel_registerName("setShowsSuppressionButton:"), 0);
     ((void(*)(id, SEL, id))objc_msgSend)(a, sel_registerName("setMessageText:"), get_nsstring(title));
     ((void(*)(id, SEL, id))objc_msgSend)(a, sel_registerName("setInformativeText:"), get_nsstring(arg));
-    ((void(*)(id, SEL, id))objc_msgSend)(a, sel_registerName("addButtonWithTitle:"),
-                 get_nsstring("OK"));
-    ((void(*)(id, SEL))objc_msgSend)(a, sel_registerName("runModal"));
+    ((void(*)(id, SEL, id))objc_msgSend)(
+        a, sel_registerName("addButtonWithTitle:"),
+        get_nsstring(dlgtype == WEBVIEW_DIALOG_TYPE_CONFIRM ? "Quit" : "OK"));
+    if (dlgtype == WEBVIEW_DIALOG_TYPE_CONFIRM) {
+      ((void(*)(id, SEL, id))objc_msgSend)(
+          a, sel_registerName("addButtonWithTitle:"), get_nsstring("Cancel"));
+    }
+    long response =
+        ((long(*)(id, SEL))objc_msgSend)(a, sel_registerName("runModal"));
+    if (dlgtype == WEBVIEW_DIALOG_TYPE_CONFIRM && result != NULL &&
+        resultsz > 1 && response == NSAlertFirstButtonReturn) {
+      result[0] = '1';
+      result[1] = '\0';
+    }
     ((void(*)(id, SEL))objc_msgSend)(a, sel_registerName("release"));
   }
 }

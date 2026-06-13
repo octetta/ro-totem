@@ -341,16 +341,23 @@ commands are restored after any project WAV files finish loading, before saved
 track and master controls so the dedicated controls remain authoritative when
 both target the same engine parameter.
 
-The Commands window is stored under `commandEntries`. Each entry preserves its
-editable command text, expanded state, and array order. Loading settings only
-restores this declarative UI state; it never sends command-entry text to Skred.
-Commands are sent solely through an explicit per-entry action.
+The REPL command history is stored under `replHistory`, capped at 100 non-empty
+entries. Loading history restores navigation state only; it does not replay any
+commands.
 
-The Pads window runs command entries by their current one-based list position.
-Its `1x4`, `2x2`, `2x4`, and `1x8` layouts expose four or eight numbered pads;
-missing command positions are disabled. The selected layout is stored under
-`padLayout`. Reordering Commands therefore changes pad assignments directly,
-without storing a second command mapping.
+The Commands window is stored under `commandEntries`. Each entry preserves its
+editable command text, expanded state, resized editor height, and array order.
+Loading settings only restores this declarative UI state; it never sends
+command-entry text to Skred. Commands are sent solely through an explicit
+per-entry action.
+
+Command entries are numbered from zero so entry `0` can hold configuration.
+The Pads window deliberately skips entry `0`: Pad `1` runs command `1`, through
+Pad `8` running command `8`. Its `1x4`, `2x2`, `2x4`, and `1x8` layouts expose
+four or eight numbered pads; missing command positions are disabled. The
+selected layout is stored under `padLayout`. Each layout's window position and
+dimensions are stored under `uiWindows.pads.layouts`. Reordering Commands
+therefore changes pad assignments directly, without storing a second mapping.
 
 The Files window is stored under `managedFiles`. Each entry has a unique,
 portable filename and a current filesystem path. REPL and Commands text may
@@ -366,9 +373,21 @@ from valid members if older metadata is absent.
 The project also stores the main content size plus the dimensions and open
 state of the REPL, Controls, Commands, Pads, and Files windows under `uiWindows`.
 The main size is restored through the native bridge. Each floating panel then
-restores its saved `left`, `top`, `width`, `height`, and visibility. Geometry
-is clamped to the current viewport so a project created on a larger display
-cannot leave a window inaccessible.
+restores its saved `left`, `top`, `width`, `height`, and visibility; Pads keeps
+separate geometry for each layout. The floating-window stacking order and last
+focused window are restored after visibility. Geometry is clamped to the
+current viewport so a project created on a larger display cannot leave a window
+inaccessible.
+
+The opt-in `portableWindowGeometry` setting also stores each floating panel's
+geometry as viewport-relative values. When enabled during load, the app keeps
+the current platform's main-window size and restores floating panels
+proportionally. Absolute geometry remains in the file as a fallback and is the
+default behavior.
+
+The floating-window visibility shortcut keeps an in-memory snapshot of the
+visible set, stacking order, and focused panel. It closes panels without
+changing their geometry and restores that snapshot on the next toggle.
 
 Keep settings declarative. Save values such as ranges, device identity, wave
 paths, and mute state rather than replaying an opaque history of UI actions.
@@ -395,7 +414,8 @@ The native lifecycle is:
 4. Configure and start Skred.
 5. Initialize the webview and register `invoker()`.
 6. Run the webview event loop.
-7. Send Skred its quit command when the window closes.
+7. Confirm the user's close request.
+8. Stop Skred with `skred_stop()` before tearing down the window.
 
 The UI lifecycle is:
 

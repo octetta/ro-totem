@@ -83,6 +83,14 @@ static void webview_destroy_cb(GtkWidget *widget, gpointer arg) {
   webview_terminate(w);
 }
 
+static gboolean webview_delete_cb(GtkWidget *widget, GdkEvent *event,
+                                  gpointer arg) {
+  (void)widget;
+  (void)event;
+  struct webview *w = (struct webview *)arg;
+  return w->close_cb != NULL && !w->close_cb(w);
+}
+
 static gboolean webview_context_menu_cb(WebKitWebView *webview,
                                         GtkWidget *default_menu,
                                         WebKitHitTestResult *hit_test_result,
@@ -163,6 +171,8 @@ WEBVIEW_API int webview_init(struct webview *w) {
 
   g_signal_connect(G_OBJECT(w->priv.window), "destroy",
                    G_CALLBACK(webview_destroy_cb), w);
+  g_signal_connect(G_OBJECT(w->priv.window), "delete-event",
+                   G_CALLBACK(webview_delete_cb), w);
   return 0;
 }
 
@@ -225,7 +235,8 @@ WEBVIEW_API void webview_dialog(struct webview *w,
       g_free(filename);
     }
     gtk_widget_destroy(dlg);
-  } else if (dlgtype == WEBVIEW_DIALOG_TYPE_ALERT) {
+  } else if (dlgtype == WEBVIEW_DIALOG_TYPE_ALERT ||
+             dlgtype == WEBVIEW_DIALOG_TYPE_CONFIRM) {
     GtkMessageType type = GTK_MESSAGE_OTHER;
     switch (flags & WEBVIEW_DIALOG_FLAG_ALERT_MASK) {
     case WEBVIEW_DIALOG_FLAG_INFO:
@@ -239,10 +250,24 @@ WEBVIEW_API void webview_dialog(struct webview *w,
       break;
     }
     dlg = gtk_message_dialog_new(GTK_WINDOW(w->priv.window), GTK_DIALOG_MODAL,
-                                 type, GTK_BUTTONS_OK, "%s", title);
+                                 type,
+                                 dlgtype == WEBVIEW_DIALOG_TYPE_CONFIRM
+                                     ? GTK_BUTTONS_NONE
+                                     : GTK_BUTTONS_OK,
+                                 "%s", title);
     gtk_message_dialog_format_secondary_text(GTK_MESSAGE_DIALOG(dlg), "%s",
                                              arg);
-    gtk_dialog_run(GTK_DIALOG(dlg));
+    if (dlgtype == WEBVIEW_DIALOG_TYPE_CONFIRM) {
+      gtk_dialog_add_buttons(GTK_DIALOG(dlg), "_Cancel", GTK_RESPONSE_CANCEL,
+                             "_Quit", GTK_RESPONSE_ACCEPT, NULL);
+      gtk_dialog_set_default_response(GTK_DIALOG(dlg), GTK_RESPONSE_CANCEL);
+    }
+    gint response = gtk_dialog_run(GTK_DIALOG(dlg));
+    if (dlgtype == WEBVIEW_DIALOG_TYPE_CONFIRM && result != NULL &&
+        resultsz > 1 && response == GTK_RESPONSE_ACCEPT) {
+      result[0] = '1';
+      result[1] = '\0';
+    }
     gtk_widget_destroy(dlg);
   }
 }

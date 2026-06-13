@@ -96,6 +96,7 @@ typedef struct webview webview;
 
 typedef void (*webview_external_invoke_cb_t)(struct webview *w,
                                              const char *arg);
+typedef int (*webview_close_cb_t)(struct webview *w);
 
 struct webview {
   const char *url;
@@ -105,6 +106,7 @@ struct webview {
   int resizable;
   int debug;
   webview_external_invoke_cb_t external_invoke_cb;
+  webview_close_cb_t close_cb;
   struct webview_priv priv;
   void *userdata;
 };
@@ -112,7 +114,8 @@ struct webview {
 enum webview_dialog_type {
   WEBVIEW_DIALOG_TYPE_OPEN = 0,
   WEBVIEW_DIALOG_TYPE_SAVE = 1,
-  WEBVIEW_DIALOG_TYPE_ALERT = 2
+  WEBVIEW_DIALOG_TYPE_ALERT = 2,
+  WEBVIEW_DIALOG_TYPE_CONFIRM = 3
 };
 
 enum webview_dialog_flag {

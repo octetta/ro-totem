@@ -133,6 +133,14 @@
             margin-top: 10px;
         }
 
+        .portable-geometry-setting {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            margin-top: 10px;
+            font-size: 0.8rem;
+        }
+
         .row.master-toolbar {
             display: grid;
             grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
@@ -156,42 +164,52 @@
 
         .repl-launch {
             margin-top: 10px;
-            background: #ff9800;
+            background: #7a3e00;
             color: white;
         }
 
         .repl-launch:hover {
-            background: #e68900;
+            background: #5f3000;
         }
 
         .controls-launch {
             margin-top: 10px;
-            background: #5468d4;
+            background: #35458f;
             color: white;
         }
 
         .controls-launch:hover {
-            background: #4052b5;
+            background: #29366f;
         }
 
         .commands-launch {
             margin-top: 10px;
-            background: #26736a;
+            background: #1d5b54;
             color: white;
         }
 
         .commands-launch:hover {
-            background: #1d5b54;
+            background: #164740;
+        }
+
+        .pads-launch {
+            margin-top: 10px;
+            background: #8a3b32;
+            color: white;
+        }
+
+        .pads-launch:hover {
+            background: #6b2e27;
         }
 
         .files-launch {
             margin-top: 10px;
-            background: #6d4c8d;
+            background: #563b70;
             color: white;
         }
 
         .files-launch:hover {
-            background: #563b70;
+            background: #452f5b;
         }
 
         .repl-window {
@@ -302,17 +320,24 @@
             background: #dce1ff;
         }
 
-        .controls-window .repl-body {
+        .controls-window .repl-body,
+        .files-window .repl-body {
             overflow-y: auto;
+            margin-right: 16px;
+            margin-bottom: 16px;
+            scrollbar-gutter: stable;
+        }
+
+        .controls-window .repl-body {
+            padding-right: 18px;
         }
 
         .command-slider-row {
             display: grid;
             grid-template-columns:
-                minmax(130px, 1.6fr)
-                repeat(3, minmax(64px, 0.55fr))
-                minmax(90px, 0.7fr)
-                minmax(140px, 2fr);
+                minmax(140px, 1fr)
+                repeat(4, 80px)
+                minmax(170px, 2fr);
             gap: 7px;
             align-items: center;
         }
@@ -384,7 +409,8 @@
 
         @media (max-width: 680px) {
             .command-slider-row {
-                grid-template-columns: repeat(4, minmax(52px, 1fr));
+                grid-template-columns: repeat(2, 80px);
+                justify-content: space-between;
             }
 
             .command-slider-template,
@@ -430,7 +456,7 @@
             gap: 8px;
             flex: 1;
             flex-direction: column;
-            padding-right: 4px;
+            padding: 0 16px 8px 0;
         }
 
         .command-entry {
@@ -630,23 +656,49 @@
         }
 
         .drum-pad {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
             min-width: 0;
             min-height: 70px;
+            padding: 10px;
             border: 2px solid #692d27;
             border-radius: 14px;
             background: #bd5548;
             box-shadow: none;
             color: white;
+            flex-direction: column;
+            transition: background 60ms ease, transform 60ms ease;
+        }
+
+        .drum-pad-number {
             font-size: clamp(1.5rem, 5vw, 3.5rem);
             font-weight: bold;
+            line-height: 1;
+        }
+
+        .drum-pad-command {
+            width: 100%;
+            overflow: hidden;
+            font-family: monospace;
+            font-size: clamp(0.55rem, 1.5vw, 0.8rem);
+            font-weight: normal;
+            line-height: 1.2;
+            opacity: 0.9;
+            text-align: center;
+            text-overflow: ellipsis;
+            white-space: nowrap;
         }
 
         .drum-pad:hover {
             background: #ca6658;
         }
 
-        .drum-pad:active {
+        .drum-pad:active,
+        .drum-pad.keyboard-active {
             background: #984137;
+            transform: translateY(2px) scale(0.985);
         }
 
         .drum-pad:disabled {
@@ -675,10 +727,6 @@
 
         .files-window .repl-titlebar button:hover {
             background: #e1d4ec;
-        }
-
-        .files-window .repl-body {
-            overflow-y: auto;
         }
 
         .managed-file-list {
@@ -789,6 +837,22 @@
         }
 
         .log-output { margin: 0; white-space: pre-wrap; }
+
+        .log-entry {
+            display: block;
+        }
+
+        .log-entry-input {
+            color: #1d5b54;
+        }
+
+        .log-entry-output {
+            color: #333;
+        }
+
+        .log-entry-error {
+            color: #a12d2d;
+        }
 
         #settings-status {
             color: #555;
@@ -1098,12 +1162,16 @@
             <button type="button" data-action="load-settings">load settings json</button>
             <button type="button" data-action="save-settings">save settings json</button>
           </div>
+          <label class="portable-geometry-setting">
+            <input id="portable-window-geometry" type="checkbox">
+            portable window geometry
+          </label>
           <div id="range-settings" class="range-settings"></div>
           <button type="button" class="repl-launch" data-action="open-repl">open REPL</button>
           <button type="button" class="controls-launch" data-action="open-controls">open controls</button>
           <button type="button" class="commands-launch" data-action="open-commands"
               title="Shortcut: Ctrl+Shift+1">open commands</button>
-          <button type="button" class="commands-launch" data-action="open-pads"
+          <button type="button" class="pads-launch" data-action="open-pads"
               title="Shortcut: Ctrl+Shift+2">open pads</button>
           <button type="button" class="files-launch" data-action="open-files"
               title="Shortcut: Ctrl+Shift+3">open files</button>
@@ -1225,7 +1293,7 @@
     </div>
 </section>
 
-<section id="pads-window" class="repl-window pads-window"
+<section id="pads-window" class="repl-window pads-window" tabindex="-1"
     aria-label="Command pads" hidden>
     <header id="pads-titlebar" class="repl-titlebar">
         <span class="repl-title">PADS</span>
@@ -1287,8 +1355,14 @@
     const commandEntryStatus = document.getElementById('command-entry-status');
     const managedFileList = document.getElementById('managed-file-list');
     const managedFileStatus = document.getElementById('managed-file-status');
+    const portableWindowGeometry =
+        document.getElementById('portable-window-geometry');
     const MIN_COMMAND_SLIDERS = 4;
     const MAX_COMMAND_SLIDERS = 8;
+    const MAX_REPL_HISTORY = 100;
+    const replHistory = [];
+    let replHistoryIndex = 0;
+    let replHistoryDraft = '';
 
     /*
      * UI-to-native protocol handled by invoker() in rototem.c:
@@ -1346,17 +1420,26 @@
         }
     };
 
-    function addLog(message) {
-        let lines = logOutput.textContent.split('\n').filter(Boolean);
-        lines.push(String(message));
-        if (lines.length > MAX_LOG_LINES) lines = lines.slice(-MAX_LOG_LINES);
-        logOutput.textContent = lines.join('\n');
+    function addLog(message, kind = 'output') {
+        const entry = document.createElement('span');
+        const validKind = ['input', 'output', 'error'].includes(kind)
+            ? kind
+            : 'output';
+        entry.className = `log-entry log-entry-${validKind}`;
+        entry.textContent = String(message);
+        logOutput.appendChild(entry);
+        while (logOutput.children.length > MAX_LOG_LINES) {
+            logOutput.firstElementChild.remove();
+        }
         logContainer.scrollTop = logContainer.scrollHeight;
     }
 
     let floatingWindowZ = 1000;
+    let lastFocusedWindow = null;
+    let hiddenFloatingWindowState = null;
+    const floatingWindows = {};
 
-    function makeFloatingWindow(panel, titlebar, defaultSize) {
+    function makeFloatingWindow(id, panel, titlebar, defaultSize) {
         let drag = null;
         let geometry = {
             left: null,
@@ -1381,6 +1464,7 @@
         function bringToFront() {
             floatingWindowZ += 1;
             panel.style.zIndex = floatingWindowZ;
+            lastFocusedWindow = id;
         }
 
         function positionWithinViewport() {
@@ -1517,30 +1601,51 @@
             return !panel.hidden;
         }
 
-        return { open, close, toggle, getGeometry, setGeometry, isOpen };
+        panel.dataset.floatingWindow = id;
+        if (!panel.hasAttribute('tabindex')) panel.tabIndex = -1;
+        panel.addEventListener('focusin', bringToFront);
+
+        const controller = {
+            id,
+            panel,
+            open,
+            close,
+            toggle,
+            getGeometry,
+            setGeometry,
+            isOpen,
+            bringToFront
+        };
+        floatingWindows[id] = controller;
+        return controller;
     }
 
     const replPanel = makeFloatingWindow(
+        'repl',
         replWindow,
         replTitlebar,
         { width: 620, height: 390 }
     );
     const controlsPanel = makeFloatingWindow(
+        'controls',
         controlsWindow,
         controlsTitlebar,
         { width: 760, height: 390 }
     );
     const commandsPanel = makeFloatingWindow(
+        'commands',
         commandsWindow,
         commandsTitlebar,
         { width: 700, height: 520 }
     );
     const padsPanel = makeFloatingWindow(
+        'pads',
         padsWindow,
         padsTitlebar,
         { width: 700, height: 520 }
     );
     const filesPanel = makeFloatingWindow(
+        'files',
         filesWindow,
         filesTitlebar,
         { width: 720, height: 430 }
@@ -1555,16 +1660,114 @@
     function openCommands() { commandsPanel.open(); }
     function closeCommands() { commandsPanel.close(); }
     function toggleCommands() { commandsPanel.toggle(); }
-    function openPads() { padsPanel.open(); }
+    function openPads() { padsPanel.open(padsWindow); }
     function closePads() { padsPanel.close(); }
-    function togglePads() { padsPanel.toggle(); }
+    function togglePads() { padsPanel.toggle(padsWindow); }
     function openFiles() { filesPanel.open(); }
     function closeFiles() { filesPanel.close(); }
     function toggleFiles() { filesPanel.toggle(); }
 
     function clearRepl() {
-        logOutput.textContent = '';
+        logOutput.replaceChildren();
         replInput.focus();
+    }
+
+    function floatingWindowState() {
+        const order = Object.values(floatingWindows)
+            .filter(controller => controller.isOpen())
+            .sort((a, b) =>
+                Number(a.panel.style.zIndex || 0) -
+                Number(b.panel.style.zIndex || 0))
+            .map(controller => controller.id);
+        const focusedPanel = document.activeElement &&
+            document.activeElement.closest('[data-floating-window]');
+        const fallbackFocused = order.includes(lastFocusedWindow)
+            ? lastFocusedWindow
+            : order.length > 0 ? order[order.length - 1] : null;
+        return {
+            order,
+            focused: focusedPanel && !focusedPanel.hidden
+                ? focusedPanel.dataset.floatingWindow
+                : fallbackFocused
+        };
+    }
+
+    function geometryWithRelative(geometry) {
+        return {
+            ...geometry,
+            relative: {
+                left: Number.isFinite(geometry.left)
+                    ? geometry.left / window.innerWidth
+                    : null,
+                top: Number.isFinite(geometry.top)
+                    ? geometry.top / window.innerHeight
+                    : null,
+                width: geometry.width / window.innerWidth,
+                height: geometry.height / window.innerHeight
+            }
+        };
+    }
+
+    function restoreGeometryForViewport(savedGeometry, portable) {
+        if (!portable || !savedGeometry || !savedGeometry.relative) {
+            return savedGeometry;
+        }
+        const relative = savedGeometry.relative;
+        if (!Number.isFinite(relative.width) ||
+            !Number.isFinite(relative.height)) {
+            return savedGeometry;
+        }
+        return {
+            left: Number.isFinite(relative.left)
+                ? relative.left * window.innerWidth
+                : null,
+            top: Number.isFinite(relative.top)
+                ? relative.top * window.innerHeight
+                : null,
+            width: relative.width * window.innerWidth,
+            height: relative.height * window.innerHeight
+        };
+    }
+
+    function restoreFloatingWindowOrder(savedState) {
+        if (!savedState || !Array.isArray(savedState.order)) return;
+        const restored = new Set();
+        savedState.order.forEach(id => {
+            const controller = floatingWindows[id];
+            if (!controller || !controller.isOpen() || restored.has(id)) return;
+            controller.bringToFront();
+            restored.add(id);
+        });
+        if (typeof savedState.focused !== 'string') return;
+        const focused = floatingWindows[savedState.focused];
+        if (!focused || !focused.isOpen()) return;
+        focused.bringToFront();
+        const target = focused.id === 'repl' ? replInput : focused.panel;
+        target.focus({ preventScroll: true });
+    }
+
+    function toggleFloatingWindowsVisibility() {
+        if (hiddenFloatingWindowState) {
+            const savedState = hiddenFloatingWindowState;
+            hiddenFloatingWindowState = null;
+            Object.values(floatingWindows).forEach(controller => {
+                if (controller.isOpen()) controller.close();
+            });
+            savedState.order.forEach(id => {
+                const controller = floatingWindows[id];
+                if (controller) controller.open();
+            });
+            requestAnimationFrame(() => restoreFloatingWindowOrder(savedState));
+            return;
+        }
+
+        const savedState = floatingWindowState();
+        if (savedState.order.length === 0) return;
+        hiddenFloatingWindowState = savedState;
+        savedState.order.forEach(id => floatingWindows[id].close());
+        if (document.activeElement instanceof HTMLElement) {
+            document.activeElement.blur();
+        }
     }
 
     function commandEntryRows() {
@@ -1593,7 +1796,7 @@
     function updateCommandEntryOrderControls() {
         const rows = commandEntryRows();
         rows.forEach((row, index) => {
-            const number = index + 1;
+            const number = index;
             row.querySelector('.command-entry-number').textContent = String(number);
             row.querySelector('.command-entry-number').title = `Command ${number}`;
             row.querySelector('[data-action="move-command-entry-up"]').disabled =
@@ -1630,6 +1833,9 @@
         `;
         const textarea = row.querySelector('.command-entry-text');
         textarea.value = typeof saved.text === 'string' ? saved.text : '';
+        if (Number.isFinite(saved.height)) {
+            textarea.style.height = `${Math.max(120, Math.min(10000, saved.height))}px`;
+        }
         row.classList.toggle('collapsed', saved.expanded === false);
         updateCommandEntry(row);
         return row;
@@ -1698,7 +1904,7 @@
             return false;
         }
         if (native.sendCommands(resolved)) {
-            addLog(resolved);
+            addLog(resolved, 'input');
             status.textContent =
                 `Sent: ${commandEntryTitle(command)}`;
             return true;
@@ -1715,26 +1921,74 @@
         '1x8': 8
     };
     let padLayout = '2x2';
+    let padGeometries = {};
+
+    function rememberPadGeometry() {
+        padGeometries[padLayout] = padsPanel.getGeometry();
+    }
+
+    function savedPadGeometries() {
+        rememberPadGeometry();
+        return Object.keys(padGeometries).reduce((saved, layout) => {
+            saved[layout] = { ...padGeometries[layout] };
+            return saved;
+        }, {});
+    }
+
+    function restorePadGeometries(savedPads, version, portable) {
+        padGeometries = {};
+        if (version >= 16 && savedPads && savedPads.layouts) {
+            Object.keys(PAD_LAYOUTS).forEach(layout => {
+                const geometry = savedPads.layouts[layout];
+                if (geometry && Number.isFinite(geometry.width) &&
+                    Number.isFinite(geometry.height)) {
+                    padGeometries[layout] = {
+                        ...restoreGeometryForViewport(geometry, portable)
+                    };
+                }
+            });
+        }
+
+        if (!padGeometries[padLayout] && savedPads &&
+            Number.isFinite(savedPads.width) &&
+            Number.isFinite(savedPads.height)) {
+            padGeometries[padLayout] = { ...savedPads };
+        }
+
+        const geometry = padGeometries[padLayout];
+        if (geometry) padsPanel.setGeometry(geometry);
+    }
 
     function renderPads() {
         if (!padGrid) return;
         const count = PAD_LAYOUTS[padLayout] || PAD_LAYOUTS['2x2'];
-        const commandCount = commandEntryRows().length;
+        const rows = commandEntryRows();
         padGrid.dataset.layout = padLayout;
         padGrid.replaceChildren();
         for (let index = 0; index < count; index++) {
             const number = index + 1;
+            const row = rows[number];
             const button = document.createElement('button');
+            const numberLabel = document.createElement('span');
+            const commandLabel = document.createElement('span');
             button.type = 'button';
             button.className = 'drum-pad';
             button.dataset.action = 'trigger-pad';
-            button.dataset.commandIndex = String(index);
-            button.textContent = String(number);
-            button.disabled = index >= commandCount;
+            button.dataset.commandIndex = String(number);
+            numberLabel.className = 'drum-pad-number';
+            numberLabel.textContent = String(number);
+            commandLabel.className = 'drum-pad-command';
+            if (row) {
+                const command = row.querySelector('.command-entry-text').value;
+                commandLabel.textContent = commandEntryTitle(command);
+                commandLabel.title = commandEntryTitle(command);
+            }
+            button.append(numberLabel, commandLabel);
+            button.disabled = !row;
             button.setAttribute(
                 'aria-label',
-                index < commandCount
-                    ? `Run command ${number}`
+                row
+                    ? `Run command ${number}: ${commandLabel.textContent}`
                     : `Command ${number} is not available`
             );
             padGrid.appendChild(button);
@@ -1748,18 +2002,48 @@
 
     function setPadLayout(layout) {
         if (!Object.prototype.hasOwnProperty.call(PAD_LAYOUTS, layout)) return;
+        if (layout === padLayout) {
+            renderPads();
+            return;
+        }
+        const currentGeometry = padsPanel.getGeometry();
+        padGeometries[padLayout] = currentGeometry;
+        if (!padGeometries[layout]) {
+            padGeometries[layout] = { ...currentGeometry };
+        }
         padLayout = layout;
         renderPads();
+        padsPanel.setGeometry(padGeometries[layout]);
     }
 
-    function triggerPad(index) {
-        const row = commandEntryRows()[index];
+    function triggerPad(number) {
+        const row = commandEntryRows()[number];
         if (!row) {
-            padStatus.textContent = `Command ${index + 1} is not available.`;
+            padStatus.textContent = `Command ${number} is not available.`;
             return;
         }
         sendCommandEntry(row, padStatus);
     }
+
+    function showKeyboardPadPress(pad) {
+        pad.classList.remove('keyboard-active');
+        void pad.offsetWidth;
+        pad.classList.add('keyboard-active');
+        setTimeout(() => pad.classList.remove('keyboard-active'), 120);
+    }
+
+    padsWindow.addEventListener('pointerdown', event => {
+        if (!event.target.closest('button')) {
+            padsWindow.focus({ preventScroll: true });
+        }
+    });
+
+    document.addEventListener('pointerdown', event => {
+        if (!padsWindow.contains(event.target) &&
+            padsWindow.contains(document.activeElement)) {
+            document.activeElement.blur();
+        }
+    });
 
     let draggedCommandEntry = null;
 
@@ -2049,7 +2333,10 @@
         const stepText = String(increment);
         const decimal = stepText.indexOf('.');
         const places = decimal < 0 ? 0 : Math.min(8, stepText.length - decimal - 1);
-        return number.toFixed(places).replace(/\.?0+$/, '');
+        const formatted = number.toFixed(places);
+        return formatted.includes('.')
+            ? formatted.replace(/0+$/, '').replace(/\.$/, '')
+            : formatted;
     }
 
     function commandForCommandSlider(row) {
@@ -2547,15 +2834,34 @@
     }
 
     function getSettings() {
+        const layouts = Object.keys(savedPadGeometries()).reduce(
+            (saved, layout) => {
+                saved[layout] = geometryWithRelative(padGeometries[layout]);
+                return saved;
+            },
+            {}
+        );
+        const padsGeometry = layouts[padLayout] || padsPanel.getGeometry();
+        const windowState = hiddenFloatingWindowState || floatingWindowState();
+        const windowWasOpen = id => hiddenFloatingWindowState
+            ? hiddenFloatingWindowState.order.includes(id)
+            : floatingWindows[id].isOpen();
         return {
             format: 'ro-totem-slider-settings',
-            version: 15,
+            version: 20,
             directory: waveDirectory || null,
+            portableWindowGeometry: portableWindowGeometry.checked,
+            replHistory: replHistory.slice(-MAX_REPL_HISTORY),
             master: sliderStateFor(document.getElementById('master-vol')),
             commandSliders: commandSliderRows().map(commandSliderStateFor),
             commandEntries: commandEntryRows().map(row => ({
                 text: row.querySelector('.command-entry-text').value,
-                expanded: !row.classList.contains('collapsed')
+                expanded: !row.classList.contains('collapsed'),
+                height: Math.round(
+                    parseFloat(row.querySelector('.command-entry-text').style.height) ||
+                    row.querySelector('.command-entry-text').getBoundingClientRect().height ||
+                    120
+                )
             })),
             managedFiles: managedFiles.map(file => ({
                 name: file.name,
@@ -2568,25 +2874,28 @@
                     height: Math.round(window.innerHeight)
                 },
                 repl: {
-                    ...replPanel.getGeometry(),
-                    open: replPanel.isOpen()
+                    ...geometryWithRelative(replPanel.getGeometry()),
+                    open: windowWasOpen('repl')
                 },
                 controls: {
-                    ...controlsPanel.getGeometry(),
-                    open: controlsPanel.isOpen()
+                    ...geometryWithRelative(controlsPanel.getGeometry()),
+                    open: windowWasOpen('controls')
                 },
                 commands: {
-                    ...commandsPanel.getGeometry(),
-                    open: commandsPanel.isOpen()
+                    ...geometryWithRelative(commandsPanel.getGeometry()),
+                    open: windowWasOpen('commands')
                 },
                 pads: {
-                    ...padsPanel.getGeometry(),
-                    open: padsPanel.isOpen()
+                    ...padsGeometry,
+                    layouts,
+                    open: windowWasOpen('pads')
                 },
                 files: {
-                    ...filesPanel.getGeometry(),
-                    open: filesPanel.isOpen()
-                }
+                    ...geometryWithRelative(filesPanel.getGeometry()),
+                    open: windowWasOpen('files')
+                },
+                order: windowState.order,
+                focused: windowState.focused
             },
             audioDevices: {
                 output: audioDeviceSelections.output,
@@ -2641,7 +2950,7 @@
 
     function applySettings(settings) {
         if (!settings || settings.format !== 'ro-totem-slider-settings' ||
-            ![1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15].includes(settings.version) ||
+            ![1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20].includes(settings.version) ||
             !Array.isArray(settings.tracks)) {
             throw new Error('This is not a supported ro-totem settings file.');
         }
@@ -2649,6 +2958,20 @@
         const voiceCommands = [];
         const commandSliderCommands = [];
         const waves = [];
+
+        hiddenFloatingWindowState = null;
+        replHistory.length = 0;
+        if (settings.version >= 18 && Array.isArray(settings.replHistory)) {
+            settings.replHistory
+                .filter(command => typeof command === 'string' && command.length > 0)
+                .slice(-MAX_REPL_HISTORY)
+                .forEach(command => replHistory.push(command));
+        }
+        replHistoryIndex = replHistory.length;
+        replHistoryDraft = '';
+        const usePortableGeometry =
+            settings.version >= 20 && settings.portableWindowGeometry === true;
+        portableWindowGeometry.checked = usePortableGeometry;
 
         pendingAudioDeviceSettings = settings.version >= 4 && settings.audioDevices
             ? settings.audioDevices
@@ -2797,11 +3120,16 @@
                 const commands = settings.uiWindows.commands;
                 const pads = settings.uiWindows.pads;
                 const files = settings.uiWindows.files;
-                replPanel.setGeometry(repl);
-                controlsPanel.setGeometry(controls);
-                commandsPanel.setGeometry(commands);
-                padsPanel.setGeometry(pads);
-                filesPanel.setGeometry(files);
+                replPanel.setGeometry(
+                    restoreGeometryForViewport(repl, usePortableGeometry));
+                controlsPanel.setGeometry(
+                    restoreGeometryForViewport(controls, usePortableGeometry));
+                commandsPanel.setGeometry(
+                    restoreGeometryForViewport(commands, usePortableGeometry));
+                restorePadGeometries(
+                    pads, settings.version, usePortableGeometry);
+                filesPanel.setGeometry(
+                    restoreGeometryForViewport(files, usePortableGeometry));
 
                 if (settings.version >= 11) {
                     if (repl && typeof repl.open === 'boolean') {
@@ -2828,10 +3156,19 @@
                         else closePads();
                     }
                 }
+                if (settings.version >= 17) {
+                    requestAnimationFrame(() => {
+                        restoreFloatingWindowOrder({
+                            order: settings.uiWindows.order,
+                            focused: settings.uiWindows.focused
+                        });
+                    });
+                }
             };
 
             const main = settings.uiWindows.main;
-            if (settings.version >= 10 &&
+            if (!usePortableGeometry &&
+                settings.version >= 10 &&
                 main &&
                 Number.isFinite(main.width) &&
                 Number.isFinite(main.height)) {
@@ -3325,14 +3662,43 @@
         return document.getElementById('skode-input').value;
     }
 
+    function submitReplCommand() {
+        const command = getcmd();
+        if (command.length > 0) {
+            if (replHistory[replHistory.length - 1] !== command) {
+                replHistory.push(command);
+                if (replHistory.length > MAX_REPL_HISTORY) replHistory.shift();
+            }
+            replHistoryIndex = replHistory.length;
+            replHistoryDraft = '';
+        }
+        skode(command);
+        replInput.value = '';
+    }
+
+    function navigateReplHistory(direction) {
+        if (replHistory.length === 0) return;
+        if (replHistoryIndex === replHistory.length) {
+            replHistoryDraft = replInput.value;
+        }
+        replHistoryIndex = Math.max(
+            0,
+            Math.min(replHistory.length, replHistoryIndex + direction)
+        );
+        replInput.value = replHistoryIndex === replHistory.length
+            ? replHistoryDraft
+            : replHistory[replHistoryIndex];
+        replInput.setSelectionRange(replInput.value.length, replInput.value.length);
+    }
+
     function skode(s) {
         if (s.length > 0) {
             try {
                 const resolved = resolvePortableFiles(s);
-                addLog(resolved);
+                addLog(resolved, 'input');
                 native.sendCommands(resolved);
             } catch (error) {
-                addLog(`error: ${error.message}`);
+                addLog(`error: ${error.message}`, 'error');
             }
         }
     }
@@ -3445,7 +3811,7 @@
                     Number(control.closest('.managed-file-row').dataset.index)
                 );
                 break;
-            case 'send-command': skode(getcmd()); break;
+            case 'send-command': submitReplCommand(); break;
             case 'toggle-track-lock': toggleTrackLock(track); break;
             case 'choose-wave': native.chooseWave(voice); break;
             case 'randomize-track': loadRandomWave(voice); break;
@@ -3480,6 +3846,7 @@
         }
         if (event.target.classList.contains('command-entry-text')) {
             updateCommandEntry(event.target.closest('.command-entry'));
+            renderPads();
         }
         if (event.target.classList.contains('managed-file-name')) {
             const row = event.target.closest('.managed-file-row');
@@ -3496,13 +3863,45 @@
         }
     });
 
-    document.getElementById('skode-input').addEventListener('keydown', (event) => {
+    replInput.addEventListener('keydown', (event) => {
+        if (event.key === 'ArrowUp' || event.key === 'ArrowDown') {
+            event.preventDefault();
+            navigateReplHistory(event.key === 'ArrowUp' ? -1 : 1);
+            return;
+        }
         if (event.key !== 'Enter') return;
         event.preventDefault();
-        skode(getcmd());
+        submitReplCommand();
     });
 
     document.addEventListener('keydown', (event) => {
+        const isMac = /Mac|iPhone|iPad|iPod/.test(navigator.platform);
+        const toggleWindowVisibility =
+            event.code === 'KeyH' && !event.repeat &&
+            (isMac
+                ? event.metaKey && event.altKey && !event.ctrlKey && !event.shiftKey
+                : event.ctrlKey && event.altKey && !event.metaKey && !event.shiftKey);
+        if (toggleWindowVisibility) {
+            event.preventDefault();
+            toggleFloatingWindowsVisibility();
+            return;
+        }
+
+        const padNumber = Number(event.key);
+        if (!event.repeat && !event.ctrlKey && !event.metaKey && !event.altKey &&
+            !event.shiftKey && padNumber >= 1 && padNumber <= 8 &&
+            padsWindow.contains(document.activeElement)) {
+            const pad = padGrid.querySelector(
+                `[data-command-index="${padNumber}"]:not(:disabled)`
+            );
+            if (pad) {
+                event.preventDefault();
+                showKeyboardPadPress(pad);
+                triggerPad(padNumber);
+            }
+            return;
+        }
+
         if (event.ctrlKey && event.shiftKey && event.code === 'Digit3' && !event.repeat) {
             event.preventDefault();
             toggleFiles();
