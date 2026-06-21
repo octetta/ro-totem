@@ -24,8 +24,8 @@ See [ARCHITECTURE.md](ARCHITECTURE.md) for:
 - `rototem.c`: native host, Skred integration, persistence, and bridge
   dispatcher.
 - `ui.html`: complete WebKit interface, state model, controls, and actions.
-- `vendor/skred/`: externally produced Skred API header and platform static
-  libraries.
+- `vendor/skred/`: externally produced Skred maxed dist headers and platform
+  static libraries.
 - `vendor/miniz/`: miniz 3.1.1 amalgamated ZIP implementation and license.
 - `vendor/webview/`: vendored portable webview implementation and platform
   backends.

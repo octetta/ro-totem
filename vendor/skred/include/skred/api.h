@@ -2,6 +2,7 @@
 #define SKRED_API_H
 
 #include <stdint.h>
+#include "skred-version.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -11,7 +12,7 @@ extern "C" {
 int skred_start(unsigned int req_audio_frames, unsigned int voices, int port);
 
 // Send an ASCII control protocol message to the engine
-int skred_command(const char *cmd);
+int skred_command(char* cmd);
 
 // Safely tear down resources
 void skred_stop(void);
@@ -23,8 +24,19 @@ int skred_record_state(void);
 uint64_t skred_record_frames_written(void);
 uint64_t skred_record_dropped_frames(void);
 
+// SCOPE feature: publishes the 10-channel render bus through shared memory.
+int skred_scope_start(const char *name, uint32_t channel_mask,
+                      double buffer_seconds);
+int skred_scope_stop(void);
+
 // list of included features
 char *skred_features(void);
+
+// Version from the repository VERSION file used at build time.
+const char *skred_version(void);
+int skred_version_major(void);
+int skred_version_minor(void);
+int skred_version_patch(void);
 
 // did skode have anything to say?
 char *skred_log(void);

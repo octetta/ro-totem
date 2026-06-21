@@ -1,4 +1,9 @@
-#include "vendor/skred/include/api.h"
+#include <skred/api.h>
+#include "rototem_version.h"
+
+#ifndef __APPLE__
+#include "ui_html.h"
+#endif
 
 #define WEBVIEW_IMPLEMENTATION
 /* Define WEBVIEW_WINAPI, WEBVIEW_GTK, or WEBVIEW_COCOA when compiling. */
@@ -89,6 +94,44 @@ static int make_file_url(const char *path, char *url, size_t url_size) {
   url[used] = '\0';
   return 1;
 }
+
+#ifndef __APPLE__
+static int data_url_byte_is_literal(unsigned char byte) {
+  return (byte >= 'a' && byte <= 'z') ||
+         (byte >= 'A' && byte <= 'Z') ||
+         (byte >= '0' && byte <= '9') ||
+         byte == '-' || byte == '_' || byte == '.' || byte == '~';
+}
+
+static char *make_embedded_ui_url(void) {
+  static const char prefix[] = "data:text/html;charset=utf-8,";
+  static const char hex[] = "0123456789ABCDEF";
+  size_t prefix_length = sizeof(prefix) - 1;
+  size_t encoded_length = prefix_length;
+
+  for (unsigned int i = 0; i < rototem_ui_html_len; i++) {
+    encoded_length += data_url_byte_is_literal(rototem_ui_html[i]) ? 1 : 3;
+  }
+
+  char *url = malloc(encoded_length + 1);
+  if (!url) return NULL;
+
+  memcpy(url, prefix, prefix_length);
+  size_t used = prefix_length;
+  for (unsigned int i = 0; i < rototem_ui_html_len; i++) {
+    unsigned char byte = rototem_ui_html[i];
+    if (data_url_byte_is_literal(byte)) {
+      url[used++] = (char)byte;
+    } else {
+      url[used++] = '%';
+      url[used++] = hex[byte >> 4];
+      url[used++] = hex[byte & 0x0f];
+    }
+  }
+  url[used] = '\0';
+  return url;
+}
+#endif
 
 struct script_builder {
   char *data;
@@ -199,7 +242,7 @@ static char *skoder(const char *msg) {
   if (handle_audio_command(msg)) {
     log = skred_audio_message();
   } else {
-    skred_command(msg);
+    skred_command((char *)msg);
     log = skred_log();
   }
   return log;
@@ -1268,7 +1311,21 @@ static int confirm_close(struct webview *w) {
   return result[0] == '1';
 }
 
+static void set_build_versions(struct webview *w) {
+  struct script_builder script = {0};
+  if (script_append(&script, "setBuildVersions(") &&
+      script_append_js_string(&script, ROTOTEM_VERSION) &&
+      script_append(&script, ",") &&
+      script_append_js_string(&script, skred_version()) &&
+      script_append(&script, ")")) {
+    script_eval(w, &script);
+  } else {
+    free(script.data);
+  }
+}
+
 int main(void) {
+#ifdef __APPLE__
   char html_path[PATH_MAX * 3 + 8];
   char tmp[PATH_MAX];
 
@@ -1277,11 +1334,20 @@ int main(void) {
     fputs("Could not locate ui.html\n", stderr);
     return 1;
   }
+#else
+  char *html_path = make_embedded_ui_url();
+  if (!html_path) {
+    fputs("Could not load embedded ui.html\n", stderr);
+    return 1;
+  }
+#endif
 
   struct webview webview;
+  char title[128];
+  snprintf(title, sizeof(title), "ro-totem %s", ROTOTEM_VERSION);
   memset(&webview, 0, sizeof(webview));
   webview.url = html_path;
-  webview.title = "ro-totem gemini zeta-two equus";
+  webview.title = title;
   webview.width = 884;  // window.innerWidth
 #ifdef __linux__
   webview.height = 740;
@@ -1326,6 +1392,7 @@ int main(void) {
     return 1;
   }
 
+  set_build_versions(&webview);
   skoder("S100v0a0f440>1>2>3>4>5>6>7>8>9>10>11>12>13>14>15");
 
   do {
@@ -1337,6 +1404,9 @@ int main(void) {
   discard_project_writer(1);
   cleanup_project_directory(project_temp_directory);
   cleanup_project_directory(pending_project_temp_directory);
+#ifndef __APPLE__
+  free(html_path);
+#endif
 
   return 0;
 }

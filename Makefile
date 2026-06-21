@@ -10,6 +10,11 @@
 # -----------------------------------------------------------------------------
 
 APP_NAME := ro-totem
+APP_VERSION_FILE := VERSION
+APP_VERSION := $(strip $(shell cat $(APP_VERSION_FILE)))
+empty :=
+space := $(empty) $(empty)
+APP_VERSION_SLUG := $(subst $(space),-,$(APP_VERSION))
 
 ifeq ($(OS),Windows_NT)
 HOST_OS := Windows
@@ -27,9 +32,14 @@ SKRED_DIR := vendor/skred
 WEBVIEW_DIR := vendor/webview
 MINIZ_DIR := vendor/miniz
 MINIZ_SOURCE := $(MINIZ_DIR)/miniz.c
+UI_HTML := ui.html
+UI_HTML_HEADER := $(BUILD_DIR)/ui_html.h
+APP_VERSION_HEADER := $(BUILD_DIR)/rototem_version.h
 
-COMMON_SOURCES := rototem.c ui.html \
-	$(SKRED_DIR)/include/api.h \
+COMMON_SOURCES := rototem.c \
+	$(APP_VERSION_FILE) \
+	$(SKRED_DIR)/include/skred/api.h \
+	$(SKRED_DIR)/include/skred/skred-version.h \
 	$(MINIZ_DIR)/miniz.h $(MINIZ_SOURCE) \
 	$(WEBVIEW_DIR)/webview.h
 
@@ -52,6 +62,19 @@ endif
 
 all: $(DEFAULT_TARGET)
 
+$(UI_HTML_HEADER): $(UI_HTML)
+	mkdir -p $(dir $@)
+	xxd -i -n rototem_ui_html $< > $@
+
+$(APP_VERSION_HEADER): $(APP_VERSION_FILE)
+	mkdir -p $(dir $@)
+	{ \
+		printf '#ifndef ROTOTEM_VERSION_H\n#define ROTOTEM_VERSION_H\n\n'; \
+		printf '#define ROTOTEM_VERSION "'; \
+		sed 's/\\/\\\\/g; s/"/\\"/g' $< | tr -d '\n'; \
+		printf '"\n\n#endif /* ROTOTEM_VERSION_H */\n'; \
+	} > $@
+
 # -----------------------------------------------------------------------------
 # Linux
 # -----------------------------------------------------------------------------
@@ -63,22 +86,24 @@ LINUX_PACKAGE_DIR := $(DIST_DIR)/$(LINUX_PACKAGE_NAME)
 LINUX_ARCHIVE := $(DIST_DIR)/$(LINUX_PACKAGE_NAME).tar.gz
 LINUX_CFLAGS = $(shell pkg-config --cflags gtk+-3.0 webkit2gtk-4.1)
 LINUX_LIBS = $(shell pkg-config --libs gtk+-3.0 webkit2gtk-4.1)
+SKRED_STATIC_LIBS ?= -lm -lpthread
 
 linux: $(LINUX_BINARY)
 
-$(LINUX_BINARY): $(COMMON_SOURCES) $(WEBVIEW_DIR)/webview-gtk.c \
+$(LINUX_BINARY): $(COMMON_SOURCES) $(UI_HTML_HEADER) $(APP_VERSION_HEADER) \
+		$(WEBVIEW_DIR)/webview-gtk.c \
 		$(SKRED_DIR)/lib/linux/libapi.a
 	mkdir -p $(LINUX_BUILD_DIR)
 	$(CC) $(CPPFLAGS) $(CFLAGS) $(LINUX_CFLAGS) \
+		-I$(BUILD_DIR) -I$(SKRED_DIR)/include \
 		-DWEBVIEW_GTK=1 rototem.c $(MINIZ_SOURCE) \
-		-L$(SKRED_DIR)/lib/linux -lapi $(LINUX_LIBS) -lm \
+		-L$(SKRED_DIR)/lib/linux -lapi $(LINUX_LIBS) $(SKRED_STATIC_LIBS) \
 		-o $@
 
 linux-package: $(LINUX_BINARY)
 	rm -rf $(LINUX_PACKAGE_DIR)
 	mkdir -p $(LINUX_PACKAGE_DIR)
 	cp $(LINUX_BINARY) $(LINUX_PACKAGE_DIR)/
-	cp ui.html $(LINUX_PACKAGE_DIR)/
 	cp $(ASSETS_DIR)/rototem.png $(LINUX_PACKAGE_DIR)/
 	cp $(PACKAGING_DIR)/linux/README.txt $(LINUX_PACKAGE_DIR)/
 	mkdir -p $(DIST_DIR)
@@ -102,7 +127,6 @@ appdir: $(LINUX_BINARY)
 	mkdir -p $(APPDIR_USR)/share/applications
 	mkdir -p $(APPDIR_USR)/share/icons/hicolor/728x728/apps
 	cp $(LINUX_BINARY) $(APPDIR_USR)/bin/$(APP_NAME)
-	cp ui.html $(APPDIR_USR)/bin/
 	cp $(PACKAGING_DIR)/linux/AppRun $(APPDIR)/
 	cp $(PACKAGING_DIR)/linux/$(APP_NAME).desktop $(APPDIR)/
 	cp $(PACKAGING_DIR)/linux/$(APP_NAME).desktop \
@@ -129,16 +153,18 @@ MACOS_APP := $(APP_NAME).app
 MACOS_CONTENTS := $(MACOS_APP)/Contents
 MACOS_EXECUTABLES := $(MACOS_CONTENTS)/MacOS
 MACOS_RESOURCES := $(MACOS_CONTENTS)/Resources
-MACOS_ARCHIVE := ro-totem-gemini-zeta-two-equus.zip
+MACOS_ARCHIVE := $(APP_NAME)-$(APP_VERSION_SLUG).zip
 
-$(MACOS_BINARY): $(COMMON_SOURCES) $(WEBVIEW_DIR)/webview-cocoa.c \
+$(MACOS_BINARY): $(COMMON_SOURCES) $(UI_HTML) $(APP_VERSION_HEADER) \
+		$(WEBVIEW_DIR)/webview-cocoa.c \
 		$(SKRED_DIR)/lib/macos/libapi.a
 	mkdir -p $(MACOS_BUILD_DIR)
 	$(CC) $(CPPFLAGS) $(CFLAGS) -g -ObjC \
+		-I$(BUILD_DIR) -I$(SKRED_DIR)/include \
 		-DOBJC_OLD_DISPATCH_PROTOTYPES=1 -DWEBVIEW_COCOA=1 \
 		rototem.c $(MINIZ_SOURCE) \
 		-framework WebKit -framework CoreFoundation \
-		-L$(SKRED_DIR)/lib/macos -lapi \
+		-L$(SKRED_DIR)/lib/macos -lapi $(SKRED_STATIC_LIBS) \
 		-o $@
 
 macos-package: $(MACOS_BINARY)
@@ -146,7 +172,7 @@ macos-package: $(MACOS_BINARY)
 	mkdir -p $(MACOS_EXECUTABLES) $(MACOS_RESOURCES)
 	cp $(ASSETS_DIR)/Info.plist $(MACOS_CONTENTS)/
 	cp $(MACOS_BINARY) $(MACOS_EXECUTABLES)/$(MACOS_EXECUTABLE_NAME)
-	cp ui.html $(MACOS_RESOURCES)/
+	cp $(UI_HTML) $(MACOS_RESOURCES)/
 	cp $(ASSETS_DIR)/rototem.icns $(MACOS_RESOURCES)/
 	test -x $(MACOS_EXECUTABLES)/$(MACOS_EXECUTABLE_NAME)
 	xattr -cr $(MACOS_APP)
@@ -206,11 +232,13 @@ windows-check:
 windows: windows-check
 	$(MAKE) --no-print-directory $(WINDOWS_BINARY)
 
-$(WINDOWS_BINARY): $(COMMON_SOURCES) $(WEBVIEW_DIR)/webview-win32.c \
+$(WINDOWS_BINARY): $(COMMON_SOURCES) $(UI_HTML_HEADER) $(APP_VERSION_HEADER) \
+		$(WEBVIEW_DIR)/webview-win32.c \
 		$(WINDOWS_OPTIONAL_INPUTS)
 	mkdir -p $(WINDOWS_BUILD_DIR)
 	$(WINDOWS_CC) $(CPPFLAGS) $(CFLAGS) \
-		-I$(WEBVIEW_DIR) -DWEBVIEW_WINAPI=1 rototem.c $(MINIZ_SOURCE) \
+		-I$(BUILD_DIR) -I$(SKRED_DIR)/include -I$(WEBVIEW_DIR) \
+		-DWEBVIEW_WINAPI=1 rototem.c $(MINIZ_SOURCE) \
 		-L$(SKRED_DIR)/lib/windows -lapi \
 		$(WINDOWS_SYSTEM_LIBS) $(WINDOWS_LDFLAGS) -o $@
 
@@ -218,7 +246,6 @@ windows-package: windows
 	rm -rf $(WINDOWS_PACKAGE_DIR)
 	mkdir -p $(WINDOWS_PACKAGE_DIR)
 	cp $(WINDOWS_BINARY) $(WINDOWS_PACKAGE_DIR)/
-	cp ui.html $(WINDOWS_PACKAGE_DIR)/
 	cp $(PACKAGING_DIR)/windows/README.txt $(WINDOWS_PACKAGE_DIR)/
 	rm -f $(WINDOWS_ARCHIVE)
 	cd $(DIST_DIR) && zip -r \

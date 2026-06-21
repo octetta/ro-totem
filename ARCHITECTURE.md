@@ -598,8 +598,8 @@ is the reusable design.
   and application lifecycle.
 - `ui.html`: complete local UI, native bridge API, state, rendering, actions,
   and settings migration.
-- `vendor/skred/`: externally produced Skred API header and platform static
-  libraries.
+- `vendor/skred/`: externally produced Skred maxed dist headers and platform
+  static libraries.
 - `vendor/webview/`: vendored native webview abstraction and platform
   backends.
 - `Makefile`: Linux, macOS, and preliminary Zig-based Windows build and

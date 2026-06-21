@@ -1,10 +1,12 @@
 ro-totem for Linux
 ==================
 
-Keep rototem and ui.html in the same directory. Start the application by
-running:
+Start the application by running:
 
     ./rototem
+
+The interface is embedded in the executable, so no separate ui.html file is
+needed at runtime.
 
 The application uses the system GTK 3 and WebKitGTK libraries. On Fedora, the
 runtime packages are gtk3 and webkit2gtk4.0.
