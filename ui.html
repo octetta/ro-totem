@@ -230,6 +230,16 @@
             background: #3d454d;
         }
 
+        .visuals-launch {
+            margin-top: 10px;
+            background: #2f5f73;
+            color: white;
+        }
+
+        .visuals-launch:hover {
+            background: #254b5b;
+        }
+
         .repl-window {
             position: fixed;
             top: 90px;
@@ -348,6 +358,44 @@
 
         .controls-window .repl-body {
             padding-right: 18px;
+        }
+
+        .settings-window {
+            width: min(760px, calc(100vw - 32px));
+            height: min(620px, calc(100vh - 32px));
+            min-height: 340px;
+            border-color: #7d5a13;
+            background: #fffaf0;
+        }
+
+        .settings-window .repl-titlebar {
+            background: #7d5a13;
+        }
+
+        .settings-window .repl-titlebar button {
+            background: #fff1cf;
+            color: #5c410d;
+        }
+
+        .settings-window .repl-titlebar button:hover {
+            background: #ffe2a1;
+        }
+
+        .settings-window .repl-body {
+            overflow-y: auto;
+            margin-right: 16px;
+            margin-bottom: 16px;
+            scrollbar-gutter: stable;
+        }
+
+        .settings-launch {
+            margin-top: 10px;
+            background: #7d5a13;
+            color: white;
+        }
+
+        .settings-launch:hover {
+            background: #60450e;
         }
 
         .command-slider-row {
@@ -773,6 +821,109 @@
             overflow-y: auto;
         }
 
+        .visuals-window {
+            width: min(760px, calc(100vw - 32px));
+            height: min(430px, calc(100vh - 32px));
+            min-height: 300px;
+            border-color: #2f5f73;
+            background: #f4fafc;
+        }
+
+        .visuals-window .repl-titlebar {
+            background: #2f5f73;
+        }
+
+        .visuals-window .repl-titlebar button {
+            background: #e5f3f7;
+            color: #1f4351;
+        }
+
+        .visuals-window .repl-titlebar button:hover {
+            background: #d2e9f0;
+        }
+
+        .visuals-window .repl-body {
+            display: grid;
+            grid-template-rows: minmax(160px, 1fr) auto auto;
+            gap: 10px;
+            overflow: hidden;
+        }
+
+        .visuals-canvas {
+            width: 100%;
+            height: 100%;
+            min-height: 160px;
+            border: 1px solid #b8d4dd;
+            border-radius: 6px;
+            background: #071317;
+            overflow: hidden;
+        }
+
+        .visuals-canvas canvas {
+            display: block;
+        }
+
+        .visuals-meters {
+            display: grid;
+            grid-template-columns: repeat(10, minmax(0, 1fr));
+            gap: 4px;
+            align-items: end;
+            height: 46px;
+        }
+
+        .visual-meter {
+            display: flex;
+            min-width: 0;
+            height: 100%;
+            align-items: end;
+            border-radius: 4px;
+            background: #dcecf1;
+            overflow: hidden;
+        }
+
+        .visual-meter span {
+            display: block;
+            width: 100%;
+            height: 0%;
+            background: #2f8daa;
+        }
+
+        .visuals-status {
+            color: #35515a;
+            font-size: 0.8rem;
+        }
+
+        .master-floating-window {
+            width: min(760px, calc(100vw - 32px));
+            height: auto;
+            min-height: 220px;
+            border-color: #333;
+            background: #eef2f7;
+        }
+
+        .master-floating-window .repl-titlebar {
+            background: #333;
+        }
+
+        .master-floating-window .repl-titlebar button {
+            background: #eceff3;
+            color: #333;
+        }
+
+        .master-floating-window .repl-titlebar button:hover {
+            background: #dce1e8;
+        }
+
+        .master-floating-window .repl-body {
+            padding: 0;
+        }
+
+        .master-floating-window .master-card {
+            height: 100%;
+            border-radius: 0 0 8px 8px;
+            box-shadow: none;
+        }
+
         .track-floating-window {
             width: min(360px, calc(100vw - 32px));
             height: auto;
@@ -1071,13 +1222,21 @@
             transform: none;
         }
 
+        .dock-toggle,
         .track-float {
-            padding: 5px 8px;
+            display: inline-flex;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            align-items: center;
+            justify-content: center;
             background: #e4e8ec;
             color: #343b42;
-            font-size: 0.75rem;
+            font-size: 1rem;
+            line-height: 1;
         }
 
+        .dock-toggle:hover,
         .track-float:hover {
             background: #d4dae0;
         }
@@ -1258,7 +1417,7 @@
 
 <div class="dashboard">
 
-    <div class="voice-card master-card">
+    <div id="master-card" class="voice-card master-card">
         <div class="row master-toolbar">
             <div class="master-toolbar-group master-toolbar-left">
                 <button data-action="choose-directory">dir</button>
@@ -1273,6 +1432,9 @@
                     title="Load settings and WAV files from a ZIP archive">load zip</button>
                 <button class="settings-btn" type="button" data-action="save-project"
                     title="Save settings and WAV files to a ZIP archive">save zip</button>
+                <button id="master-dock-toggle" class="dock-toggle" type="button"
+                    data-action="toggle-master-floating"
+                    title="Undock master" aria-label="Undock master">&uarr;</button>
             </div>
         </div>
         <div id="dir" class="mono master-directory">choose a directory of WAV files</div>
@@ -1283,31 +1445,9 @@
         </div>
 
         <div class="row advanced-row">
-
-        <details class="custom-accordion">
-          <summary>advanced</summary>
-          <div class="audio-device-settings">
-            <label for="audio-output-device">output</label>
-            <select id="audio-output-device"></select>
-            <button type="button" data-action="apply-audio-device" data-kind="output">apply</button>
-            <label for="audio-input-device">input</label>
-            <select id="audio-input-device"></select>
-            <button type="button" data-action="apply-audio-device" data-kind="input">apply</button>
-          </div>
-          <div class="settings-actions">
-            <button type="button" data-action="refresh-audio-devices">refresh devices</button>
-            <span id="audio-device-status" role="status"></span>
-          </div>
-          <div class="settings-actions">
-            <button type="button" data-action="load-settings">load settings json</button>
-            <button type="button" data-action="save-settings">save settings json</button>
-          </div>
-          <label class="portable-geometry-setting">
-            <input id="portable-window-geometry" type="checkbox">
-            portable window geometry
-          </label>
-          <div id="range-settings" class="range-settings"></div>
           <button type="button" class="repl-launch" data-action="open-repl">open REPL</button>
+          <button type="button" class="settings-launch" data-action="open-settings"
+              title="Shortcut: Ctrl+, or Cmd+, on macOS">settings</button>
           <button type="button" class="controls-launch" data-action="open-controls">open controls</button>
           <button type="button" class="commands-launch" data-action="open-commands"
               title="Shortcut: Ctrl+Shift+1">open commands</button>
@@ -1315,9 +1455,10 @@
               title="Shortcut: Ctrl+Shift+2">open pads</button>
           <button type="button" class="files-launch" data-action="open-files"
               title="Shortcut: Ctrl+Shift+3">open files</button>
+          <button type="button" class="visuals-launch" data-action="open-visuals"
+              title="Shortcut: Ctrl+Shift+4">open visuals</button>
           <button type="button" class="help-launch" data-action="open-help"
               title="Shortcut: ? or F1">keyboard help</button>
-        </details>
 
         </div>
     </div>
@@ -1325,6 +1466,16 @@
     <div id="voice-cards"></div>
 
 </div>
+
+<section id="master-floating-window" class="repl-window master-floating-window"
+    aria-label="Master controls" hidden>
+    <header id="master-floating-titlebar" class="repl-titlebar">
+        <span class="repl-title">MASTER</span>
+        <button type="button" class="dock-toggle" data-action="dock-master"
+            aria-label="Dock master" title="Dock master">&darr;</button>
+    </header>
+    <div id="master-floating-body" class="repl-body"></div>
+</section>
 
 <section id="repl-window" class="repl-window" aria-label="Command REPL" hidden>
     <header id="repl-titlebar" class="repl-titlebar">
@@ -1347,6 +1498,38 @@
                 class="command-input">
             <button id="skode-send" class="command-send" data-action="send-command">send</button>
         </div>
+    </div>
+</section>
+
+<section id="settings-window" class="repl-window settings-window"
+    aria-label="Settings" hidden>
+    <header id="settings-titlebar" class="repl-titlebar">
+        <span class="repl-title">SETTINGS</span>
+        <button type="button" data-action="close-settings"
+            aria-label="Close settings">close</button>
+    </header>
+    <div class="repl-body">
+        <div class="audio-device-settings">
+            <label for="audio-output-device">output</label>
+            <select id="audio-output-device"></select>
+            <button type="button" data-action="apply-audio-device" data-kind="output">apply</button>
+            <label for="audio-input-device">input</label>
+            <select id="audio-input-device"></select>
+            <button type="button" data-action="apply-audio-device" data-kind="input">apply</button>
+        </div>
+        <div class="settings-actions">
+            <button type="button" data-action="refresh-audio-devices">refresh devices</button>
+            <span id="audio-device-status" role="status"></span>
+        </div>
+        <div class="settings-actions">
+            <button type="button" data-action="load-settings">load settings json</button>
+            <button type="button" data-action="save-settings">save settings json</button>
+        </div>
+        <label class="portable-geometry-setting">
+            <input id="portable-window-geometry" type="checkbox">
+            portable window geometry
+        </label>
+        <div id="range-settings" class="range-settings"></div>
     </div>
 </section>
 
@@ -1472,6 +1655,20 @@
     </div>
 </section>
 
+<section id="visuals-window" class="repl-window visuals-window"
+    aria-label="Live audio visuals" hidden>
+    <header id="visuals-titlebar" class="repl-titlebar">
+        <span class="repl-title">VISUALS</span>
+        <button type="button" data-action="close-visuals"
+            aria-label="Close visuals">close</button>
+    </header>
+    <div class="repl-body">
+        <div id="visuals-canvas" class="visuals-canvas"></div>
+        <div id="visuals-meters" class="visuals-meters" aria-hidden="true"></div>
+        <div id="visuals-status" class="visuals-status" role="status">Scope idle.</div>
+    </div>
+</section>
+
 <section id="help-window" class="repl-window help-window"
     aria-label="Keyboard shortcuts" hidden>
     <header id="help-titlebar" class="repl-titlebar">
@@ -1493,6 +1690,8 @@
             <dd>Close the focused or top floating window.</dd>
             <dt><span class="shortcut-key">Ctrl</span><span class="shortcut-key">`</span></dt>
             <dd>Toggle the REPL.</dd>
+            <dt><span class="shortcut-key">Ctrl</span><span class="shortcut-key">,</span></dt>
+            <dd>Toggle settings. On macOS, use Cmd+,.</dd>
             <dt><span class="shortcut-key">Ctrl</span><span class="shortcut-key">Shift</span><span class="shortcut-key">`</span></dt>
             <dd>Toggle command controls.</dd>
             <dt><span class="shortcut-key">Ctrl</span><span class="shortcut-key">Shift</span><span class="shortcut-key">1</span></dt>
@@ -1501,6 +1700,8 @@
             <dd>Toggle pads.</dd>
             <dt><span class="shortcut-key">Ctrl</span><span class="shortcut-key">Shift</span><span class="shortcut-key">3</span></dt>
             <dd>Toggle project files.</dd>
+            <dt><span class="shortcut-key">Ctrl</span><span class="shortcut-key">Shift</span><span class="shortcut-key">4</span></dt>
+            <dd>Toggle visuals.</dd>
             <dt><span class="shortcut-key">Ctrl</span><span class="shortcut-key">Alt</span><span class="shortcut-key">H</span></dt>
             <dd>Hide or restore floating windows. On macOS, use Cmd+Option+H.</dd>
             <dt><span class="shortcut-key">1</span>...<span class="shortcut-key">8</span></dt>
@@ -1515,14 +1716,24 @@
     </div>
 </section>
 
+<script src="vendor/p5/p5.min.js"></script>
 <script>
     // --- CONSTANTS AND NATIVE BRIDGE ---
     const MAX_LOG_LINES = 20;
     const logOutput = document.getElementById('log-output');
     const logContainer = document.getElementById('log-container');
+    const dashboard = document.querySelector('.dashboard');
+    const masterCard = document.getElementById('master-card');
+    const masterDockToggle = document.getElementById('master-dock-toggle');
+    const masterFloatingWindow = document.getElementById('master-floating-window');
+    const masterFloatingTitlebar = document.getElementById('master-floating-titlebar');
+    const masterFloatingBody = document.getElementById('master-floating-body');
+    const voiceCards = document.getElementById('voice-cards');
     const replWindow = document.getElementById('repl-window');
     const replTitlebar = document.getElementById('repl-titlebar');
     const replInput = document.getElementById('skode-input');
+    const settingsWindow = document.getElementById('settings-window');
+    const settingsTitlebar = document.getElementById('settings-titlebar');
     const controlsWindow = document.getElementById('controls-window');
     const controlsTitlebar = document.getElementById('controls-titlebar');
     const commandsWindow = document.getElementById('commands-window');
@@ -1533,6 +1744,11 @@
     const padStatus = document.getElementById('pad-status');
     const filesWindow = document.getElementById('files-window');
     const filesTitlebar = document.getElementById('files-titlebar');
+    const visualsWindow = document.getElementById('visuals-window');
+    const visualsTitlebar = document.getElementById('visuals-titlebar');
+    const visualsCanvas = document.getElementById('visuals-canvas');
+    const visualsMeters = document.getElementById('visuals-meters');
+    const visualsStatus = document.getElementById('visuals-status');
     const helpWindow = document.getElementById('help-window');
     const helpTitlebar = document.getElementById('help-titlebar');
     const appVersion = document.getElementById('app-version');
@@ -1569,6 +1785,7 @@
      *   JS<json> / JL     save or load the settings file
      *   DR / DA<c>:<n>    refresh or select audio devices
      *   G<width>:<height> resize the native main window content area
+     *   VS / VP / VT      start, poll, or stop visual scope data
      *
      * Audio-engine commands are a separate compact language. Common forms:
      *   v<n>a<x> volume, v<n>n<x> speed, v<n>l<0|1> play,
@@ -1608,6 +1825,9 @@
         resizeMainWindow(width, height) {
             return this.invoke(`G${width}:${height}`);
         },
+        startVisualScope() { return this.invoke('VS'); },
+        pollVisualScope() { return this.invoke('VP'); },
+        stopVisualScope() { return this.invoke('VT'); },
         refreshAudioDevices() { return this.invoke('DR'); },
         applyAudioDevice(isInput, selection) {
             return this.invoke(`DA${isInput ? 1 : 0}:${selection}`);
@@ -1820,6 +2040,18 @@
         replTitlebar,
         { width: 620, height: 390 }
     );
+    const masterPanel = makeFloatingWindow(
+        'master',
+        masterFloatingWindow,
+        masterFloatingTitlebar,
+        { width: 760, height: 260 }
+    );
+    const settingsPanel = makeFloatingWindow(
+        'settings',
+        settingsWindow,
+        settingsTitlebar,
+        { width: 760, height: 620 }
+    );
     const controlsPanel = makeFloatingWindow(
         'controls',
         controlsWindow,
@@ -1850,10 +2082,187 @@
         helpTitlebar,
         { width: 560, height: 420 }
     );
+    const visualsPanel = makeFloatingWindow(
+        'visuals',
+        visualsWindow,
+        visualsTitlebar,
+        { width: 760, height: 430 }
+    );
+
+    let visualScopeTimer = null;
+    let visualScopeActive = false;
+    let visualScopeLatest = {
+        waveform: [],
+        peaks: Array(10).fill(0),
+        frames: 0,
+        firstFrame: 0
+    };
+    let visualSketch = null;
+
+    function ensureVisualMeters() {
+        if (visualsMeters.children.length === 10) return;
+        visualsMeters.replaceChildren();
+        for (let i = 0; i < 10; i++) {
+            const meter = document.createElement('div');
+            meter.className = 'visual-meter';
+            meter.title = `Channel ${i + 1}`;
+            meter.appendChild(document.createElement('span'));
+            visualsMeters.appendChild(meter);
+        }
+    }
+
+    function ensureVisualSketch() {
+        if (visualSketch || !window.p5) return Boolean(visualSketch);
+        visualSketch = new p5(sketch => {
+            sketch.setup = () => {
+                const rect = visualsCanvas.getBoundingClientRect();
+                const canvas = sketch.createCanvas(
+                    Math.max(1, Math.round(rect.width)),
+                    Math.max(1, Math.round(rect.height)));
+                canvas.parent(visualsCanvas);
+                sketch.pixelDensity(window.devicePixelRatio || 1);
+                sketch.noLoop();
+            };
+
+            sketch.draw = () => {
+                const waveform = visualScopeLatest.waveform || [];
+                sketch.background(7, 19, 23);
+                sketch.stroke(27, 59, 68);
+                sketch.strokeWeight(1);
+                for (let y = 0; y <= 4; y++) {
+                    const lineY = (sketch.height * y) / 4;
+                    sketch.line(0, lineY, sketch.width, lineY);
+                }
+
+                sketch.noFill();
+                sketch.stroke(121, 217, 239);
+                sketch.strokeWeight(2);
+                sketch.beginShape();
+                waveform.forEach((value, index) => {
+                    const x = waveform.length <= 1
+                        ? 0
+                        : (index / (waveform.length - 1)) * sketch.width;
+                    const y = (sketch.height * 0.5) -
+                        (Math.max(-1, Math.min(1, value)) * sketch.height * 0.42);
+                    sketch.vertex(x, y);
+                });
+                sketch.endShape();
+            };
+        });
+        return true;
+    }
+
+    function resizeVisualSketch() {
+        if (!visualSketch) return;
+        const rect = visualsCanvas.getBoundingClientRect();
+        visualSketch.resizeCanvas(
+            Math.max(1, Math.round(rect.width)),
+            Math.max(1, Math.round(rect.height)));
+    }
+
+    function drawVisualScope() {
+        if (ensureVisualSketch()) {
+            resizeVisualSketch();
+            visualSketch.redraw();
+        } else {
+            visualsStatus.textContent = 'p5.js is unavailable.';
+        }
+
+        ensureVisualMeters();
+        Array.from(visualsMeters.children).forEach((meter, index) => {
+            const fill = meter.firstElementChild;
+            const peak = Math.max(0, Math.min(1, visualScopeLatest.peaks[index] || 0));
+            fill.style.height = `${Math.round(peak * 100)}%`;
+        });
+    }
+
+    function visualScopeStatus(message, running) {
+        visualScopeActive = Boolean(running);
+        visualsStatus.textContent = message;
+    }
+
+    function visualScopeData(data) {
+        visualScopeLatest = {
+            waveform: Array.isArray(data.waveform) ? data.waveform : [],
+            peaks: Array.isArray(data.peaks) ? data.peaks : Array(10).fill(0),
+            frames: Number(data.frames) || 0,
+            firstFrame: Number(data.firstFrame) || 0
+        };
+        visualScopeStatus(
+            `Scope running: ${visualScopeLatest.frames} frames from ${visualScopeLatest.firstFrame}.`,
+            true);
+        drawVisualScope();
+    }
+
+    function startVisualScopePolling() {
+        if (!native.startVisualScope()) {
+            visualScopeStatus('Native command bridge is unavailable.', false);
+            return;
+        }
+        if (visualScopeTimer) return;
+        visualScopeTimer = window.setInterval(() => {
+            if (!visualsPanel.isOpen()) {
+                stopVisualScopePolling();
+                return;
+            }
+            native.pollVisualScope();
+        }, 80);
+    }
+
+    function stopVisualScopePolling() {
+        if (visualScopeTimer) {
+            window.clearInterval(visualScopeTimer);
+            visualScopeTimer = null;
+        }
+        if (visualScopeActive) native.stopVisualScope();
+        visualScopeActive = false;
+    }
+
+    let masterFloating = false;
+    let masterFloatingGeometry = null;
+
+    function setDockToggleState(button, floating, label) {
+        button.textContent = floating ? '\u2193' : '\u2191';
+        button.setAttribute('aria-pressed', String(floating));
+        button.setAttribute(
+            'aria-label',
+            floating ? `Dock ${label}` : `Undock ${label}`);
+        button.title = floating ? `Dock ${label}` : `Undock ${label}`;
+    }
+
+    function setMasterFloating(floating) {
+        const nextFloating = Boolean(floating);
+        if (masterFloating && !nextFloating) {
+            masterFloatingGeometry = geometryWithRelative(masterPanel.getGeometry());
+        }
+        masterFloating = nextFloating;
+        setDockToggleState(masterDockToggle, masterFloating, 'master');
+
+        if (masterFloating) {
+            masterFloatingBody.appendChild(masterCard);
+            if (masterFloatingGeometry) {
+                masterPanel.setGeometry(
+                    restoreGeometryForViewport(
+                        masterFloatingGeometry,
+                        portableWindowGeometry.checked));
+            }
+            masterPanel.open(masterFloatingWindow);
+        } else {
+            dashboard.insertBefore(masterCard, voiceCards);
+            masterPanel.close();
+        }
+    }
+
+    function toggleMasterFloating() {
+        setMasterFloating(!masterFloating);
+    }
 
     function openRepl() { replPanel.open(replInput); }
     function closeRepl() { replPanel.close(); }
     function toggleRepl() { replPanel.toggle(replInput); }
+    function openSettings() { settingsPanel.open(settingsWindow); }
+    function closeSettings() { settingsPanel.close(); }
+    function toggleSettings() { settingsPanel.toggle(settingsWindow); }
     function openControls() { controlsPanel.open(); }
     function closeControls() { controlsPanel.close(); }
     function toggleControls() { controlsPanel.toggle(); }
@@ -1869,6 +2278,20 @@
     function openHelp() { helpPanel.open(helpWindow); }
     function closeHelp() { helpPanel.close(); }
     function toggleHelp() { helpPanel.toggle(helpWindow); }
+    function openVisuals() {
+        visualsPanel.open(visualsWindow);
+        ensureVisualMeters();
+        drawVisualScope();
+        startVisualScopePolling();
+    }
+    function closeVisuals() {
+        visualsPanel.close();
+        stopVisualScopePolling();
+    }
+    function toggleVisuals() {
+        if (visualsPanel.isOpen()) closeVisuals();
+        else openVisuals();
+    }
 
     function clearRepl() {
         logOutput.replaceChildren();
@@ -1999,6 +2422,14 @@
         if (!controller || !controller.isOpen()) return false;
         if (id.startsWith('track-')) {
             setTrackFloating(Number(id.slice(6)), false);
+            return true;
+        }
+        if (id === 'master') {
+            setMasterFloating(false);
+            return true;
+        }
+        if (id === 'visuals') {
+            closeVisuals();
             return true;
         }
         controller.close();
@@ -2882,7 +3313,8 @@
                         <button type="button" id="track-float-${track}" class="track-float"
                             data-action="toggle-track-floating" data-track="${track}"
                             aria-pressed="false"
-                            title="Float T${track}">float</button>
+                            aria-label="Undock T${track}"
+                            title="Undock T${track}">\u2191</button>
                         <button class="wave-btn" data-action="choose-wave" data-voice="${voice}">pick</button>
                         <div id="v${track}" class="mono"></div>
                         <button class="xtra-btn" data-action="randomize-track" data-voice="${voice}">rand</button>
@@ -3079,8 +3511,9 @@
         panel.innerHTML = `
             <header id="track-floating-titlebar-${track}" class="repl-titlebar">
                 <span class="repl-title">T${track}</span>
-                <button type="button" data-action="dock-track" data-track="${track}"
-                    aria-label="Dock T${track}">dock</button>
+                <button type="button" class="dock-toggle" data-action="dock-track"
+                    data-track="${track}" aria-label="Dock T${track}"
+                    title="Dock T${track}">\u2193</button>
             </header>
             <div id="track-floating-body-${track}" class="repl-body"></div>
         `;
@@ -3145,13 +3578,7 @@
         }
 
         if (button) {
-            button.textContent = state.floating ? 'dock' : 'float';
-            button.setAttribute('aria-pressed', String(state.floating));
-            button.setAttribute('aria-label',
-                state.floating ? `Dock T${track}` : `Float T${track}`);
-            button.title = state.floating
-                ? `Dock T${track} in the main grid`
-                : `Float T${track} in its own window`;
+            setDockToggleState(button, state.floating, `T${track}`);
         }
         applyTrackVisibility(track);
     }
@@ -3201,7 +3628,7 @@
             : floatingWindows[id].isOpen();
         return {
             format: 'ro-totem-slider-settings',
-            version: 22,
+            version: 24,
             directory: waveDirectory || null,
             portableWindowGeometry: portableWindowGeometry.checked,
             replHistory: replHistory.slice(-MAX_REPL_HISTORY),
@@ -3230,6 +3657,15 @@
                     ...geometryWithRelative(replPanel.getGeometry()),
                     open: windowWasOpen('repl')
                 },
+                master: {
+                    ...geometryWithRelative(masterPanel.getGeometry()),
+                    floating: masterFloating,
+                    open: masterFloating && windowWasOpen('master')
+                },
+                settings: {
+                    ...geometryWithRelative(settingsPanel.getGeometry()),
+                    open: windowWasOpen('settings')
+                },
                 controls: {
                     ...geometryWithRelative(controlsPanel.getGeometry()),
                     open: windowWasOpen('controls')
@@ -3250,6 +3686,10 @@
                 help: {
                     ...geometryWithRelative(helpPanel.getGeometry()),
                     open: windowWasOpen('help')
+                },
+                visuals: {
+                    ...geometryWithRelative(visualsPanel.getGeometry()),
+                    open: windowWasOpen('visuals')
                 },
                 order: windowState.order,
                 focused: windowState.focused
@@ -3485,17 +3925,29 @@
         );
 
         if (settings.version >= 9 && settings.uiWindows) {
-            const restoreFloatingWindows = () => {
-                const repl = settings.uiWindows.repl;
-                const controls = settings.uiWindows.controls;
-                const commands = settings.uiWindows.commands;
-                const pads = settings.uiWindows.pads;
-                const files = settings.uiWindows.files;
-                const help = settings.uiWindows.help;
-                replPanel.setGeometry(
-                    restoreGeometryForViewport(repl, usePortableGeometry));
-                controlsPanel.setGeometry(
-                    restoreGeometryForViewport(controls, usePortableGeometry));
+                const restoreFloatingWindows = () => {
+                    const repl = settings.uiWindows.repl;
+                    const savedMasterWindow = settings.uiWindows.master;
+                    const savedSettingsWindow = settings.uiWindows.settings;
+                    const controls = settings.uiWindows.controls;
+                    const commands = settings.uiWindows.commands;
+                    const pads = settings.uiWindows.pads;
+                    const files = settings.uiWindows.files;
+                    const help = settings.uiWindows.help;
+                    const visuals = settings.uiWindows.visuals;
+                    replPanel.setGeometry(
+                        restoreGeometryForViewport(repl, usePortableGeometry));
+                    if (settings.version >= 24) {
+                        masterFloatingGeometry =
+                            restoreGeometryForViewport(savedMasterWindow, usePortableGeometry);
+                        masterPanel.setGeometry(masterFloatingGeometry);
+                        settingsPanel.setGeometry(
+                            restoreGeometryForViewport(
+                                savedSettingsWindow,
+                                usePortableGeometry));
+                    }
+                    controlsPanel.setGeometry(
+                        restoreGeometryForViewport(controls, usePortableGeometry));
                 commandsPanel.setGeometry(
                     restoreGeometryForViewport(commands, usePortableGeometry));
                 restorePadGeometries(
@@ -3506,11 +3958,26 @@
                     helpPanel.setGeometry(
                         restoreGeometryForViewport(help, usePortableGeometry));
                 }
+                if (settings.version >= 23) {
+                    visualsPanel.setGeometry(
+                        restoreGeometryForViewport(visuals, usePortableGeometry));
+                }
 
                 if (settings.version >= 11) {
                     if (repl && typeof repl.open === 'boolean') {
                         if (repl.open) openRepl();
                         else closeRepl();
+                    }
+                    if (settings.version >= 24 &&
+                        savedMasterWindow &&
+                        typeof savedMasterWindow.floating === 'boolean') {
+                        setMasterFloating(savedMasterWindow.floating);
+                    }
+                    if (settings.version >= 24 &&
+                        savedSettingsWindow &&
+                        typeof savedSettingsWindow.open === 'boolean') {
+                        if (savedSettingsWindow.open) openSettings();
+                        else closeSettings();
                     }
                     if (controls && typeof controls.open === 'boolean') {
                         if (controls.open) openControls();
@@ -3535,6 +4002,11 @@
                         help && typeof help.open === 'boolean') {
                         if (help.open) openHelp();
                         else closeHelp();
+                    }
+                    if (settings.version >= 23 &&
+                        visuals && typeof visuals.open === 'boolean') {
+                        if (visuals.open) openVisuals();
+                        else closeVisuals();
                     }
                 }
                 if (settings.version >= 17) {
@@ -4126,9 +4598,13 @@
             case 'save-settings': saveSettingsFile(); break;
             case 'load-project': loadProjectFile(); break;
             case 'save-project': saveProjectFile(); break;
+            case 'toggle-master-floating': toggleMasterFloating(); break;
+            case 'dock-master': setMasterFloating(false); break;
             case 'open-repl': openRepl(); break;
             case 'close-repl': closeRepl(); break;
             case 'clear-repl': clearRepl(); break;
+            case 'open-settings': openSettings(); break;
+            case 'close-settings': closeSettings(); break;
             case 'open-controls': openControls(); break;
             case 'close-controls': closeControls(); break;
             case 'open-commands': openCommands(); break;
@@ -4137,6 +4613,8 @@
             case 'close-pads': closePads(); break;
             case 'open-files': openFiles(); break;
             case 'close-files': closeFiles(); break;
+            case 'open-visuals': openVisuals(); break;
+            case 'close-visuals': closeVisuals(); break;
             case 'open-help': openHelp(); break;
             case 'close-help': closeHelp(); break;
             case 'set-pad-layout': setPadLayout(control.dataset.layout); break;
@@ -4305,6 +4783,23 @@
                 showKeyboardPadPress(pad);
                 triggerPad(padNumber);
             }
+            return;
+        }
+
+        const toggleSettingsShortcut =
+            event.code === 'Comma' && !event.repeat &&
+            (isMac
+                ? event.metaKey && !event.ctrlKey && !event.altKey && !event.shiftKey
+                : event.ctrlKey && !event.metaKey && !event.altKey && !event.shiftKey);
+        if (toggleSettingsShortcut) {
+            event.preventDefault();
+            toggleSettings();
+            return;
+        }
+
+        if (event.ctrlKey && event.shiftKey && event.code === 'Digit4' && !event.repeat) {
+            event.preventDefault();
+            toggleVisuals();
             return;
         }
 

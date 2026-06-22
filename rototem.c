@@ -12,6 +12,7 @@
 
 #include <limits.h>
 #include <stdarg.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <dirent.h>
@@ -229,6 +230,191 @@ static void script_eval(struct webview *w, struct script_builder *script) {
 
 static void addLog(struct webview *w, const char *message);
 
+struct scope_ipc_reader {
+  int fd;
+  int pad;
+  uint64_t size;
+  void *mapping;
+  float *frames;
+  char name[128];
+};
+
+#if defined(__GNUC__) && !defined(_WIN32)
+#if defined(__APPLE__)
+#define ROTOTEM_WEAK_SCOPE __attribute__((weak_import))
+#else
+#define ROTOTEM_WEAK_SCOPE __attribute__((weak))
+#endif
+extern int scope_ipc_reader_open(
+    struct scope_ipc_reader *reader, const char *name) ROTOTEM_WEAK_SCOPE;
+extern int scope_ipc_reader_latest(
+    struct scope_ipc_reader *reader, float *frames, uint32_t max_frames,
+    uint64_t *first_frame) ROTOTEM_WEAK_SCOPE;
+extern void scope_ipc_reader_close(
+    struct scope_ipc_reader *reader) ROTOTEM_WEAK_SCOPE;
+#else
+static int scope_ipc_reader_open(
+    struct scope_ipc_reader *reader, const char *name) {
+  (void)reader;
+  (void)name;
+  return -1;
+}
+
+static int scope_ipc_reader_latest(
+    struct scope_ipc_reader *reader, float *frames, uint32_t max_frames,
+    uint64_t *first_frame) {
+  (void)reader;
+  (void)frames;
+  (void)max_frames;
+  (void)first_frame;
+  return -1;
+}
+
+static void scope_ipc_reader_close(struct scope_ipc_reader *reader) {
+  (void)reader;
+}
+#endif
+
+#define VISUAL_SCOPE_NAME "skred-scope"
+#define VISUAL_SCOPE_CHANNELS 10
+#define VISUAL_SCOPE_MASK ((1u << VISUAL_SCOPE_CHANNELS) - 1u)
+#define VISUAL_SCOPE_FRAMES 1024
+#define VISUAL_SCOPE_POINTS 240
+
+static struct scope_ipc_reader visual_scope_reader;
+static int visual_scope_publishing = 0;
+static int visual_scope_open = 0;
+static float visual_scope_frames[VISUAL_SCOPE_FRAMES * VISUAL_SCOPE_CHANNELS];
+
+static int visual_scope_reader_available(void) {
+#if defined(__GNUC__) && !defined(_WIN32)
+  return scope_ipc_reader_open && scope_ipc_reader_latest &&
+      scope_ipc_reader_close;
+#else
+  return 0;
+#endif
+}
+
+static void close_visual_scope_reader(void) {
+  if (visual_scope_open && visual_scope_reader_available()) {
+    scope_ipc_reader_close(&visual_scope_reader);
+  }
+  memset(&visual_scope_reader, 0, sizeof(visual_scope_reader));
+  visual_scope_open = 0;
+}
+
+static int ensure_visual_scope(struct webview *w) {
+  if (!visual_scope_reader_available()) {
+    webview_eval(w, "visualScopeStatus('Scope reader is unavailable in this Skred build.',false)");
+    return 0;
+  }
+
+  if (!visual_scope_publishing) {
+    int result = skred_scope_start(VISUAL_SCOPE_NAME, VISUAL_SCOPE_MASK, 1.0);
+    if (result != 0) {
+      webview_eval(w, "visualScopeStatus('Could not start Skred scope publisher.',false)");
+      return 0;
+    }
+    visual_scope_publishing = 1;
+  }
+
+  if (!visual_scope_open) {
+    if (scope_ipc_reader_open(&visual_scope_reader, VISUAL_SCOPE_NAME) != 0) {
+      webview_eval(w, "visualScopeStatus('Could not open Skred scope reader.',false)");
+      return 0;
+    }
+    visual_scope_open = 1;
+  }
+
+  return 1;
+}
+
+static int append_visual_float(struct script_builder *script, float value) {
+  if (value > -0.000001f && value < 0.000001f) value = 0.0f;
+  if (value > 1.0f) value = 1.0f;
+  if (value < -1.0f) value = -1.0f;
+  return script_appendf(script, "%.5g", (double)value);
+}
+
+static int append_visual_scope_points(
+    struct script_builder *script, const float *frames, int frame_count) {
+  int points = frame_count < VISUAL_SCOPE_POINTS
+      ? frame_count
+      : VISUAL_SCOPE_POINTS;
+  if (!script_append(script, "[")) return 0;
+  for (int point = 0; point < points; point++) {
+    int start = (int)(((int64_t)point * frame_count) / points);
+    int end = (int)(((int64_t)(point + 1) * frame_count) / points);
+    if (end <= start) end = start + 1;
+
+    float sum = 0.0f;
+    for (int i = start; i < end; i++) {
+      const float *frame = frames + (i * VISUAL_SCOPE_CHANNELS);
+      sum += (frame[0] + frame[1]) * 0.5f;
+    }
+    float value = sum / (float)(end - start);
+    if (point > 0 && !script_append(script, ",")) return 0;
+    if (!append_visual_float(script, value)) return 0;
+  }
+  return script_append(script, "]");
+}
+
+static int append_visual_scope_peaks(
+    struct script_builder *script, const float *frames, int frame_count) {
+  if (!script_append(script, "[")) return 0;
+  for (int channel = 0; channel < VISUAL_SCOPE_CHANNELS; channel++) {
+    float peak = 0.0f;
+    for (int i = 0; i < frame_count; i++) {
+      float value = frames[i * VISUAL_SCOPE_CHANNELS + channel];
+      if (value < 0.0f) value = -value;
+      if (value > peak) peak = value;
+    }
+    if (channel > 0 && !script_append(script, ",")) return 0;
+    if (!append_visual_float(script, peak)) return 0;
+  }
+  return script_append(script, "]");
+}
+
+static void poll_visual_scope(struct webview *w) {
+  if (!ensure_visual_scope(w)) return;
+
+  uint64_t first_frame = 0;
+  int frames = scope_ipc_reader_latest(
+      &visual_scope_reader, visual_scope_frames, VISUAL_SCOPE_FRAMES,
+      &first_frame);
+  if (frames < 0) {
+    close_visual_scope_reader();
+    webview_eval(w, "visualScopeStatus('Scope read failed.',false)");
+    return;
+  }
+  if (frames == 0) {
+    webview_eval(w, "visualScopeStatus('Waiting for scope frames...',true)");
+    return;
+  }
+
+  struct script_builder script = {0};
+  if (script_append(&script, "visualScopeData({frames:") &&
+      script_appendf(&script, "%d,firstFrame:%llu,channels:%d,waveform:",
+          frames, (unsigned long long)first_frame, VISUAL_SCOPE_CHANNELS) &&
+      append_visual_scope_points(&script, visual_scope_frames, frames) &&
+      script_append(&script, ",peaks:") &&
+      append_visual_scope_peaks(&script, visual_scope_frames, frames) &&
+      script_append(&script, "})")) {
+    script_eval(w, &script);
+  } else {
+    free(script.data);
+    webview_eval(w, "visualScopeStatus('Not enough memory to send scope data.',false)");
+  }
+}
+
+static void stop_visual_scope(void) {
+  close_visual_scope_reader();
+  if (visual_scope_publishing) {
+    skred_scope_stop();
+    visual_scope_publishing = 0;
+  }
+}
+
 static int handle_audio_command(const char *line) {
   int result = skred_audio_command(line);
   if (result == 0) return 0;
@@ -286,6 +472,7 @@ static int wavepointer = 300;
  *   PB / PW / PX / PF / PL Save or load a project ZIP.
  *   DR / DA<c>:<n>    Refresh or apply an audio-device selection.
  *   G<width>:<height> Resize the native main window content area.
+ *   VS / VP / VT      Start, poll, or stop the visual scope bridge.
  *
  * The payload after '!' belongs to the audio engine, not this dispatcher.
  * Common engine forms are v<n>a<x> (volume), v<n>n<x> (speed),
@@ -303,6 +490,7 @@ enum native_command {
   NATIVE_SETTINGS = 'J',
   NATIVE_PROJECT = 'P',
   NATIVE_WINDOW_GEOMETRY = 'G',
+  NATIVE_VISUAL_SCOPE = 'V',
   NATIVE_CHOOSE_PROJECT_FILE = 'K',
   NATIVE_LOAD_DIRECTORY = 'R',
   NATIVE_LOAD_WAVE = 'W',
@@ -1224,6 +1412,20 @@ static void handle_audio_device_command(struct webview *w, const char *arg) {
   }
 }
 
+static void handle_visual_scope_command(struct webview *w, const char *arg) {
+  if (arg[0] == 'S') {
+    if (ensure_visual_scope(w)) {
+      webview_eval(w, "visualScopeStatus('Scope running.',true)");
+      poll_visual_scope(w);
+    }
+  } else if (arg[0] == 'P') {
+    poll_visual_scope(w);
+  } else if (arg[0] == 'T') {
+    stop_visual_scope();
+    webview_eval(w, "visualScopeStatus('Scope stopped.',false)");
+  }
+}
+
 static void load_settings_dialog(struct webview *w) {
   char filename[PATH_MAX] = "";
   webview_dialog(
@@ -1285,6 +1487,9 @@ static void invoker(struct webview *w, const char *arg) {
       break;
     case NATIVE_WINDOW_GEOMETRY:
       resize_main_window(w, &arg[1]);
+      break;
+    case NATIVE_VISUAL_SCOPE:
+      handle_visual_scope_command(w, &arg[1]);
       break;
     case NATIVE_CHOOSE_PROJECT_FILE:
       choose_project_file(w, &arg[1]);
@@ -1399,6 +1604,7 @@ int main(void) {
     r = webview_loop(&webview, 1);
   } while (r == 0);
 
+  stop_visual_scope();
   skred_stop();
   webview_exit(&webview);
   discard_project_writer(1);
