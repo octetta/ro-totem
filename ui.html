@@ -33,7 +33,7 @@
 
         .master-card {
             grid-column: 1 / -1;
-            background: #eef2f7;
+            background: white;
             border-top: 6px solid #333;
         }
 
@@ -221,7 +221,7 @@
         }
 
         .help-icon-btn {
-            background: #4f5963;
+            background: #e4e8ec;
             color: white;
             width: 24px;
             height: 24px;
@@ -237,7 +237,7 @@
         }
 
         .help-icon-btn:hover {
-            background: #3d454d;
+            background: #d4dae0;
         }
 
         .help-launch {
@@ -247,6 +247,36 @@
         }
 
         .help-launch:hover {
+            background: #3d454d;
+        }
+
+        .gear-icon-btn {
+            background: #e4e8ec;
+            color: black;
+            width: 24px;
+            height: 24px;
+            padding: 0;
+            border-radius: 4px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 0.85rem;
+            cursor: pointer;
+            border: none;
+        }
+
+        .gear-icon-btn:hover {
+            background: #d4dae0;
+        }
+
+        .gear-launch {
+            margin-top: 10px;
+            background: #4f5963;
+            color: white;
+        }
+
+        .gear-launch:hover {
             background: #3d454d;
         }
 
@@ -916,7 +946,7 @@
         .master-floating-window {
             width: min(760px, calc(100vw - 32px));
             height: auto;
-            min-height: 220px;
+            /* min-height: 220px; */
             border-color: #333;
             background: #eef2f7;
         }
@@ -947,9 +977,9 @@
         .track-floating-window {
             width: min(360px, calc(100vw - 32px));
             height: auto;
-            min-height: 260px;
+            /* min-height: 260px; */
             border-color: #59636e;
-            background: #f8f9fa;
+            background: white;
         }
 
         .track-floating-window .repl-titlebar {
@@ -1441,19 +1471,21 @@
         <div class="row master-toolbar">
             <div class="master-toolbar-group master-toolbar-left">
                 <button class="help-icon-btn" type="button" data-action="open-help"
-                    title="Keyboard help (?)">?</button>
+                    title="Keyboard help (?)">&#x2753;</button>
+                <button class="gear-icon-btn" type="button" data-action="open-settings"
+                    title="Shortcut: Ctrl+, or Cmd+, on macOS">&#x2699;</button>
                 <button data-action="choose-directory">dir</button>
                 <button class="xtra-btn" data-action="randomize-all">rand</button>
             </div>
             <div class="master-toolbar-group master-toolbar-center">
-                <button class="start-btn" data-action="set-all-playing" data-playing="true">all go</button>
-                <button class="stop-btn" data-action="set-all-playing" data-playing="false">all end</button>
+                <button class="start-btn" data-action="set-all-playing" data-playing="true">all&nbsp;go</button>
+                <button class="stop-btn" data-action="set-all-playing" data-playing="false">all&nbsp;end</button>
             </div>
             <div class="master-toolbar-group master-toolbar-right">
                 <button class="settings-btn" type="button" data-action="load-project"
-                    title="Load settings and WAV files from a ZIP archive">load zip</button>
+                    title="Load settings and WAV files from a ZIP archive">load</button>
                 <button class="settings-btn" type="button" data-action="save-project"
-                    title="Save settings and WAV files to a ZIP archive">save zip</button>
+                    title="Save settings and WAV files to a ZIP archive">save</button>
                 <button id="master-dock-toggle" class="dock-toggle" type="button"
                     data-action="toggle-master-floating"
                     title="Undock master" aria-label="Undock master">&uarr;</button>
@@ -1466,10 +1498,6 @@
             <control-slider id="master-vol" label="volume" step=".01" min="-60" max="0" value="-20"></control-slider>
         </div>
 
-        <div class="row advanced-row">
-          <button type="button" class="settings-launch" data-action="open-settings"
-              title="Shortcut: Ctrl+, or Cmd+, on macOS">settings</button>
-        </div>
     </div>
 
     <div id="voice-cards"></div>
@@ -3760,8 +3788,9 @@
 
     function applySettings(settings) {
         if (!settings || settings.format !== 'ro-totem-slider-settings' ||
-            ![1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22].includes(settings.version) ||
+            ![1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24].includes(settings.version) ||
             !Array.isArray(settings.tracks)) {
+            console.log(settings);
             throw new Error('This is not a supported ro-totem settings file.');
         }
 
@@ -4689,7 +4718,7 @@
             case 'randomize-track': loadRandomWave(voice); break;
             case 'set-track-playing': setTrackPlaying(track, playing); break;
             case 'flip-track':
-                skode(`v${voice}b- v${Number(control.dataset.partner)}b- `);
+                skode(`v${voice}b; v${Number(control.dataset.partner)}b; `);
                 break;
             case 'toggle-track-mute': toggleTrackMute(track); break;
             case 'adjust-speed': {
