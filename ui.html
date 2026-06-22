@@ -220,6 +220,26 @@
             background: #452f5b;
         }
 
+        .help-icon-btn {
+            background: #4f5963;
+            color: white;
+            width: 24px;
+            height: 24px;
+            padding: 0;
+            border-radius: 4px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 0.85rem;
+            cursor: pointer;
+            border: none;
+        }
+
+        .help-icon-btn:hover {
+            background: #3d454d;
+        }
+
         .help-launch {
             margin-top: 10px;
             background: #4f5963;
@@ -1420,6 +1440,8 @@
     <div id="master-card" class="voice-card master-card">
         <div class="row master-toolbar">
             <div class="master-toolbar-group master-toolbar-left">
+                <button class="help-icon-btn" type="button" data-action="open-help"
+                    title="Keyboard help (?)">?</button>
                 <button data-action="choose-directory">dir</button>
                 <button class="xtra-btn" data-action="randomize-all">rand</button>
             </div>
@@ -1445,21 +1467,8 @@
         </div>
 
         <div class="row advanced-row">
-          <button type="button" class="repl-launch" data-action="open-repl">open REPL</button>
           <button type="button" class="settings-launch" data-action="open-settings"
               title="Shortcut: Ctrl+, or Cmd+, on macOS">settings</button>
-          <button type="button" class="controls-launch" data-action="open-controls">open controls</button>
-          <button type="button" class="commands-launch" data-action="open-commands"
-              title="Shortcut: Ctrl+Shift+1">open commands</button>
-          <button type="button" class="pads-launch" data-action="open-pads"
-              title="Shortcut: Ctrl+Shift+2">open pads</button>
-          <button type="button" class="files-launch" data-action="open-files"
-              title="Shortcut: Ctrl+Shift+3">open files</button>
-          <button type="button" class="visuals-launch" data-action="open-visuals"
-              title="Shortcut: Ctrl+Shift+4">open visuals</button>
-          <button type="button" class="help-launch" data-action="open-help"
-              title="Shortcut: ? or F1">keyboard help</button>
-
         </div>
     </div>
 
