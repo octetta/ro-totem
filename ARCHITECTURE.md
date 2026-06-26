@@ -241,6 +241,11 @@ frame construction. New native callbacks should use the Voco helpers instead of
 fixed buffers, raw `sprintf()` calls, or direct calls to named JavaScript
 functions.
 
+The visual scope callback sends one downsampled waveform array per scope
+channel plus a 10-value peak array. The canvas renders selected stereo pairs as
+separate left/right traces, and the vertical meters show all channel peaks.
+Clicking either meter in a stereo pair toggles that pair's waveform lane.
+
 File-backed waveform loading is intentionally centralized in C. JavaScript may
 choose a path and call `native.loadWave(voice, path)`, but C allocates wavetable
 numbers and constructs the `[file] /ws` and `wt` commands. Picker, random, and

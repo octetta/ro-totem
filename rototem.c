@@ -398,8 +398,11 @@ static int append_visual_float(struct script_builder *script, float value) {
   return script_appendf(script, "%.5g", (double)value);
 }
 
-static int append_visual_scope_points(
-    struct script_builder *script, const float *frames, int frame_count) {
+static int append_visual_scope_channel_points(
+    struct script_builder *script,
+    const float *frames,
+    int frame_count,
+    int channel) {
   int points = frame_count < VISUAL_SCOPE_POINTS
       ? frame_count
       : VISUAL_SCOPE_POINTS;
@@ -412,11 +415,24 @@ static int append_visual_scope_points(
     float sum = 0.0f;
     for (int i = start; i < end; i++) {
       const float *frame = frames + (i * VISUAL_SCOPE_CHANNELS);
-      sum += (frame[0] + frame[1]) * 0.5f;
+      sum += frame[channel];
     }
     float value = sum / (float)(end - start);
     if (point > 0 && !script_append(script, ",")) return 0;
     if (!append_visual_float(script, value)) return 0;
+  }
+  return script_append(script, "]");
+}
+
+static int append_visual_scope_waveforms(
+    struct script_builder *script, const float *frames, int frame_count) {
+  if (!script_append(script, "[")) return 0;
+  for (int channel = 0; channel < VISUAL_SCOPE_CHANNELS; channel++) {
+    if (channel > 0 && !script_append(script, ",")) return 0;
+    if (!append_visual_scope_channel_points(
+          script, frames, frame_count, channel)) {
+      return 0;
+    }
   }
   return script_append(script, "]");
 }
@@ -455,9 +471,9 @@ static void poll_visual_scope(struct webview *w) {
   }
 
   struct script_builder frame = {0};
-  struct script_builder waveform = {0};
+  struct script_builder waveforms = {0};
   struct script_builder peaks = {0};
-  if (append_visual_scope_points(&waveform, visual_scope_frames, frames) &&
+  if (append_visual_scope_waveforms(&waveforms, visual_scope_frames, frames) &&
       append_visual_scope_peaks(&peaks, visual_scope_frames, frames) &&
       script_append(&frame, VOCO_MAGIC) &&
       voco_write_text_field(&frame, script_append_voco, "scope") &&
@@ -466,14 +482,14 @@ static void poll_visual_scope(struct webview *w) {
       voco_write_int_field(&frame, script_append_voco, frames) &&
       voco_write_u64_field(&frame, script_append_voco, (unsigned long long)first_frame) &&
       voco_write_int_field(&frame, script_append_voco, VISUAL_SCOPE_CHANNELS) &&
-      voco_write_text_field(&frame, script_append_voco, waveform.data) &&
+      voco_write_text_field(&frame, script_append_voco, waveforms.data) &&
       voco_write_text_field(&frame, script_append_voco, peaks.data)) {
     voco_eval_frame(w, frame.data);
   } else {
     send_visual_scope_status(w, "Not enough memory to send scope data.", 0);
   }
   free(frame.data);
-  free(waveform.data);
+  free(waveforms.data);
   free(peaks.data);
 }
 

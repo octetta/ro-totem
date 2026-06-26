@@ -926,8 +926,10 @@
             min-width: 0;
             height: 100%;
             align-items: end;
+            border: 1px solid transparent;
             border-radius: 4px;
             background: #dcecf1;
+            cursor: pointer;
             overflow: hidden;
         }
 
@@ -936,6 +938,15 @@
             width: 100%;
             height: 0%;
             background: #2f8daa;
+        }
+
+        .visual-meter.selected {
+            border-color: #f2c078;
+            background: #faedd7;
+        }
+
+        .visual-meter.selected span {
+            background: #c67922;
         }
 
         .visuals-status {
@@ -1701,7 +1712,8 @@
     </header>
     <div class="repl-body">
         <div id="visuals-canvas" class="visuals-canvas"></div>
-        <div id="visuals-meters" class="visuals-meters" aria-hidden="true"></div>
+        <div id="visuals-meters" class="visuals-meters"
+            aria-label="Scope channel pairs"></div>
         <div id="visuals-status" class="visuals-status" role="status">Scope idle.</div>
     </div>
 </section>
@@ -1976,10 +1988,10 @@
             return;
         }
 
-        let waveform = [];
+        let waveforms = [];
         let peaks = [];
         try {
-            waveform = JSON.parse(payload[3]);
+            waveforms = JSON.parse(payload[3]);
             peaks = JSON.parse(payload[4]);
         } catch (error) {
             visualScopeStatus(error.message, false);
@@ -1989,7 +2001,7 @@
             frames: Number(payload[0]) || 0,
             firstFrame: Number(payload[1]) || 0,
             channels: Number(payload[2]) || 0,
-            waveform,
+            waveforms,
             peaks
         });
     });
@@ -2253,22 +2265,63 @@
     let visualScopeActive = false;
     let visualScopeLatest = {
         waveform: [],
+        waveforms: [],
         peaks: Array(10).fill(0),
         frames: 0,
         firstFrame: 0
     };
+    const visualScopePairVisible = Array(5).fill(false);
+    visualScopePairVisible[0] = true;
     let visualSketch = null;
 
     function ensureVisualMeters() {
         if (visualsMeters.children.length === 10) return;
         visualsMeters.replaceChildren();
         for (let i = 0; i < 10; i++) {
+            const pair = i >> 1;
+            const side = i % 2 === 0 ? 'L' : 'R';
             const meter = document.createElement('div');
             meter.className = 'visual-meter';
-            meter.title = `Channel ${i + 1}`;
+            meter.dataset.action = 'toggle-visual-pair';
+            meter.dataset.channel = String(i);
+            meter.dataset.pair = String(pair);
+            meter.tabIndex = 0;
+            meter.setAttribute('role', 'button');
+            meter.setAttribute('aria-pressed', String(visualScopePairVisible[pair]));
+            meter.setAttribute('aria-label', `Toggle pair ${pair + 1} ${side}`);
+            meter.title = `Pair ${pair + 1} ${side}`;
             meter.appendChild(document.createElement('span'));
             visualsMeters.appendChild(meter);
         }
+        updateVisualMeterSelection();
+    }
+
+    function selectedVisualPairs() {
+        return visualScopePairVisible
+            .map((visible, pair) => visible ? pair : -1)
+            .filter(pair => pair >= 0);
+    }
+
+    function updateVisualMeterSelection() {
+        Array.from(visualsMeters.children).forEach((meter, index) => {
+            const pair = index >> 1;
+            const selected = Boolean(visualScopePairVisible[pair]);
+            meter.classList.toggle('selected', selected);
+            meter.setAttribute('aria-pressed', String(selected));
+        });
+    }
+
+    function toggleVisualPair(pair) {
+        if (!Number.isInteger(pair) ||
+                pair < 0 ||
+                pair >= visualScopePairVisible.length) {
+            return;
+        }
+        const selectedCount = selectedVisualPairs().length;
+        if (visualScopePairVisible[pair] && selectedCount <= 1) return;
+        visualScopePairVisible[pair] = !visualScopePairVisible[pair];
+        updateVisualMeterSelection();
+        drawVisualScope();
     }
 
     function ensureVisualSketch() {
@@ -2285,28 +2338,48 @@
             };
 
             sketch.draw = () => {
-                const waveform = visualScopeLatest.waveform || [];
+                const waveforms = Array.isArray(visualScopeLatest.waveforms)
+                    ? visualScopeLatest.waveforms
+                    : [];
+                const pairs = selectedVisualPairs();
                 sketch.background(7, 19, 23);
                 sketch.stroke(27, 59, 68);
                 sketch.strokeWeight(1);
-                for (let y = 0; y <= 4; y++) {
-                    const lineY = (sketch.height * y) / 4;
-                    sketch.line(0, lineY, sketch.width, lineY);
+                pairs.forEach((pair, pairIndex) => {
+                    const laneTop = (sketch.height * pairIndex) / pairs.length;
+                    const laneBottom = (sketch.height * (pairIndex + 1)) / pairs.length;
+                    const laneCenter = (laneTop + laneBottom) * 0.5;
+                    sketch.line(0, laneCenter, sketch.width, laneCenter);
+                    if (pairIndex > 0) {
+                        sketch.line(0, laneTop, sketch.width, laneTop);
+                    }
+                });
+
+                function drawTrace(values, color, laneTop, laneBottom) {
+                    if (!Array.isArray(values) || values.length === 0) return;
+                    const laneHeight = laneBottom - laneTop;
+                    const laneCenter = (laneTop + laneBottom) * 0.5;
+                    sketch.noFill();
+                    sketch.stroke(color);
+                    sketch.strokeWeight(2);
+                    sketch.beginShape();
+                    values.forEach((value, index) => {
+                        const x = values.length <= 1
+                            ? 0
+                            : (index / (values.length - 1)) * sketch.width;
+                        const y = laneCenter -
+                            (Math.max(-1, Math.min(1, value)) * laneHeight * 0.38);
+                        sketch.vertex(x, y);
+                    });
+                    sketch.endShape();
                 }
 
-                sketch.noFill();
-                sketch.stroke(121, 217, 239);
-                sketch.strokeWeight(2);
-                sketch.beginShape();
-                waveform.forEach((value, index) => {
-                    const x = waveform.length <= 1
-                        ? 0
-                        : (index / (waveform.length - 1)) * sketch.width;
-                    const y = (sketch.height * 0.5) -
-                        (Math.max(-1, Math.min(1, value)) * sketch.height * 0.42);
-                    sketch.vertex(x, y);
+                pairs.forEach((pair, pairIndex) => {
+                    const laneTop = (sketch.height * pairIndex) / pairs.length;
+                    const laneBottom = (sketch.height * (pairIndex + 1)) / pairs.length;
+                    drawTrace(waveforms[pair * 2], '#79d9ef', laneTop, laneBottom);
+                    drawTrace(waveforms[pair * 2 + 1], '#f2c078', laneTop, laneBottom);
                 });
-                sketch.endShape();
             };
         });
         return true;
@@ -2334,6 +2407,7 @@
             const peak = Math.max(0, Math.min(1, visualScopeLatest.peaks[index] || 0));
             fill.style.height = `${Math.round(peak * 100)}%`;
         });
+        updateVisualMeterSelection();
     }
 
     function visualScopeStatus(message, running) {
@@ -2342,14 +2416,21 @@
     }
 
     function visualScopeData(data) {
+        const waveforms = Array.isArray(data.waveforms)
+            ? data.waveforms
+            : (Array.isArray(data.waveform) ? [data.waveform, data.waveform] : []);
         visualScopeLatest = {
             waveform: Array.isArray(data.waveform) ? data.waveform : [],
+            waveforms,
             peaks: Array.isArray(data.peaks) ? data.peaks : Array(10).fill(0),
             frames: Number(data.frames) || 0,
             firstFrame: Number(data.firstFrame) || 0
         };
+        const pairLabel = selectedVisualPairs()
+            .map(pair => pair + 1)
+            .join(',');
         visualScopeStatus(
-            `Scope running: ${visualScopeLatest.frames} frames from ${visualScopeLatest.firstFrame}.`,
+            `Scope running: ${visualScopeLatest.frames} frames from ${visualScopeLatest.firstFrame}; pairs ${pairLabel}.`,
             true);
         drawVisualScope();
     }
@@ -4776,6 +4857,9 @@
             case 'close-files': closeFiles(); break;
             case 'open-visuals': openVisuals(); break;
             case 'close-visuals': closeVisuals(); break;
+            case 'toggle-visual-pair':
+                toggleVisualPair(Number(control.dataset.pair));
+                break;
             case 'open-help': openHelp(); break;
             case 'close-help': closeHelp(); break;
             case 'set-pad-layout': setPadLayout(control.dataset.layout); break;
@@ -4909,6 +4993,14 @@
     }
 
     document.addEventListener('keydown', (event) => {
+        const visualMeter = event.target.closest &&
+            event.target.closest('.visual-meter[data-action="toggle-visual-pair"]');
+        if (visualMeter && (event.key === 'Enter' || event.key === ' ')) {
+            event.preventDefault();
+            toggleVisualPair(Number(visualMeter.dataset.pair));
+            return;
+        }
+
         const showHelp =
             event.key === 'F1' ||
             (event.key === '?' && !event.repeat && !event.ctrlKey &&
