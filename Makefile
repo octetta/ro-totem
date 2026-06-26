@@ -33,6 +33,7 @@ WEBVIEW_DIR := vendor/webview
 MINIZ_DIR := vendor/miniz
 P5_DIR := vendor/p5
 P5_JS := $(P5_DIR)/p5.min.js
+VOCO_JS := voco.js
 MINIZ_SOURCE := $(MINIZ_DIR)/miniz.c
 UI_HTML := ui.html
 UI_EMBEDDED_HTML := $(BUILD_DIR)/ui_embedded.html
@@ -40,6 +41,8 @@ UI_HTML_HEADER := $(BUILD_DIR)/ui_html.h
 APP_VERSION_HEADER := $(BUILD_DIR)/rototem_version.h
 
 COMMON_SOURCES := rototem.c \
+	voco.h \
+	$(VOCO_JS) \
 	$(APP_VERSION_FILE) \
 	$(SKRED_DIR)/include/skred/api.h \
 	$(SKRED_DIR)/include/skred/skred-version.h \
@@ -66,13 +69,20 @@ endif
 
 all: $(DEFAULT_TARGET)
 
-$(UI_EMBEDDED_HTML): $(UI_HTML) $(P5_JS)
+$(UI_EMBEDDED_HTML): $(UI_HTML) $(P5_JS) $(VOCO_JS)
 	mkdir -p $(dir $@)
 	awk ' \
 		/<script src="vendor\/p5\/p5.min.js"><\/script>/ { \
 			print "<script>"; \
 			while ((getline line < "$(P5_JS)") > 0) print line; \
 			close("$(P5_JS)"); \
+			print "</script>"; \
+			next; \
+		} \
+		/<script src="voco.js"><\/script>/ { \
+			print "<script>"; \
+			while ((getline line < "$(VOCO_JS)") > 0) print line; \
+			close("$(VOCO_JS)"); \
 			print "</script>"; \
 			next; \
 		} \
@@ -190,6 +200,7 @@ macos-package: $(MACOS_BINARY)
 	cp $(ASSETS_DIR)/Info.plist $(MACOS_CONTENTS)/
 	cp $(MACOS_BINARY) $(MACOS_EXECUTABLES)/$(MACOS_EXECUTABLE_NAME)
 	cp $(UI_HTML) $(MACOS_RESOURCES)/
+	cp $(VOCO_JS) $(MACOS_RESOURCES)/
 	mkdir -p $(MACOS_RESOURCES)/$(P5_DIR)
 	cp $(P5_JS) $(MACOS_RESOURCES)/$(P5_DIR)/
 	cp $(ASSETS_DIR)/rototem.icns $(MACOS_RESOURCES)/

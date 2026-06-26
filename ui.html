@@ -1754,6 +1754,7 @@
 </section>
 
 <script src="vendor/p5/p5.min.js"></script>
+<script src="voco.js"></script>
 <script>
     // --- CONSTANTS AND NATIVE BRIDGE ---
     const MAX_LOG_LINES = 20;
@@ -1812,17 +1813,10 @@
     }
 
     /*
-     * UI-to-native protocol handled by invoker() in rototem.c:
-     *   !<commands>       pass audio-engine commands through unchanged
-     *   @                 open the wave-directory chooser
-     *   >v<voice>         open a wave chooser for a stereo voice pair
-     *   R<directory>      scan a directory for .wav files
-     *   W<voice>:<path>   load a wave into a stereo voice pair
-     *   K<index>          choose a managed project file
-     *   JS<json> / JL     save or load the settings file
-     *   DR / DA<c>:<n>    refresh or select audio devices
-     *   G<width>:<height> resize the native main window content area
-     *   VS / VP / VT      start, poll, or stop visual scope data
+     * UI-to-native messages use Voco frames handled by invoker() in rototem.c:
+     *   V1<len:native><len:command><len:type><len:payload>...
+     * Each field is percent-encoded before length-prefixing so paths, JSON,
+     * device names, and command text do not need delimiter-specific escaping.
      *
      * Audio-engine commands are a separate compact language. Common forms:
      *   v<n>a<x> volume, v<n>n<x> speed, v<n>l<0|1> play,
@@ -1835,41 +1829,170 @@
         available() {
             return Boolean(window.external && window.external.invoke);
         },
-        invoke(command) {
+        invokeFrame(frame) {
             if (!this.available()) return false;
-            window.external.invoke(command);
+            window.external.invoke(frame);
             return true;
         },
-        chooseDirectory() { return this.invoke('@'); },
-        chooseWave(voice) { return this.invoke(`>v${voice}`); },
-        sendCommands(commands) { return this.invoke(`!${commands}`); },
-        loadDirectory(directory) { return this.invoke(`R${directory}`); },
-        loadWave(voice, path) { return this.invoke(`W${voice}:${path}`); },
-        chooseManagedFile(index) { return this.invoke(`K${index}`); },
-        saveSettings(json) { return this.invoke(`JS${json}`); },
-        loadSettings() { return this.invoke('JL'); },
-        beginProjectSave() { return this.invoke('PB'); },
+        invoke(command, type = 'A', ...payload) {
+            return this.invokeFrame(
+                window.Voco.format('native', command, type, ...payload)
+            );
+        },
+        chooseDirectory() { return this.invoke('chooseDirectory'); },
+        chooseWave(voice) { return this.invoke('chooseWave', 'N', voice); },
+        sendCommands(commands) { return this.invoke('engine', 'A', commands); },
+        loadDirectory(directory) {
+            return this.invoke('loadDirectory', 'A', directory);
+        },
+        loadWave(voice, path) {
+            return this.invoke('loadWave', 'A', voice, path);
+        },
+        chooseManagedFile(index) {
+            return this.invoke('chooseManagedFile', 'N', index);
+        },
+        saveSettings(json) { return this.invoke('saveSettings', 'J', json); },
+        loadSettings() { return this.invoke('loadSettings'); },
+        beginProjectSave() { return this.invoke('beginProjectSave'); },
         addProjectWave(index, archivePath, path) {
-            return this.invoke(`PW${index}:${archivePath}:${path}`);
+            return this.invoke('addProjectWave', 'A', index, archivePath, path);
         },
         addProjectFile(index, archivePath, path) {
-            return this.invoke(`PX${index}:${archivePath}:${path}`);
+            return this.invoke('addProjectFile', 'A', index, archivePath, path);
         },
-        finishProjectSave(json) { return this.invoke(`PF${json}`); },
-        loadProject() { return this.invoke('PL'); },
-        acceptProject() { return this.invoke('PA'); },
-        rejectProject() { return this.invoke('PR'); },
+        finishProjectSave(json) {
+            return this.invoke('finishProjectSave', 'J', json);
+        },
+        loadProject() { return this.invoke('loadProject'); },
+        acceptProject() { return this.invoke('acceptProject'); },
+        rejectProject() { return this.invoke('rejectProject'); },
         resizeMainWindow(width, height) {
-            return this.invoke(`G${width}:${height}`);
+            return this.invoke('resizeMainWindow', 'N', width, height);
         },
-        startVisualScope() { return this.invoke('VS'); },
-        pollVisualScope() { return this.invoke('VP'); },
-        stopVisualScope() { return this.invoke('VT'); },
-        refreshAudioDevices() { return this.invoke('DR'); },
+        startVisualScope() { return this.invoke('startVisualScope'); },
+        pollVisualScope() { return this.invoke('pollVisualScope'); },
+        stopVisualScope() { return this.invoke('stopVisualScope'); },
+        refreshAudioDevices() { return this.invoke('refreshAudioDevices'); },
         applyAudioDevice(isInput, selection) {
-            return this.invoke(`DA${isInput ? 1 : 0}:${selection}`);
+            return this.invoke(
+                'applyAudioDevice', 'N', isInput ? 1 : 0, selection);
         }
     };
+
+    window.Voco.on('ui', (command, type, payload) => {
+        switch (command) {
+            case 'setBuildVersions':
+                setBuildVersions(payload[0], payload[1]);
+                break;
+            case 'clearWaveFiles':
+                clearWaveFiles();
+                break;
+            case 'setWaveDirectory':
+                setWaveDirectory(payload[0] || '');
+                break;
+            case 'addWaveFile':
+                addWaveFile(payload[0] || '');
+                break;
+            case 'addLog':
+                addLog(payload[0] || '', payload[1] || 'output');
+                break;
+            case 'setTrackWave':
+                setTrackWave(
+                    Number(payload[0]) || 0,
+                    payload[1] || '',
+                    payload[2] || '',
+                    Number(payload[3]),
+                    Number(payload[4]));
+                break;
+            case 'applyTrackControls':
+                applyTrackControls(Number(payload[0]) || 0);
+                break;
+            case 'waveFileLoaded':
+                waveFileLoaded();
+                break;
+            case 'settingsFileError':
+                settingsFileError(payload[0] || '');
+                break;
+            case 'loadSettingsFromText':
+                loadSettingsFromText(payload[0] || '');
+                break;
+            case 'settingsFileSaved':
+                settingsFileSaved();
+                break;
+            case 'projectFileCancelled':
+                projectFileCancelled();
+                break;
+            case 'projectSaveReady':
+                projectSaveReady();
+                break;
+            case 'projectFileSaved':
+                projectFileSaved(payload[0] || '');
+                break;
+            case 'loadProjectFromText':
+                loadProjectFromText(
+                    payload[0] || '',
+                    payload[1] || '',
+                    payload.slice(2));
+                break;
+            case 'managedFileChosen':
+                managedFileChosen(
+                    Number(payload[0]),
+                    payload[1] || '',
+                    payload[2] || '');
+                break;
+            case 'clearAudioDevices':
+                clearAudioDevices();
+                break;
+            case 'addAudioDevice':
+                addAudioDevice(
+                    payload[0] || '',
+                    Number(payload[1]),
+                    payload[2] || '');
+                break;
+            case 'audioDevicesReady':
+                audioDevicesReady(payload[0] || '');
+                break;
+            case 'audioDeviceApplied':
+                audioDeviceApplied(
+                    payload[0] || '',
+                    payload[1] === 'true',
+                    payload[2] || '');
+                break;
+            default:
+                break;
+        }
+    });
+
+    window.Voco.on('scope', (command, type, payload) => {
+        if (type === 'A' &&
+                (command === 'status-running' ||
+                 command === 'status-stopped')) {
+            visualScopeStatus(
+                payload[0] || '',
+                command === 'status-running');
+            return;
+        }
+        if (type !== 'N' || command !== 'data' || payload.length < 5) {
+            return;
+        }
+
+        let waveform = [];
+        let peaks = [];
+        try {
+            waveform = JSON.parse(payload[3]);
+            peaks = JSON.parse(payload[4]);
+        } catch (error) {
+            visualScopeStatus(error.message, false);
+            return;
+        }
+        visualScopeData({
+            frames: Number(payload[0]) || 0,
+            firstFrame: Number(payload[1]) || 0,
+            channels: Number(payload[2]) || 0,
+            waveform,
+            peaks
+        });
+    });
 
     function addLog(message, kind = 'output') {
         const entry = document.createElement('span');

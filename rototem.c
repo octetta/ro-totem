@@ -1,5 +1,6 @@
 #include <skred/api.h>
 #include "rototem_version.h"
+#include "voco.h"
 
 #ifndef __APPLE__
 #include "ui_html.h"
@@ -228,6 +229,59 @@ static void script_eval(struct webview *w, struct script_builder *script) {
   script->capacity = 0;
 }
 
+static int script_append_voco(
+    void *context, const char *text, size_t length) {
+  return script_append_n((struct script_builder *)context, text, length);
+}
+
+static void voco_eval_frame(struct webview *w, const char *frame) {
+  struct script_builder script = {0};
+
+  if (script_append(&script, "Voco.receive(") &&
+      script_append_js_string(&script, frame) &&
+      script_append(&script, ")")) {
+    script_eval(w, &script);
+  } else {
+    free(script.data);
+  }
+}
+
+static int voco_append_frame_header(
+    struct script_builder *frame,
+    const char *vocab,
+    const char *command,
+    const char *type) {
+  return voco_write_frame_header(
+      frame, script_append_voco, vocab, command, type);
+}
+
+static void voco_send_fields(
+    struct webview *w,
+    const char *vocab,
+    const char *command,
+    const char *type,
+    const char *const *payloads,
+    int payload_count) {
+  struct script_builder frame = {0};
+  int ok = voco_append_frame_header(&frame, vocab, command, type);
+
+  for (int i = 0; ok && i < payload_count; i++) {
+    ok = voco_write_text_field(&frame, script_append_voco, payloads[i]);
+  }
+  if (ok) voco_eval_frame(w, frame.data);
+  free(frame.data);
+}
+
+static void voco_send(
+    struct webview *w,
+    const char *vocab,
+    const char *command,
+    const char *type,
+    const char *payload) {
+  const char *payloads[] = {payload};
+  voco_send_fields(w, vocab, command, type, payloads, 1);
+}
+
 static void addLog(struct webview *w, const char *message);
 
 struct scope_ipc_reader {
@@ -286,6 +340,12 @@ static int visual_scope_publishing = 0;
 static int visual_scope_open = 0;
 static float visual_scope_frames[VISUAL_SCOPE_FRAMES * VISUAL_SCOPE_CHANNELS];
 
+static void send_visual_scope_status(
+    struct webview *w, const char *message, int running) {
+  voco_send(w, "scope", running ? "status-running" : "status-stopped",
+      "A", message);
+}
+
 static int visual_scope_reader_available(void) {
 #if defined(__GNUC__) && !defined(_WIN32)
   return scope_ipc_reader_open && scope_ipc_reader_latest &&
@@ -305,14 +365,16 @@ static void close_visual_scope_reader(void) {
 
 static int ensure_visual_scope(struct webview *w) {
   if (!visual_scope_reader_available()) {
-    webview_eval(w, "visualScopeStatus('Scope reader is unavailable in this Skred build.',false)");
+    send_visual_scope_status(
+        w, "Scope reader is unavailable in this Skred build.", 0);
     return 0;
   }
 
   if (!visual_scope_publishing) {
     int result = skred_scope_start(VISUAL_SCOPE_NAME, VISUAL_SCOPE_MASK, 1.0);
     if (result != 0) {
-      webview_eval(w, "visualScopeStatus('Could not start Skred scope publisher.',false)");
+      send_visual_scope_status(
+          w, "Could not start Skred scope publisher.", 0);
       return 0;
     }
     visual_scope_publishing = 1;
@@ -320,7 +382,7 @@ static int ensure_visual_scope(struct webview *w) {
 
   if (!visual_scope_open) {
     if (scope_ipc_reader_open(&visual_scope_reader, VISUAL_SCOPE_NAME) != 0) {
-      webview_eval(w, "visualScopeStatus('Could not open Skred scope reader.',false)");
+      send_visual_scope_status(w, "Could not open Skred scope reader.", 0);
       return 0;
     }
     visual_scope_open = 1;
@@ -384,27 +446,35 @@ static void poll_visual_scope(struct webview *w) {
       &first_frame);
   if (frames < 0) {
     close_visual_scope_reader();
-    webview_eval(w, "visualScopeStatus('Scope read failed.',false)");
+    send_visual_scope_status(w, "Scope read failed.", 0);
     return;
   }
   if (frames == 0) {
-    webview_eval(w, "visualScopeStatus('Waiting for scope frames...',true)");
+    send_visual_scope_status(w, "Waiting for scope frames...", 1);
     return;
   }
 
-  struct script_builder script = {0};
-  if (script_append(&script, "visualScopeData({frames:") &&
-      script_appendf(&script, "%d,firstFrame:%llu,channels:%d,waveform:",
-          frames, (unsigned long long)first_frame, VISUAL_SCOPE_CHANNELS) &&
-      append_visual_scope_points(&script, visual_scope_frames, frames) &&
-      script_append(&script, ",peaks:") &&
-      append_visual_scope_peaks(&script, visual_scope_frames, frames) &&
-      script_append(&script, "})")) {
-    script_eval(w, &script);
+  struct script_builder frame = {0};
+  struct script_builder waveform = {0};
+  struct script_builder peaks = {0};
+  if (append_visual_scope_points(&waveform, visual_scope_frames, frames) &&
+      append_visual_scope_peaks(&peaks, visual_scope_frames, frames) &&
+      script_append(&frame, VOCO_MAGIC) &&
+      voco_write_text_field(&frame, script_append_voco, "scope") &&
+      voco_write_text_field(&frame, script_append_voco, "data") &&
+      voco_write_text_field(&frame, script_append_voco, "N") &&
+      voco_write_int_field(&frame, script_append_voco, frames) &&
+      voco_write_u64_field(&frame, script_append_voco, (unsigned long long)first_frame) &&
+      voco_write_int_field(&frame, script_append_voco, VISUAL_SCOPE_CHANNELS) &&
+      voco_write_text_field(&frame, script_append_voco, waveform.data) &&
+      voco_write_text_field(&frame, script_append_voco, peaks.data)) {
+    voco_eval_frame(w, frame.data);
   } else {
-    free(script.data);
-    webview_eval(w, "visualScopeStatus('Not enough memory to send scope data.',false)");
+    send_visual_scope_status(w, "Not enough memory to send scope data.", 0);
   }
+  free(frame.data);
+  free(waveform.data);
+  free(peaks.data);
 }
 
 static void stop_visual_scope(void) {
@@ -460,7 +530,11 @@ static void addSkodeLog(struct webview *w, const char *log) {
 static int wavepointer = 300;
 
 /*
- * Messages from ui.html use a small envelope protocol:
+ * ui.html normally sends Voco frames:
+ *
+ *   V1<len:native><len:command><len:type><len:payload>...
+ *
+ * The legacy compact envelope below remains as a compatibility fallback:
  *
  *   !<commands>       Pass compact commands to the audio engine.
  *   @                 Open the wave-directory chooser.
@@ -498,15 +572,8 @@ enum native_command {
 };
 
 static void load_wave_directory(struct webview *w, const char *dirname) {
-  webview_eval(w, "clearWaveFiles()");
-  struct script_builder script = {0};
-  if (script_append(&script, "setWaveDirectory(") &&
-      script_append_js_string(&script, dirname) &&
-      script_append(&script, ")")) {
-    script_eval(w, &script);
-  } else {
-    free(script.data);
-  }
+  voco_send(w, "ui", "clearWaveFiles", "A", "");
+  voco_send(w, "ui", "setWaveDirectory", "A", dirname);
 
   DIR *dp = opendir(dirname);
   if (!dp) return;
@@ -516,28 +583,13 @@ static void load_wave_directory(struct webview *w, const char *dirname) {
     const char *name = entry->d_name;
     size_t len = strlen(name);
     if (len <= 4 || strcasecmp(name + len - 4, ".wav") != 0) continue;
-
-    script = (struct script_builder){0};
-    if (script_append(&script, "addWaveFile(") &&
-        script_append_js_string(&script, name) &&
-        script_append(&script, ")")) {
-      script_eval(w, &script);
-    } else {
-      free(script.data);
-    }
+    voco_send(w, "ui", "addWaveFile", "A", name);
   }
   closedir(dp);
 }
 
 static void addLog(struct webview *w, const char *message) {
-  struct script_builder script = {0};
-  if (script_append(&script, "addLog(") &&
-      script_append_js_string(&script, message) &&
-      script_append(&script, ")")) {
-    script_eval(w, &script);
-  } else {
-    free(script.data);
-  }
+  voco_send(w, "ui", "addLog", "A", message);
 }
 
 static const char *path_basename(const char *path) {
@@ -575,26 +627,23 @@ static int load_wave_channel(
 static void notify_wave_loaded(
     struct webview *w, const char *filename, const char *shortname,
     int voice, const int waves[2]) {
-  struct script_builder script = {0};
-  if (script_appendf(&script, "setTrackWave(%d,", voice) &&
-      script_append_js_string(&script, filename) &&
-      script_append(&script, ",") &&
-      script_append_js_string(&script, shortname) &&
-      script_appendf(&script, ",%d,%d)", waves[0], waves[1])) {
-    script_eval(w, &script);
-  } else {
-    free(script.data);
-  }
+  char voice_text[32];
+  char left_text[32];
+  char right_text[32];
+  snprintf(voice_text, sizeof(voice_text), "%d", voice);
+  snprintf(left_text, sizeof(left_text), "%d", waves[0]);
+  snprintf(right_text, sizeof(right_text), "%d", waves[1]);
+  const char *payloads[] = {
+    voice_text, filename, shortname, left_text, right_text
+  };
+  voco_send_fields(w, "ui", "setTrackWave", "N", payloads, 5);
 }
 
 static void apply_loaded_wave_controls(struct webview *w, int voice) {
-  struct script_builder script = {0};
-  if (script_appendf(&script, "applyTrackControls(%d)", voice)) {
-    script_eval(w, &script);
-  } else {
-    free(script.data);
-  }
-  webview_eval(w, "waveFileLoaded()");
+  char voice_text[32];
+  snprintf(voice_text, sizeof(voice_text), "%d", voice);
+  voco_send(w, "ui", "applyTrackControls", "N", voice_text);
+  voco_send(w, "ui", "waveFileLoaded", "A", "");
 }
 
 static void load_wave_file(struct webview *w, const char *filename, int voice) {
@@ -614,20 +663,23 @@ static void load_wave_file(struct webview *w, const char *filename, int voice) {
 static void load_settings_file(struct webview *w, const char *filename) {
   FILE *file = fopen(filename, "rb");
   if (!file) {
-    webview_eval(w, "settingsFileError('Could not open settings file.')");
+    voco_send(w, "ui", "settingsFileError", "A",
+        "Could not open settings file.");
     return;
   }
 
   if (fseek(file, 0, SEEK_END) != 0) {
     fclose(file);
-    webview_eval(w, "settingsFileError('Could not read settings file.')");
+    voco_send(w, "ui", "settingsFileError", "A",
+        "Could not read settings file.");
     return;
   }
 
   long length = ftell(file);
   if (length < 0 || length > 1024 * 1024 || fseek(file, 0, SEEK_SET) != 0) {
     fclose(file);
-    webview_eval(w, "settingsFileError('Settings file is too large or invalid.')");
+    voco_send(w, "ui", "settingsFileError", "A",
+        "Settings file is too large or invalid.");
     return;
   }
 
@@ -635,7 +687,8 @@ static void load_settings_file(struct webview *w, const char *filename) {
   if (!json) {
     free(json);
     fclose(file);
-    webview_eval(w, "settingsFileError('Not enough memory to load settings.')");
+    voco_send(w, "ui", "settingsFileError", "A",
+        "Not enough memory to load settings.");
     return;
   }
 
@@ -644,20 +697,13 @@ static void load_settings_file(struct webview *w, const char *filename) {
   fclose(file);
   if (read != (size_t)length || read_error) {
     free(json);
-    webview_eval(w, "settingsFileError('Could not read settings file.')");
+    voco_send(w, "ui", "settingsFileError", "A",
+        "Could not read settings file.");
     return;
   }
   json[read] = '\0';
 
-  struct script_builder script = {0};
-  if (script_append(&script, "loadSettingsFromText(") &&
-      script_append_js_string(&script, json) &&
-      script_append(&script, ")")) {
-    script_eval(w, &script);
-  } else {
-    free(script.data);
-    webview_eval(w, "settingsFileError('Not enough memory to load settings.')");
-  }
+  voco_send(w, "ui", "loadSettingsFromText", "J", json);
   free(json);
 }
 
@@ -671,7 +717,8 @@ static void save_settings_file(struct webview *w, const char *json) {
   size_t length = strlen(filename);
   if (length < 5 || strcasecmp(filename + length - 5, ".json") != 0) {
     if (length + 5 >= sizeof(filename)) {
-      webview_eval(w, "settingsFileError('Settings filename is too long.')");
+      voco_send(w, "ui", "settingsFileError", "A",
+          "Settings filename is too long.");
       return;
     }
     memcpy(filename + length, ".json", 6);
@@ -679,16 +726,20 @@ static void save_settings_file(struct webview *w, const char *json) {
 
   FILE *file = fopen(filename, "wb");
   if (!file) {
-    webview_eval(w, "settingsFileError('Could not create settings file.')");
+    voco_send(w, "ui", "settingsFileError", "A",
+        "Could not create settings file.");
     return;
   }
 
   size_t json_length = strlen(json);
   int ok = fwrite(json, 1, json_length, file) == json_length;
   ok = fclose(file) == 0 && ok;
-  webview_eval(w, ok
-    ? "settingsFileSaved()"
-    : "settingsFileError('Could not write settings file.')");
+  if (ok) {
+    voco_send(w, "ui", "settingsFileSaved", "A", "");
+  } else {
+    voco_send(w, "ui", "settingsFileError", "A",
+        "Could not write settings file.");
+  }
 }
 
 #define PROJECT_MAX_WAVES 32
@@ -712,14 +763,7 @@ static char project_temp_directory[PATH_MAX];
 static char pending_project_temp_directory[PATH_MAX];
 
 static void project_file_error(struct webview *w, const char *message) {
-  struct script_builder script = {0};
-  if (script_append(&script, "settingsFileError(") &&
-      script_append_js_string(&script, message) &&
-      script_append(&script, ")")) {
-    script_eval(w, &script);
-  } else {
-    free(script.data);
-  }
+  voco_send(w, "ui", "settingsFileError", "A", message);
 }
 
 static int append_filename_extension(
@@ -763,7 +807,7 @@ static void begin_project_save(struct webview *w) {
     "Save project", "ro-totem-project.zip",
     project_writer.filename, sizeof(project_writer.filename));
   if (!project_writer.filename[0]) {
-    webview_eval(w, "projectFileCancelled()");
+    voco_send(w, "ui", "projectFileCancelled", "A", "");
     return;
   }
   if (!append_filename_extension(
@@ -789,7 +833,7 @@ static void begin_project_save(struct webview *w) {
     return;
   }
   project_writer.active = 1;
-  webview_eval(w, "projectSaveReady()");
+  voco_send(w, "ui", "projectSaveReady", "A", "");
 }
 
 static int parse_project_file_argument(
@@ -873,6 +917,40 @@ static int valid_project_file_name(const char *name) {
   return 1;
 }
 
+static void add_project_wave_values(
+    struct webview *w, const char *archive_name, const char *filename) {
+  if (!project_writer.active || project_writer.failed) return;
+  if (!valid_project_wave_name(archive_name)) {
+    project_writer.failed = 1;
+    project_file_error(w, "Could not save a WAV with an invalid path.");
+    return;
+  }
+
+  if (!mz_zip_writer_add_file(
+        &project_writer.archive, archive_name, filename,
+        NULL, 0, MZ_NO_COMPRESSION)) {
+    project_writer.failed = 1;
+    project_file_error(w, "Could not add a WAV file to the project archive.");
+  }
+}
+
+static void add_project_file_values(
+    struct webview *w, const char *archive_name, const char *filename) {
+  if (!project_writer.active || project_writer.failed) return;
+  if (!valid_project_file_name(archive_name)) {
+    project_writer.failed = 1;
+    project_file_error(w, "Could not save a managed file with an invalid path.");
+    return;
+  }
+
+  if (!mz_zip_writer_add_file(
+        &project_writer.archive, archive_name, filename,
+        NULL, 0, MZ_BEST_COMPRESSION)) {
+    project_writer.failed = 1;
+    project_file_error(w, "Could not add a managed file to the project archive.");
+  }
+}
+
 static void add_project_wave(struct webview *w, const char *arg) {
   int index;
   char archive_name[MZ_ZIP_MAX_ARCHIVE_FILENAME_SIZE];
@@ -887,13 +965,7 @@ static void add_project_wave(struct webview *w, const char *arg) {
     return;
   }
   (void)index;
-
-  if (!mz_zip_writer_add_file(
-        &project_writer.archive, archive_name, filename,
-        NULL, 0, MZ_NO_COMPRESSION)) {
-    project_writer.failed = 1;
-    project_file_error(w, "Could not add a WAV file to the project archive.");
-  }
+  add_project_wave_values(w, archive_name, filename);
 }
 
 static void add_project_file(struct webview *w, const char *arg) {
@@ -910,13 +982,7 @@ static void add_project_file(struct webview *w, const char *arg) {
     return;
   }
   (void)index;
-
-  if (!mz_zip_writer_add_file(
-        &project_writer.archive, archive_name, filename,
-        NULL, 0, MZ_BEST_COMPRESSION)) {
-    project_writer.failed = 1;
-    project_file_error(w, "Could not add a managed file to the project archive.");
-  }
+  add_project_file_values(w, archive_name, filename);
 }
 
 static void finish_project_save(struct webview *w, const char *json) {
@@ -937,15 +1003,7 @@ static void finish_project_save(struct webview *w, const char *json) {
     project_file_error(w, "Could not finish writing the project archive.");
     return;
   }
-  struct script_builder script = {0};
-  if (script_append(&script, "projectFileSaved(") &&
-      script_append_js_string(&script, project_writer.filename) &&
-      script_append(&script, ")")) {
-    script_eval(w, &script);
-  } else {
-    free(script.data);
-    webview_eval(w, "projectFileSaved('')");
-  }
+  voco_send(w, "ui", "projectFileSaved", "A", project_writer.filename);
 }
 
 static int make_directory(const char *path) {
@@ -1201,34 +1259,27 @@ static void load_project_file(struct webview *w, const char *filename) {
     pending_project_temp_directory, sizeof(pending_project_temp_directory),
     "%s", temp_directory);
 
-  struct script_builder script = {0};
+  struct script_builder frame = {0};
   int manifest_ok = 0;
-  if (script_append(&script, "loadProjectFromText(") &&
-      script_append_js_string(&script, json) &&
-      script_append(&script, ",") &&
-      script_append_js_string(&script, pending_project_temp_directory) &&
-      script_append(&script, ",[")) {
+  if (voco_append_frame_header(&frame, "ui", "loadProjectFromText", "J") &&
+      voco_write_text_field(&frame, script_append_voco, json) &&
+      voco_write_text_field(&frame, script_append_voco, pending_project_temp_directory)) {
     manifest_ok = 1;
     for (int i = 0; i < contents.file_count; i++) {
-      if (i > 0 && !script_append(&script, ",")) {
-        manifest_ok = 0;
-        break;
-      }
       const char *basename = contents.files[i].name + strlen("files/");
-      if (!script_append_js_string(&script, basename)) {
+      if (!voco_write_text_field(&frame, script_append_voco, basename)) {
         manifest_ok = 0;
         break;
       }
     }
   }
-  if (manifest_ok &&
-      script_append(&script, "])")) {
-    script_eval(w, &script);
+  if (manifest_ok) {
+    voco_eval_frame(w, frame.data);
   } else {
-    free(script.data);
     reject_loaded_project();
     project_file_error(w, "Not enough memory to load the project.");
   }
+  free(frame.data);
   free(json);
 }
 
@@ -1280,47 +1331,34 @@ static void choose_project_file(struct webview *w, const char *arg) {
     "Add project file", "", filename, sizeof(filename));
   if (!filename[0]) return;
 
-  struct script_builder script = {0};
-  if (script_appendf(&script, "managedFileChosen(%ld,", index) &&
-      script_append_js_string(&script, filename) &&
-      script_append(&script, ",") &&
-      script_append_js_string(&script, path_basename(filename)) &&
-      script_append(&script, ")")) {
-    script_eval(w, &script);
-  } else {
-    free(script.data);
-  }
+  char index_text[32];
+  snprintf(index_text, sizeof(index_text), "%ld", index);
+  const char *payloads[] = {
+    index_text, filename, path_basename(filename)
+  };
+  voco_send_fields(w, "ui", "managedFileChosen", "A", payloads, 3);
 }
 
 static void send_audio_devices(struct webview *w) {
   char *log = skoder("/als");
   const char *status;
   addSkodeLog(w, log);
-  webview_eval(w, "clearAudioDevices()");
+  voco_send(w, "ui", "clearAudioDevices", "A", "");
 
   for (int is_capture = 0; is_capture <= 1; is_capture++) {
     const char *kind = is_capture ? "input" : "output";
     for (int i = 0; i < skred_devices(is_capture); i++) {
-      struct script_builder script = {0};
-      if (script_appendf(&script, "addAudioDevice('%s',%d,", kind, i) &&
-          script_append_js_string(&script, skred_device_str(is_capture, i)) &&
-          script_append(&script, ")")) {
-        script_eval(w, &script);
-      } else {
-        free(script.data);
-      }
+      char selection[32];
+      snprintf(selection, sizeof(selection), "%d", i);
+      const char *payloads[] = {
+        kind, selection, skred_device_str(is_capture, i)
+      };
+      voco_send_fields(w, "ui", "addAudioDevice", "A", payloads, 3);
     }
   }
 
   status = skred_audio_status();
-  struct script_builder script = {0};
-  if (script_append(&script, "audioDevicesReady(") &&
-      script_append_js_string(&script, status ? status : "") &&
-      script_append(&script, ")")) {
-    script_eval(w, &script);
-  } else {
-    free(script.data);
-  }
+  voco_send(w, "ui", "audioDevicesReady", "A", status ? status : "");
 }
 
 static int parse_audio_device(
@@ -1341,18 +1379,12 @@ static int parse_audio_device(
 
 static void notify_audio_device_applied(
     struct webview *w, int is_capture, int success, const char *status) {
-  struct script_builder script = {0};
-  if (script_appendf(
-        &script,
-        "audioDeviceApplied('%s',%s,",
-        is_capture ? "input" : "output",
-        success ? "true" : "false") &&
-      script_append_js_string(&script, status ? status : "") &&
-      script_append(&script, ")")) {
-    script_eval(w, &script);
-  } else {
-    free(script.data);
-  }
+  const char *payloads[] = {
+    is_capture ? "input" : "output",
+    success ? "true" : "false",
+    status ? status : ""
+  };
+  voco_send_fields(w, "ui", "audioDeviceApplied", "A", payloads, 3);
 }
 
 static void apply_audio_device(struct webview *w, const char *arg) {
@@ -1415,14 +1447,14 @@ static void handle_audio_device_command(struct webview *w, const char *arg) {
 static void handle_visual_scope_command(struct webview *w, const char *arg) {
   if (arg[0] == 'S') {
     if (ensure_visual_scope(w)) {
-      webview_eval(w, "visualScopeStatus('Scope running.',true)");
+      send_visual_scope_status(w, "Scope running.", 1);
       poll_visual_scope(w);
     }
   } else if (arg[0] == 'P') {
     poll_visual_scope(w);
   } else if (arg[0] == 'T') {
     stop_visual_scope();
-    webview_eval(w, "visualScopeStatus('Scope stopped.',false)");
+    send_visual_scope_status(w, "Scope stopped.", 0);
   }
 }
 
@@ -1466,8 +1498,145 @@ static void choose_wave_file(struct webview *w, const char *arg) {
   }
 }
 
+static int voco_native_argc(const struct voco_message *message) {
+  return message->count - 3;
+}
+
+static const struct voco_field *voco_native_arg(
+    const struct voco_message *message, int index) {
+  if (index < 0 || index >= voco_native_argc(message)) return NULL;
+  return &message->fields[index + 3];
+}
+
+static void handle_voco_native(struct webview *w, const struct voco_message *m) {
+  const struct voco_field *command;
+  long value;
+  char *text;
+  (void)w;
+
+  if (m->count < 3 ||
+      !voco_field_equals(&m->fields[0], "native")) {
+    return;
+  }
+  command = &m->fields[1];
+
+  if (voco_field_equals(command, "engine") && voco_native_argc(m) >= 1) {
+    text = voco_field_cstr(voco_native_arg(m, 0));
+    if (text) {
+      addSkodeLog(w, skoder(text));
+      free(text);
+    }
+  } else if (voco_field_equals(command, "chooseDirectory")) {
+    choose_wave_directory(w);
+  } else if (voco_field_equals(command, "chooseWave") &&
+      voco_field_long(voco_native_arg(m, 0), 0, 30, &value)) {
+    char voice[32];
+    snprintf(voice, sizeof(voice), "v%ld", value);
+    choose_wave_file(w, voice);
+  } else if (voco_field_equals(command, "loadDirectory") &&
+      voco_native_argc(m) >= 1) {
+    text = voco_field_cstr(voco_native_arg(m, 0));
+    if (text) {
+      load_wave_directory(w, text);
+      free(text);
+    }
+  } else if (voco_field_equals(command, "loadWave") &&
+      voco_field_long(voco_native_arg(m, 0), 0, 30, &value) &&
+      voco_native_argc(m) >= 2) {
+    text = voco_field_cstr(voco_native_arg(m, 1));
+    if (text) {
+      load_wave_file(w, text, (int)value);
+      free(text);
+    }
+  } else if (voco_field_equals(command, "chooseManagedFile") &&
+      voco_field_long(voco_native_arg(m, 0), -1, PROJECT_MAX_FILES - 1, &value)) {
+    char index[32];
+    snprintf(index, sizeof(index), "%ld", value);
+    choose_project_file(w, index);
+  } else if (voco_field_equals(command, "saveSettings") &&
+      voco_native_argc(m) >= 1) {
+    text = voco_field_cstr(voco_native_arg(m, 0));
+    if (text) {
+      save_settings_file(w, text);
+      free(text);
+    }
+  } else if (voco_field_equals(command, "loadSettings")) {
+    load_settings_dialog(w);
+  } else if (voco_field_equals(command, "beginProjectSave")) {
+    begin_project_save(w);
+  } else if ((voco_field_equals(command, "addProjectWave") ||
+        voco_field_equals(command, "addProjectFile")) &&
+      voco_native_argc(m) >= 3) {
+    char *archive_name = voco_field_cstr(voco_native_arg(m, 1));
+    char *filename = voco_field_cstr(voco_native_arg(m, 2));
+    if (voco_field_equals(command, "addProjectWave") &&
+        voco_field_long(voco_native_arg(m, 0), 0, PROJECT_MAX_WAVES - 1,
+            &value) &&
+        archive_name && filename) {
+      add_project_wave_values(w, archive_name, filename);
+    } else if (voco_field_equals(command, "addProjectFile") &&
+        voco_field_long(voco_native_arg(m, 0), 0, PROJECT_MAX_FILES - 1,
+            &value) &&
+        archive_name && filename) {
+      add_project_file_values(w, archive_name, filename);
+    }
+    (void)value;
+    free(archive_name);
+    free(filename);
+  } else if (voco_field_equals(command, "finishProjectSave") &&
+      voco_native_argc(m) >= 1) {
+    text = voco_field_cstr(voco_native_arg(m, 0));
+    if (text) {
+      finish_project_save(w, text);
+      free(text);
+    }
+  } else if (voco_field_equals(command, "loadProject")) {
+    load_project_dialog(w);
+  } else if (voco_field_equals(command, "acceptProject")) {
+    accept_loaded_project();
+  } else if (voco_field_equals(command, "rejectProject")) {
+    reject_loaded_project();
+  } else if (voco_field_equals(command, "resizeMainWindow") &&
+      voco_native_argc(m) >= 2) {
+    long height;
+    if (voco_field_long(voco_native_arg(m, 0), 320, 10000, &value) &&
+        voco_field_long(voco_native_arg(m, 1), 240, 10000, &height)) {
+      char geometry[64];
+      snprintf(geometry, sizeof(geometry), "%ld:%ld", value, height);
+      resize_main_window(w, geometry);
+    }
+  } else if (voco_field_equals(command, "startVisualScope")) {
+    if (ensure_visual_scope(w)) {
+      send_visual_scope_status(w, "Scope running.", 1);
+      poll_visual_scope(w);
+    }
+  } else if (voco_field_equals(command, "pollVisualScope")) {
+    poll_visual_scope(w);
+  } else if (voco_field_equals(command, "stopVisualScope")) {
+    stop_visual_scope();
+    send_visual_scope_status(w, "Scope stopped.", 0);
+  } else if (voco_field_equals(command, "refreshAudioDevices")) {
+    send_audio_devices(w);
+  } else if (voco_field_equals(command, "applyAudioDevice") &&
+      voco_native_argc(m) >= 2) {
+    long selection;
+    if (voco_field_long(voco_native_arg(m, 0), 0, 1, &value) &&
+        voco_field_long(voco_native_arg(m, 1), -2, INT_MAX, &selection)) {
+      char device[64];
+      snprintf(device, sizeof(device), "%ld:%ld", value, selection);
+      apply_audio_device(w, device);
+    }
+  }
+}
+
 static void invoker(struct webview *w, const char *arg) {
+  struct voco_message message;
   if (!arg || !arg[0]) return;
+
+  if (voco_parse(arg, &message)) {
+    handle_voco_native(w, &message);
+    return;
+  }
 
   switch (arg[0]) {
     case NATIVE_ENGINE_COMMAND:
@@ -1517,16 +1686,8 @@ static int confirm_close(struct webview *w) {
 }
 
 static void set_build_versions(struct webview *w) {
-  struct script_builder script = {0};
-  if (script_append(&script, "setBuildVersions(") &&
-      script_append_js_string(&script, ROTOTEM_VERSION) &&
-      script_append(&script, ",") &&
-      script_append_js_string(&script, skred_version()) &&
-      script_append(&script, ")")) {
-    script_eval(w, &script);
-  } else {
-    free(script.data);
-  }
+  const char *payloads[] = {ROTOTEM_VERSION, skred_version()};
+  voco_send_fields(w, "ui", "setBuildVersions", "A", payloads, 2);
 }
 
 int main(void) {

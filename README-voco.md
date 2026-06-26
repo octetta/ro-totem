@@ -1,178 +1,408 @@
-# Voco: Symmetric Loop Architecture for Legacy Webview Runtimes
+# Voco
 
-Voco is an allocation-free, symmetric serialization protocol tailored for low-overhead native window processing loops. By eliminating JSON parsing and heavy RPC abstraction layers, Voco provides an exceptionally lean execution bridge across raw string wires. It explicitly targets single-header legacy runtime environments like the 2017 version of `webview.h`.
+Voco is a small framed-message bridge for C applications that use a browser UI
+through a string-only webview interface. It was extracted from ro-totem, which
+uses the 2017-style `webview.h` API:
 
----
+- JavaScript sends native messages with `window.external.invoke(frame)`.
+- C sends UI messages by evaluating `Voco.receive(frame)`.
+- Both directions use the same frame format.
 
-## Directory Blueprint
+The goal is not to replace application protocols or domain languages. Voco is a
+transport layer for carrying named commands and payload fields safely across a
+raw string wire.
 
-```text
-voco/
-├── CMakeLists.txt          # Cross-platform build configuration
-├── README.md               # Architecture layout and documentation
-├── src/
-│   ├── main.c              # Core C engine and Voco parser
-│   └── ui.html             # Unescaped HTML UI asset
-└── vendor/
-    └── webview/
-        └── webview.h       # Single-header 2017 library (Serge Zaitsev)
-```
+## Philosophy
 
----
+Voco is built around a few constraints common to small `webview.h` apps:
 
-## Architectural Principles
+- The bridge only moves strings.
+- The native side should not need a JSON parser for routine dispatch.
+- File paths, JSON blobs, logs, device names, and non-ASCII text must survive
+  the bridge without delimiter bugs.
+- The UI should call named app methods, not scatter raw transport strings.
+- The C side should parse frames into borrowed slices and allocate only when an
+  application actually asks for a decoded copy.
 
-Modern desktop-web hybrid containers (e.g., Electron, Tauri) rely on complex asynchronous IPC serialization channels, often invoking heavy JSON stringification and context-switching overhead. Voco takes a completely different path optimized for high-throughput, low-latency data loops.
+The design is intentionally modest. A Voco frame is easy to print, inspect,
+construct, and reject. It does not provide promises, object schemas, binary
+buffers, threading, retries, or security boundaries. Those belong in the host
+application.
 
-### 1. In-Place, Zero-Allocation Parsing
-Voco treats the Webview string wire as a fixed, immutable transaction space. The native C parser (`voco_parse`) scans incoming byte strings via index pointers to extract boundaries sequentially. Instead of duplicating tokens or shifting buffers onto the heap, it records offsets directly from the original bridge pointer. This guarantees a **static $O(1)$ memory footprint**, completely eliminating heap churn and GC pauses during continuous serialization.
+## Files
 
-### 2. Symmetrical Data Framing
-The frontend and backend use an identical data representation sequence. The pipeline converts untyped binary objects into predictable, base64-encoded safe text characters. This ensures that a single, unified parser logic path handles routing on both sides of the application wire.
-
-### 3. Asynchronous Downstream Rehydration
-When passing mutated states back down to the interface layer, the C engine avoids heavy execution loops by invoking an inline Javascript script evaluation (`webview_eval`). The browser frame catches this raw string, parses it using the exact same delimited rules, and safely rehydrates binary representations into local typed memory buffers.
-
----
-
-## Targeted Use Cases
-
-* **Digital Signal Processing (DSP) & Waveform Visualization:** Streaming high-rate audio buffers, synthesizer snapshot data, or multi-channel telemetry straight from a native processing thread into a high-speed browser `<canvas>` or WebGL rendering view. Voco maps binary data structures straight into Javascript `Float32Array` views with minimal latency.
-* **Array-Oriented Language / REPL Frontends:** Providing a clean desktop shell interface for execution tools (such as minimal APL/K clones or macro engines) where the dominant transaction profiles consist of flat vector states, single-character execution variables, and mathematical expressions.
-* **Resource-Constrained Tooling & Systems Programming:** Building configuration utilities, localized instrumentation monitors, or peripheral control interfaces that must run seamlessly on low-spec hardware without consuming hundreds of megabytes of baseline memory.
-
----
-
-## The Protocol Layout Envelope
-
-Both upstream (`JS -> C`) and downstream (`C -> JS`) messages share the identical symmetric signature structure:
+The reusable pieces are:
 
 ```text
-"vocab:command:type:payload"
+voco.h   # Header-only C parser, field decoder, and frame writer helpers
+voco.js  # Browser-side frame formatter, parser, and namespace dispatcher
 ```
 
-* **`vocab`**: Core execution domain namespace (Max 63 bytes).
-* **`command`**: Execution action identifier target (Max 63 bytes).
-* **`type`**: Stream type token formatting guard (`A` = Raw ASCII string, `F` = Base64 Float32 Array).
-* **`payload`**: The serialized array content block.
+ro-totem keeps app-specific command dispatch in `rototem.c` and app-specific UI
+handlers in `ui.html`.
 
----
+## Wire Format
 
-## Developer Integration Blueprint (Code Snippets)
+A frame starts with the magic string `V1`, followed by length-prefixed fields:
 
-Here is how the protocol maps directly into the application boundaries found in `ui.html` and `main.c`.
+```text
+V1<length>:<field><length>:<field>...
+```
 
-### 1. Upstream Transmission (JavaScript -> C)
-To stream either plain-text expressions or high-performance binary vectors up to the native engine, format the envelope string and pass it to the webview wire invocation hook:
+The first three decoded fields are conventionally:
+
+| Field | Meaning |
+| --- | --- |
+| `namespace` | Message domain such as `native`, `ui`, or `scope` |
+| `command` | Named operation inside that namespace |
+| `type` | A light payload hint such as `A`, `N`, `J`, or `F` |
+
+Any remaining fields are command-specific payload values.
+
+Example decoded message:
+
+```text
+native, loadWave, A, 4, /Users/me/Samples/kick:01.wav
+```
+
+Encoded frame:
+
+```text
+V16:native8:loadWave1:A1:432:%2FUsers%2Fme%2FSamples%2Fkick%3A01.wav
+```
+
+Fields are percent-encoded before length-prefixing. That keeps the wire ASCII
+and makes lengths mean the same thing to C byte strings and JavaScript string
+indexes. The length counts the encoded field text, not the decoded text.
+
+## Type Hints
+
+Voco does not enforce payload types. The `type` field is a convention for the
+application dispatcher.
+
+ro-totem currently uses:
+
+| Hint | Meaning |
+| --- | --- |
+| `A` | Text payloads |
+| `N` | Numeric payloads represented as text |
+| `J` | JSON text payload |
+
+Future applications may add hints such as `F` for base64-encoded float buffers.
+The parser treats all fields as strings.
+
+## JavaScript API
+
+`voco.js` installs `window.Voco`.
+
+### `Voco.format(...fields)`
+
+Formats fields into a Voco frame.
 
 ```javascript
-// From src/ui.html
-const Voco = {
-  send: function(vocab, cmd, type, payload) {
-    let serialized = payload;
-    
-    // If passing binary float data, encode to raw Base64 string first
-    if (type === 'F' && payload instanceof Float32Array) {
-      serialized = this._toBase64(new Uint8Array(payload.buffer));
-    }
-    
-    // Construct delimited frame boundary
-    const envelope = `${vocab}:${cmd}:${type}:${serialized}`;
-    
-    // Dispatch straight across the native 2017 runtime wire
-    window.external.invoke(envelope);
-  }
-};
-
-// Usage Examples:
-Voco.send('dsl', 'eval', 'A', 'A: 10 * s ! 16');
-Voco.send('dsp', 'load_samples', 'F', new Float32Array([1.0, -0.75, 0.5]));
+const frame = window.Voco.format(
+    'native', 'loadWave', 'A', 4, '/tmp/kick:01.wav');
+window.external.invoke(frame);
 ```
 
-### 2. Zero-Allocation In-Place Parsing (C Core)
-The native application layer intercepts the message. Rather than calling a tokenizing parser that fragments memory, it maps pointers directly to tracking offsets inside the stack allocation:
+Each argument is converted with `String(field ?? '')`, percent-encoded with
+`encodeURIComponent`, and length-prefixed.
+
+### `Voco.parse(frame)`
+
+Parses a frame and returns decoded fields, or `null` if the frame is malformed.
+
+```javascript
+const fields = window.Voco.parse(frame);
+if (!fields) return;
+```
+
+### `Voco.on(namespace, handler)`
+
+Registers a namespace handler.
+
+```javascript
+window.Voco.on('ui', (command, type, payload) => {
+    if (command === 'setStatus') {
+        setStatus(payload[0] || '');
+    }
+});
+```
+
+Only one handler is stored per namespace. Applications that need multiple
+listeners can implement their own fan-out inside the handler.
+
+### `Voco.receive(frame)`
+
+Parses a frame and dispatches it to the namespace handler.
+
+```javascript
+window.Voco.receive('V12:ui9:setStatus1:A5:ready');
+```
+
+Returns `true` when a registered handler receives the message and `false` when
+the frame is malformed or the namespace is unknown.
+
+## C API
+
+`voco.h` is header-only. It provides borrowed parsing and optional decoded
+copies.
+
+### Data Structures
 
 ```c
-// From src/main.c
-void on_voco_bridge_message(struct webview *w, const char *arg) {
-    voco_msg_t msg;
+struct voco_field {
+  const char *data;
+  size_t length;
+};
 
-    // Parses string in-place without generating heap allocations
-    if (!voco_parse(arg, &msg)) {
-        return; // Malformed transmission guard
-    }
+struct voco_message {
+  int count;
+  struct voco_field fields[VOCO_MAX_FIELDS];
+};
+```
 
-    // Route execution using the unpacked pointers
-    if (strcmp(msg.vocab, "dsp") == 0 && strcmp(msg.cmd, "load_samples") == 0) {
-        float vector_buffer[32];
-        
-        // Extract raw floats directly out of the Base64 payload offset
-        size_t decoded_bytes = voco_b64_decode(msg.data, msg.data_len, (unsigned char *)vector_buffer);
-        size_t sample_count = decoded_bytes / sizeof(float);
-        
-        // Mutate or process the raw array instantly on the metal...
-    }
+`voco_parse()` stores field slices that point into the original frame string.
+Those slices remain valid only while the original string remains valid.
+
+### Parsing
+
+```c
+struct voco_message message;
+if (!voco_parse(arg, &message)) {
+  return;
 }
 ```
 
-### 3. Downstream Dispatch & Catch Loop (C -> JavaScript)
-To pass states symmetrically back down to the UI, the C layer serializes its results using the exact same structural signature format and drops it into an evaluation frame script call:
+`voco_parse()` validates the `V1` magic, parses each length prefix, bounds-checks
+field lengths, and fills `message.fields`. It does not percent-decode fields
+in place.
+
+### Comparing Fields
 
 ```c
-// From src/main.c
-// Re-encode processed native buffer back to safe text payload
-char b64_out[1024];
-voco_b64_encode((unsigned char *)vector_buffer, count * sizeof(float), b64_out);
-
-// Push down via identical structural envelope syntax string
-char js_dispatch[4096];
-snprintf(js_dispatch, sizeof(js_dispatch), 
-         "Voco.receive('dsp', 'render_wave', 'F', '%s');", b64_out);
-
-webview_eval(w, js_dispatch);
+if (voco_field_equals(&message.fields[0], "native")) {
+  /* route native message */
+}
 ```
 
-The browser context intercepts this execution string via the corresponding callback router, handles the datatype casting seamlessly, and routes it to the DOM:
+Use this for namespace and command dispatch when comparing against ASCII command
+names. Command names should stay in the unreserved ASCII set.
+
+### Decoding Text
+
+```c
+char *path = voco_field_cstr(&message.fields[3]);
+if (!path) return;
+load_wave(path);
+free(path);
+```
+
+`voco_field_cstr()` percent-decodes a field into a heap-allocated,
+NUL-terminated C string. The caller owns the returned pointer and must `free()`
+it.
+
+### Parsing Numbers
+
+```c
+long voice;
+if (!voco_field_long(&message.fields[3], 0, 31, &voice)) {
+  return;
+}
+```
+
+`voco_field_long()` parses a borrowed field as a bounded integer. It expects the
+field to contain plain numeric text.
+
+### Writing Frames
+
+Voco does not own a growable string type. Instead, it writes through an append
+callback:
+
+```c
+typedef int (*voco_append_fn)(
+    void *context, const char *text, size_t length);
+```
+
+The host application provides the buffer policy. In ro-totem, the callback
+adapts Voco to `script_builder`:
+
+```c
+static int append_to_script(
+    void *context, const char *text, size_t length) {
+  return script_append_n((struct script_builder *)context, text, length);
+}
+```
+
+Build a frame header:
+
+```c
+struct script_builder frame = {0};
+if (!voco_write_frame_header(
+      &frame, append_to_script, "ui", "setStatus", "A")) {
+  /* handle allocation failure */
+}
+```
+
+Append payload fields:
+
+```c
+voco_write_text_field(&frame, append_to_script, "ready");
+voco_write_int_field(&frame, append_to_script, 42);
+voco_write_u64_field(&frame, append_to_script, first_frame);
+```
+
+`voco_write_text_field()` percent-encodes text before writing its length prefix.
+`voco_write_int_field()` and `voco_write_u64_field()` write numeric text fields
+without percent-encoding because their output is already ASCII.
+
+## Webview Integration Pattern
+
+### JavaScript to C
+
+Define an app-specific bridge object in JavaScript. It should be the only code
+that calls `window.external.invoke()`.
 
 ```javascript
-// From src/ui.html
-const Voco = {
-  receive: function(vocab, cmd, type, payload) {
-    let cleanPayload = payload;
-    
-    if (type === 'F') {
-      // Rehydrate the incoming base64 string back into a native typed float vector
-      const binaryStr = atob(payload);
-      const bytes = new Uint8Array(binaryStr.length);
-      for (let i = 0; i < binaryStr.length; i++) {
-        bytes[i] = binaryStr.charCodeAt(i);
-      }
-      cleanPayload = new Float32Array(bytes.buffer);
+const native = {
+    available() {
+        return Boolean(window.external && window.external.invoke);
+    },
+    invoke(command, type = 'A', ...payload) {
+        if (!this.available()) return false;
+        window.external.invoke(
+            window.Voco.format('native', command, type, ...payload)
+        );
+        return true;
+    },
+    loadWave(voice, path) {
+        return this.invoke('loadWave', 'A', voice, path);
     }
-
-    // Dispatch cleanly to your layout rendering engine or graph view
-    this._renderToTerminal(vocab, cmd, type, cleanPayload);
-  }
 };
 ```
 
----
+In C, parse the incoming string and dispatch by namespace and command:
 
-## Compilation and Execution
+```c
+static void invoker(struct webview *w, const char *arg) {
+  struct voco_message message;
+  if (!voco_parse(arg, &message)) return;
 
-### Canonical Build Pipeline (CMake)
-```bash
-mkdir build && cd build
-cmake ..
-cmake --build .
-./voco_run
+  if (!voco_field_equals(&message.fields[0], "native")) return;
+  if (voco_field_equals(&message.fields[1], "loadWave")) {
+    long voice;
+    char *path;
+    if (!voco_field_long(&message.fields[3], 0, 31, &voice)) return;
+    path = voco_field_cstr(&message.fields[4]);
+    if (!path) return;
+    load_wave_file(w, path, (int)voice);
+    free(path);
+  }
+}
 ```
 
-### Manual Linux Compilation (Direct Shell Command)
-To compile manually without using the CMake build engine, you must explicitly call `xxd` to generate the file asset layout before compiling:
+### C to JavaScript
 
-```bash
-xxd -i src/ui.html src/ui_html.h
-gcc src/main.c -o voco_run -Isrc -Ivendor/webview $(pkg-config --cflags --libs gtk+-3.0 webkit2gtk-4.0)
-./voco_run
+Build a Voco frame in C and evaluate one JavaScript receiver call:
+
+```c
+static void send_status(struct webview *w, const char *message) {
+  struct script_builder frame = {0};
+  struct script_builder script = {0};
+
+  if (voco_write_frame_header(&frame, append_to_script, "ui", "setStatus", "A") &&
+      voco_write_text_field(&frame, append_to_script, message) &&
+      script_append(&script, "Voco.receive(") &&
+      script_append_js_string(&script, frame.data) &&
+      script_append(&script, ")")) {
+    webview_eval(w, script.data);
+  }
+
+  free(frame.data);
+  free(script.data);
+}
 ```
+
+In JavaScript, register a handler:
+
+```javascript
+window.Voco.on('ui', (command, type, payload) => {
+    if (command === 'setStatus') {
+        setStatus(payload[0] || '');
+    }
+});
+```
+
+## Packaging `voco.js`
+
+During development, it is useful to keep `voco.js` as a separate source file:
+
+```html
+<script src="voco.js"></script>
+<script>
+  // application code
+</script>
+```
+
+For packaged apps, choose one of two patterns:
+
+- Copy `voco.js` beside `ui.html` and load it as a local resource.
+- Inline `voco.js` into generated HTML during the build.
+
+ro-totem uses both patterns:
+
+- Linux and Windows-style embedded builds inline `voco.js` into
+  `build/ui_embedded.html`.
+- The macOS bundle copies `voco.js` to `Contents/Resources` beside `ui.html`.
+
+The Makefile rule is deliberately simple: it replaces
+`<script src="voco.js"></script>` with a literal inline `<script>` block.
+
+## Error Handling
+
+Voco rejects malformed frames by returning `0` in C or `null` / `false` in
+JavaScript. It does not report detailed parse errors. The intended pattern is:
+
+- reject malformed transport frames silently or log them in debug builds;
+- validate command names and payload counts in the application dispatcher;
+- validate numeric ranges before using values;
+- decode text fields only when needed; and
+- return operation-specific status messages through normal app callbacks.
+
+## Limits
+
+The current C implementation uses `VOCO_MAX_FIELDS`, defaulting to `80`, to keep
+the parser bounded. Increase it if an application legitimately sends many
+fields, or redesign that command to send a manifest payload.
+
+Field lengths are parsed as `size_t`. Frames are still ordinary C strings, so
+embedded NUL bytes are not supported. Binary payloads should be encoded as safe
+text, for example base64, before being passed as a Voco field.
+
+## What Voco Is Not
+
+Voco is not:
+
+- a security sandbox;
+- a schema language;
+- a promise or async task system;
+- a binary IPC layer;
+- a replacement for app-level validation; or
+- a complete GUI framework.
+
+It is a small, symmetric string framing layer for applications that already have
+a webview string bridge and want a more formal contract than ad hoc prefixes or
+delimiter-split messages.
+
+## Extraction Checklist
+
+To move Voco into its own repository:
+
+1. Copy `voco.h` and `voco.js`.
+2. Add a tiny example app showing `window.external.invoke()` and
+   `Voco.receive(...)`.
+3. Add tests for `Voco.format()` / `Voco.parse()`.
+4. Add C tests for valid frames, malformed frames, percent decoding, empty
+   fields, numeric parsing, and field-count limits.
+5. Document build patterns for copied local resources and generated inline HTML.
+

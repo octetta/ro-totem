@@ -48,16 +48,16 @@ than splitting code merely to reduce line counts.
 │                                      Skred engine         │
 └──────────────────────────────────────────────────────────┘
                       │
-                      │ webview_eval(script)
+                      │ webview_eval("Voco.receive(...)")
                       ▼
 ┌──────────────────────────────────────────────────────────┐
-│ Named JavaScript callback updates UI state and rendering │
+│ Voco receiver dispatches UI state and rendering callbacks│
 └──────────────────────────────────────────────────────────┘
 ```
 
 The UI-to-native path sends a string through `window.external.invoke()`. The
-native-to-UI path evaluates a call to a named JavaScript function. Neither side
-accesses the other's internal state directly.
+native-to-UI path evaluates a single `Voco.receive(...)` call containing a
+framed callback. Neither side accesses the other's internal state directly.
 
 ## Responsibility Boundaries
 
@@ -129,35 +129,63 @@ There are two related but separate protocols.
 
 ### UI-to-Native Envelope
 
-The first character, or short prefix, tells `invoker()` which native operation
-to perform:
+JavaScript sends native operations as Voco frames through
+`window.external.invoke()`:
 
-| Message | Meaning |
+```text
+V1<len:native><len:command><len:type><len:payload>...
+```
+
+Each field is percent-encoded before length-prefixing, so the frame itself is
+ASCII and `len` means the same thing to C and JavaScript. The decoded fields
+are:
+
+| Field | Meaning |
 | --- | --- |
-| `!<commands>` | Pass commands to Skred |
-| `@` | Open the wave-directory chooser |
-| `>v<voice>` | Open a wave chooser for a stereo voice pair |
-| `R<directory>` | Scan a directory for WAV files |
-| `W<voice>:<path>` | Load a WAV file into a stereo voice pair |
-| `K<index>` | Choose a managed project file to add or replace |
-| `JS<json>` | Save settings JSON |
-| `JL` | Load settings JSON |
-| `PB` | Begin saving a project ZIP |
-| `PW<index>:<archive-path>:<source-path>` | Add a WAV to the pending project ZIP |
-| `PX<index>:<archive-path>:<source-path>` | Add a managed file to the pending project ZIP |
-| `PF<json>` | Add settings and finish the pending project ZIP |
-| `PL` | Load a project ZIP |
-| `PA` / `PR` | Accept or reject an extracted project after UI validation |
-| `DR` | Refresh audio-device choices |
-| `DA<capture>:<selection>` | Apply an audio-device selection |
+| `native` | The UI-to-native namespace |
+| `command` | The named native operation |
+| `type` | A light payload hint such as `A`, `N`, or `J` |
+| `payload...` | Zero or more command-specific values |
+
+Current native commands are:
+
+| Command | Payload | Meaning |
+| --- | --- | --- |
+| `engine` | `commands` | Pass commands to Skred |
+| `chooseDirectory` | none | Open the wave-directory chooser |
+| `chooseWave` | `voice` | Open a wave chooser for a stereo voice pair |
+| `loadDirectory` | `directory` | Scan a directory for WAV files |
+| `loadWave` | `voice`, `path` | Load a WAV file into a stereo voice pair |
+| `chooseManagedFile` | `index` | Choose a managed project file |
+| `saveSettings` | `json` | Save settings JSON |
+| `loadSettings` | none | Load settings JSON |
+| `beginProjectSave` | none | Begin saving a project ZIP |
+| `addProjectWave` | `index`, `archivePath`, `path` | Add a WAV to the pending project ZIP |
+| `addProjectFile` | `index`, `archivePath`, `path` | Add a managed file to the pending project ZIP |
+| `finishProjectSave` | `json` | Add settings and finish the pending project ZIP |
+| `loadProject` | none | Load a project ZIP |
+| `acceptProject` / `rejectProject` | none | Accept or reject an extracted project |
+| `resizeMainWindow` | `width`, `height` | Resize the native main window content area |
+| `startVisualScope` / `pollVisualScope` / `stopVisualScope` | none | Control visual scope data |
+| `refreshAudioDevices` | none | Refresh audio-device choices |
+| `applyAudioDevice` | `capture`, `selection` | Apply an audio-device selection |
 
 The JavaScript `native` object is the public API for constructing these
 messages. UI code should call `native.loadWave(...)` or
-`native.saveSettings(...)`, not manually concatenate protocol prefixes
-throughout the application.
+`native.saveSettings(...)`, not manually assemble Voco frames throughout the
+application.
 
-On the C side, `enum native_command` and `invoker()` define the corresponding
-entry points. Additions should be made on both sides together.
+On the C side, `invoker()` parses Voco frames and dispatches named operations.
+The old compact prefix switch remains as a compatibility fallback for manual
+testing and older UI resources, but new bridge operations should use Voco.
+
+The reusable JavaScript transport lives in `voco.js`. ro-totem references it
+from `ui.html`, and the Makefile inlines it into the generated embedded HTML
+used by Linux and Windows-style builds. The macOS bundle copies `voco.js`
+beside `ui.html` in `Contents/Resources`. Other webview projects can choose
+the same pattern: keep `voco.js` as a reusable source file during development,
+then either inline it into the packaged HTML or ship it as a colocated local
+resource.
 
 ### Skred Engine Commands
 
@@ -184,25 +212,11 @@ These forms are domain commands, not native bridge operations. Keeping that
 distinction explicit prevents UI concerns from leaking into Skred and prevents
 engine syntax from becoming the C dispatcher's responsibility.
 
-When a future project introduces many application-level operations or payloads
-that can contain arbitrary delimiters, consider replacing the envelope with
-JSON messages such as:
-
-```json
-{
-  "type": "loadWave",
-  "voice": 4,
-  "path": "/path/to/file.wav"
-}
-```
-
-The compact protocol is appropriate while it remains small, local, and easy to
-validate. JSON becomes worthwhile when escaping and versioning would otherwise
-dominate the dispatcher.
-
 ## Native-to-UI Calls
 
-C calls named JavaScript functions with `webview_eval()`. Examples include:
+C sends UI callbacks by evaluating a single `Voco.receive(frame)` call. The
+decoded frame has the same shape as UI-to-native frames, with `ui` or `scope`
+as the namespace. Examples include:
 
 - `addLog(message)`
 - `setWaveDirectory(directory)`
@@ -215,14 +229,17 @@ C calls named JavaScript functions with `webview_eval()`. Examples include:
 - `audioDevicesReady(status)`
 - `audioDeviceApplied(kind, success, status)`
 
-All dynamic strings must pass through `script_append_js_string()`. This is both
-a correctness and safety requirement: paths, device names, logs, and JSON may
-contain quotes, slashes, control characters, or other text that would otherwise
-break the generated JavaScript.
+All dynamic strings must pass through the Voco frame helpers. Those helpers
+percent-encode fields and use `script_append_js_string()` for the one generated
+JavaScript string passed to `Voco.receive(...)`. This is both a correctness and
+safety requirement: paths, device names, logs, and JSON may contain quotes,
+slashes, control characters, non-ASCII text, or other content that would
+otherwise break generated JavaScript or delimiter parsing.
 
-The `script_builder` abstraction provides dynamically sized, bounded script
-construction. New native callbacks should use it instead of fixed buffers or
-raw `sprintf()` calls.
+The `script_builder` abstraction provides dynamically sized, bounded script and
+frame construction. New native callbacks should use the Voco helpers instead of
+fixed buffers, raw `sprintf()` calls, or direct calls to named JavaScript
+functions.
 
 File-backed waveform loading is intentionally centralized in C. JavaScript may
 choose a path and call `native.loadWave(voice, path)`, but C allocates wavetable
@@ -560,9 +577,11 @@ At minimum, verify:
 These rules keep projects built from this model understandable:
 
 1. UI code calls named methods on `native`; it does not scatter raw bridge
-   prefixes.
+   prefixes or hand-built Voco frames.
 2. C validates every value received across the bridge.
-3. Dynamic C-to-JavaScript strings use `script_append_js_string()`.
+3. Dynamic C-to-JavaScript callbacks use Voco helpers, with
+   `script_append_js_string()` reserved for the final `Voco.receive(...)`
+   eval wrapper.
 4. Skred commands remain distinct from UI-to-native messages.
 5. File-backed waveform loading and wavetable allocation remain in C.
 6. Repeated mutable data lives in one state object per logical unit.
