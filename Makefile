@@ -34,6 +34,8 @@ WEBVIEW_DIR := vendor/webview
 MINIZ_DIR := vendor/miniz
 P5_DIR := vendor/p5
 P5_JS := $(P5_DIR)/p5.min.js
+LOTTIE_DIR := vendor/lottie
+LOTTIE_JS := $(LOTTIE_DIR)/lottie.min.js
 VOCO_JS := voco.js
 MINIZ_SOURCE := $(MINIZ_DIR)/miniz.c
 UI_HTML := ui.html
@@ -88,6 +90,7 @@ COMMON_SOURCES := rototem.c \
 	$(APP_VERSION_FILE) \
 	$(MINIZ_DIR)/miniz.h $(MINIZ_SOURCE) \
 	$(P5_JS) \
+	$(LOTTIE_JS) \
 	$(WEBVIEW_DIR)/webview.h
 
 ifeq ($(HOST_OS),Windows)
@@ -142,13 +145,20 @@ pulp-api:
 		SKRED_VERSION="$$version" \
 		SKRED_DIST_ROOTS='$(SKRED_DIR) $(PULP_API_DIST_ROOT)'
 
-$(UI_EMBEDDED_HTML): $(UI_HTML) $(P5_JS) $(VOCO_JS)
+$(UI_EMBEDDED_HTML): $(UI_HTML) $(P5_JS) $(LOTTIE_JS) $(VOCO_JS)
 	mkdir -p $(dir $@)
-	awk ' \
-		/<script src="vendor\/p5\/p5.min.js"><\/script>/ { \
-			print "<script>"; \
+	awk -v app_version='$(APP_VERSION)' ' \
+		/<script id="vendor-p5-js" type="text\/plain" data-src="vendor\/p5\/p5.min.js"><\/script>/ { \
+			print "<script id=\"vendor-p5-js\" type=\"text/plain\" data-src=\"vendor/p5/p5.min.js\">"; \
 			while ((getline line < "$(P5_JS)") > 0) print line; \
 			close("$(P5_JS)"); \
+			print "</script>"; \
+			next; \
+		} \
+		/<script id="vendor-lottie-js" type="text\/plain" data-src="vendor\/lottie\/lottie.min.js"><\/script>/ { \
+			print "<script id=\"vendor-lottie-js\" type=\"text/plain\" data-src=\"vendor/lottie/lottie.min.js\">"; \
+			while ((getline line < "$(LOTTIE_JS)") > 0) print line; \
+			close("$(LOTTIE_JS)"); \
 			print "</script>"; \
 			next; \
 		} \
@@ -159,7 +169,7 @@ $(UI_EMBEDDED_HTML): $(UI_HTML) $(P5_JS) $(VOCO_JS)
 			print "</script>"; \
 			next; \
 		} \
-		{ print } \
+		{ gsub(/__ROTOTEM_VERSION__/, app_version); print } \
 	' $(UI_HTML) > $@
 
 $(UI_HTML_HEADER): $(UI_EMBEDDED_HTML)
@@ -278,6 +288,8 @@ macos-package: $(MACOS_BINARY)
 	cp $(VOCO_JS) $(MACOS_RESOURCES)/
 	mkdir -p $(MACOS_RESOURCES)/$(P5_DIR)
 	cp $(P5_JS) $(MACOS_RESOURCES)/$(P5_DIR)/
+	mkdir -p $(MACOS_RESOURCES)/$(LOTTIE_DIR)
+	cp $(LOTTIE_JS) $(MACOS_RESOURCES)/$(LOTTIE_DIR)/
 	cp $(ASSETS_DIR)/rototem.icns $(MACOS_RESOURCES)/
 	test -x $(MACOS_EXECUTABLES)/$(MACOS_EXECUTABLE_NAME)
 	xattr -cr $(MACOS_APP)

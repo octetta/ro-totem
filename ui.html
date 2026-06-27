@@ -11,6 +11,44 @@
             color: #1c1e21;
         }
 
+        .startup-splash {
+            position: fixed;
+            inset: 0;
+            z-index: 100000;
+            display: grid;
+            place-items: center;
+            background: #071317;
+            color: #e6f2f5;
+            transition: opacity 180ms ease;
+        }
+
+        .startup-splash.hidden {
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .startup-splash-card {
+            display: grid;
+            gap: 14px;
+            justify-items: center;
+        }
+
+        .startup-splash svg {
+            width: 112px;
+            height: 112px;
+        }
+
+        .startup-splash-title {
+            font-size: 1.15rem;
+            font-weight: bold;
+            letter-spacing: 0;
+        }
+
+        .startup-splash-version {
+            color: #9ec5ce;
+            font-size: 0.82rem;
+        }
+
         h4 { margin: 0 0 10px 0; text-transform: uppercase; font-size: 0.9rem; color: #444; }
 
         /* Grid Layout */
@@ -220,11 +258,13 @@
             background: #452f5b;
         }
 
-        .help-icon-btn {
+        .icon-btn,
+        .help-icon-btn,
+        .gear-icon-btn {
             background: #e4e8ec;
-            color: white;
-            width: 24px;
-            height: 24px;
+            color: #343b42;
+            width: 28px;
+            height: 28px;
             padding: 0;
             border-radius: 4px;
             display: inline-flex;
@@ -236,7 +276,9 @@
             border: none;
         }
 
-        .help-icon-btn:hover {
+        .icon-btn:hover,
+        .help-icon-btn:hover,
+        .gear-icon-btn:hover {
             background: #d4dae0;
         }
 
@@ -248,26 +290,6 @@
 
         .help-launch:hover {
             background: #3d454d;
-        }
-
-        .gear-icon-btn {
-            background: #e4e8ec;
-            color: black;
-            width: 24px;
-            height: 24px;
-            padding: 0;
-            border-radius: 4px;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            font-weight: bold;
-            font-size: 0.85rem;
-            cursor: pointer;
-            border: none;
-        }
-
-        .gear-icon-btn:hover {
-            background: #d4dae0;
         }
 
         .gear-launch {
@@ -994,6 +1016,61 @@
             font-size: 0.8rem;
         }
 
+        .lottie-window {
+            width: min(560px, calc(100vw - 32px));
+            height: min(460px, calc(100vh - 32px));
+            min-height: 320px;
+            border-color: #2c6e49;
+            background: #f5fbf7;
+        }
+
+        .lottie-window .repl-titlebar {
+            background: #2c6e49;
+        }
+
+        .lottie-window .repl-titlebar button {
+            background: #e4f3ea;
+            color: #214f37;
+        }
+
+        .lottie-window .repl-titlebar button:hover {
+            background: #d1e8da;
+        }
+
+        .lottie-window .repl-body {
+            display: grid;
+            grid-template-rows: minmax(180px, 1fr) auto auto;
+            gap: 10px;
+            overflow: hidden;
+        }
+
+        .lottie-stage {
+            display: grid;
+            place-items: center;
+            min-height: 180px;
+            border: 1px solid #b8d8c6;
+            border-radius: 6px;
+            background: #071712;
+            overflow: hidden;
+        }
+
+        .lottie-stage svg {
+            display: block;
+            width: 100%;
+            height: 100%;
+        }
+
+        .lottie-controls {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        .lottie-status {
+            color: #315742;
+            font-size: 0.8rem;
+        }
+
         .master-floating-window {
             width: min(760px, calc(100vw - 32px));
             height: auto;
@@ -1323,7 +1400,6 @@
             transform: none;
         }
 
-        .dock-toggle,
         .track-float {
             display: inline-flex;
             width: 28px;
@@ -1333,11 +1409,14 @@
             justify-content: center;
             background: #e4e8ec;
             color: #343b42;
+        }
+
+        .dock-toggle,
+        .track-float {
             font-size: 1rem;
             line-height: 1;
         }
 
-        .dock-toggle:hover,
         .track-float:hover {
             background: #d4dae0;
         }
@@ -1516,14 +1595,27 @@
 </head>
 <body>
 
+<div id="startup-splash" class="startup-splash" role="status" aria-live="polite">
+    <div class="startup-splash-card">
+        <svg viewBox="0 0 120 120" aria-hidden="true">
+            <circle cx="60" cy="60" r="46" fill="none" stroke="#79d9ef" stroke-width="8"/>
+            <circle cx="60" cy="60" r="22" fill="#f2c078"/>
+            <path d="M60 14 L72 40 L100 44 L80 64 L85 92 L60 78 L35 92 L40 64 L20 44 L48 40 Z"
+                fill="none" stroke="#c67922" stroke-width="5" stroke-linejoin="round"/>
+        </svg>
+        <div class="startup-splash-title">ro-totem</div>
+        <div id="startup-splash-version" class="startup-splash-version">version __ROTOTEM_VERSION__</div>
+    </div>
+</div>
+
 <div class="dashboard">
 
     <div id="master-card" class="voice-card master-card">
         <div class="row master-toolbar">
             <div class="master-toolbar-group master-toolbar-left">
-                <button class="help-icon-btn" type="button" data-action="open-help"
+                <button class="icon-btn help-icon-btn" type="button" data-action="open-help"
                     title="Keyboard help (?)">&#x2753;</button>
-                <button class="gear-icon-btn" type="button" data-action="open-settings"
+                <button class="icon-btn gear-icon-btn" type="button" data-action="open-settings"
                     title="Shortcut: Ctrl+, or Cmd+, on macOS">&#x2699;</button>
                 <button data-action="choose-directory">dir</button>
                 <button class="xtra-btn" data-action="randomize-all">rand</button>
@@ -1537,7 +1629,7 @@
                     title="Load settings and WAV files from a ZIP archive">load</button>
                 <button class="settings-btn" type="button" data-action="save-project"
                     title="Save settings and WAV files to a ZIP archive">save</button>
-                <button id="master-dock-toggle" class="dock-toggle" type="button"
+                <button id="master-dock-toggle" class="icon-btn dock-toggle" type="button"
                     data-action="toggle-master-floating"
                     title="Undock master" aria-label="Undock master">&uarr;</button>
             </div>
@@ -1559,7 +1651,7 @@
     aria-label="Master controls" hidden>
     <header id="master-floating-titlebar" class="repl-titlebar">
         <span class="repl-title">MASTER</span>
-        <button type="button" class="dock-toggle" data-action="dock-master"
+        <button type="button" class="icon-btn dock-toggle" data-action="dock-master"
             aria-label="Dock master" title="Dock master">&darr;</button>
     </header>
     <div id="master-floating-body" class="repl-body"></div>
@@ -1758,6 +1850,25 @@
     </div>
 </section>
 
+<section id="lottie-window" class="repl-window lottie-window"
+    aria-label="Lottie motion sample" hidden>
+    <header id="lottie-titlebar" class="repl-titlebar">
+        <span class="repl-title">MOTION</span>
+        <button type="button" data-action="close-lottie"
+            aria-label="Close motion">close</button>
+    </header>
+    <div class="repl-body">
+        <div id="lottie-stage" class="lottie-stage"></div>
+        <div class="lottie-controls">
+            <button type="button" class="start-btn" data-action="lottie-start">start</button>
+            <button type="button" data-action="lottie-pause">pause</button>
+            <button type="button" data-action="lottie-resume">resume</button>
+            <button type="button" class="stop-btn" data-action="lottie-stop">stop</button>
+        </div>
+        <div id="lottie-status" class="lottie-status" role="status">Motion idle.</div>
+    </div>
+</section>
+
 <section id="help-window" class="repl-window help-window"
     aria-label="Keyboard shortcuts" hidden>
     <header id="help-titlebar" class="repl-titlebar">
@@ -1791,6 +1902,8 @@
             <dd>Toggle project files.</dd>
             <dt><span class="shortcut-key">Ctrl</span><span class="shortcut-key">Shift</span><span class="shortcut-key">4</span></dt>
             <dd>Toggle visuals.</dd>
+            <dt><span class="shortcut-key">Ctrl</span><span class="shortcut-key">Shift</span><span class="shortcut-key">5</span></dt>
+            <dd>Toggle motion.</dd>
             <dt><span class="shortcut-key">Ctrl</span><span class="shortcut-key">Alt</span><span class="shortcut-key">H</span></dt>
             <dd>Hide or restore floating windows. On macOS, use Cmd+Option+H.</dd>
             <dt><span class="shortcut-key">1</span>...<span class="shortcut-key">8</span></dt>
@@ -1805,7 +1918,8 @@
     </div>
 </section>
 
-<script src="vendor/p5/p5.min.js"></script>
+<script id="vendor-p5-js" type="text/plain" data-src="vendor/p5/p5.min.js"></script>
+<script id="vendor-lottie-js" type="text/plain" data-src="vendor/lottie/lottie.min.js"></script>
 <script src="voco.js"></script>
 <script>
     // --- CONSTANTS AND NATIVE BRIDGE ---
@@ -1818,6 +1932,8 @@
     const masterFloatingWindow = document.getElementById('master-floating-window');
     const masterFloatingTitlebar = document.getElementById('master-floating-titlebar');
     const masterFloatingBody = document.getElementById('master-floating-body');
+    const startupSplash = document.getElementById('startup-splash');
+    const startupSplashVersion = document.getElementById('startup-splash-version');
     const voiceCards = document.getElementById('voice-cards');
     const replWindow = document.getElementById('repl-window');
     const replTitlebar = document.getElementById('repl-titlebar');
@@ -1839,6 +1955,10 @@
     const visualsCanvas = document.getElementById('visuals-canvas');
     const visualsMeters = document.getElementById('visuals-meters');
     const visualsStatus = document.getElementById('visuals-status');
+    const lottieWindow = document.getElementById('lottie-window');
+    const lottieTitlebar = document.getElementById('lottie-titlebar');
+    const lottieStage = document.getElementById('lottie-stage');
+    const lottieStatus = document.getElementById('lottie-status');
     const helpWindow = document.getElementById('help-window');
     const helpTitlebar = document.getElementById('help-titlebar');
     const appVersion = document.getElementById('app-version');
@@ -1858,10 +1978,54 @@
     const replHistory = [];
     let replHistoryIndex = 0;
     let replHistoryDraft = '';
+    const vendorScriptPromises = {};
+
+    if (startupSplashVersion &&
+        startupSplashVersion.textContent.includes('__ROTOTEM_VERSION__')) {
+        startupSplashVersion.textContent = 'starting...';
+    }
+
+    function loadVendorScript(id, globalName) {
+        if (globalName && window[globalName]) return Promise.resolve(window[globalName]);
+        if (vendorScriptPromises[id]) return vendorScriptPromises[id];
+
+        const source = document.getElementById(id);
+        if (!source) return Promise.reject(new Error(`Missing ${id}`));
+
+        vendorScriptPromises[id] = new Promise((resolve, reject) => {
+            const script = document.createElement('script');
+            script.onload = () => resolve(globalName ? window[globalName] : true);
+            script.onerror = () => reject(new Error(`Could not load ${source.dataset.src || id}`));
+
+            const embedded = source.textContent.trim();
+            if (embedded) {
+                script.textContent = embedded;
+                document.head.appendChild(script);
+                resolve(globalName ? window[globalName] : true);
+                return;
+            }
+
+            script.src = source.dataset.src;
+            document.head.appendChild(script);
+        });
+
+        return vendorScriptPromises[id];
+    }
+
+    function hideStartupSplash() {
+        if (!startupSplash) return;
+        startupSplash.classList.add('hidden');
+        window.setTimeout(() => {
+            startupSplash.hidden = true;
+        }, 220);
+    }
 
     function setBuildVersions(app, skred) {
         appVersion.textContent = app || 'unknown';
         skredVersion.textContent = skred || 'unknown';
+        if (startupSplashVersion) {
+            startupSplashVersion.textContent = app ? `version ${app}` : 'starting...';
+        }
     }
 
     /*
@@ -2300,6 +2464,234 @@
         visualsTitlebar,
         { width: 760, height: 430 }
     );
+    const lottiePanel = makeFloatingWindow(
+        'lottie',
+        lottieWindow,
+        lottieTitlebar,
+        { width: 560, height: 460 }
+    );
+
+    function lottieLinearKeyframe(t, s, e) {
+        return {
+            t,
+            s,
+            e,
+            i: { x: [0.667], y: [1] },
+            o: { x: [0.333], y: [0] }
+        };
+    }
+
+    const SAMPLE_LOTTIE_ANIMATION = {
+        v: '5.7.4',
+        fr: 30,
+        ip: 0,
+        op: 120,
+        w: 400,
+        h: 300,
+        nm: 'ro-totem motion sample',
+        ddd: 0,
+        assets: [],
+        layers: [
+            {
+                ddd: 0,
+                ind: 1,
+                ty: 4,
+                nm: 'pulse ring',
+                sr: 1,
+                ks: {
+                    o: { a: 0, k: 100 },
+                    r: {
+                        a: 1,
+                        k: [
+                            lottieLinearKeyframe(0, [0], [360]),
+                            { t: 120, s: [360] }
+                        ]
+                    },
+                    p: { a: 0, k: [200, 150, 0] },
+                    a: { a: 0, k: [0, 0, 0] },
+                    s: {
+                        a: 1,
+                        k: [
+                            lottieLinearKeyframe(0, [82, 82, 100], [128, 128, 100]),
+                            lottieLinearKeyframe(60, [128, 128, 100], [82, 82, 100]),
+                            { t: 120, s: [82, 82, 100] }
+                        ]
+                    }
+                },
+                ao: 0,
+                shapes: [
+                    {
+                        ty: 'gr',
+                        it: [
+                            { ty: 'el', p: { a: 0, k: [0, 0] }, s: { a: 0, k: [150, 150] } },
+                            {
+                                ty: 'st',
+                                c: { a: 0, k: [0.475, 0.851, 0.937, 1] },
+                                o: { a: 0, k: 100 },
+                                w: { a: 0, k: 10 },
+                                lc: 2,
+                                lj: 2
+                            },
+                            {
+                                ty: 'tr',
+                                p: { a: 0, k: [0, 0] },
+                                a: { a: 0, k: [0, 0] },
+                                s: { a: 0, k: [100, 100] },
+                                r: { a: 0, k: 0 },
+                                o: { a: 0, k: 100 }
+                            }
+                        ]
+                    }
+                ],
+                ip: 0,
+                op: 120,
+                st: 0,
+                bm: 0
+            },
+            {
+                ddd: 0,
+                ind: 2,
+                ty: 4,
+                nm: 'orbit dot',
+                sr: 1,
+                ks: {
+                    o: { a: 0, k: 100 },
+                    r: {
+                        a: 1,
+                        k: [
+                            lottieLinearKeyframe(0, [0], [-360]),
+                            { t: 120, s: [-360] }
+                        ]
+                    },
+                    p: { a: 0, k: [200, 150, 0] },
+                    a: { a: 0, k: [0, 0, 0] },
+                    s: { a: 0, k: [100, 100, 100] }
+                },
+                ao: 0,
+                shapes: [
+                    {
+                        ty: 'gr',
+                        it: [
+                            { ty: 'el', p: { a: 0, k: [78, 0] }, s: { a: 0, k: [24, 24] } },
+                            {
+                                ty: 'fl',
+                                c: { a: 0, k: [0.949, 0.753, 0.471, 1] },
+                                o: { a: 0, k: 100 },
+                                r: 1
+                            },
+                            {
+                                ty: 'tr',
+                                p: { a: 0, k: [0, 0] },
+                                a: { a: 0, k: [0, 0] },
+                                s: { a: 0, k: [100, 100] },
+                                r: { a: 0, k: 0 },
+                                o: { a: 0, k: 100 }
+                            }
+                        ]
+                    }
+                ],
+                ip: 0,
+                op: 120,
+                st: 0,
+                bm: 0
+            }
+        ]
+    };
+
+    let lottieAnimation = null;
+
+    function setLottieStatus(message) {
+        lottieStatus.textContent = message;
+    }
+
+    function ensureLottieAnimation() {
+        if (lottieAnimation) return true;
+        if (!window.lottie || !lottieStage) {
+            setLottieStatus('Loading Lottie player...');
+            loadVendorScript('vendor-lottie-js', 'lottie')
+                .then(() => {
+                    if (ensureLottieAnimation()) {
+                        setLottieStatus('Sample motion loaded. Press start to play.');
+                    }
+                })
+                .catch(error => {
+                    setLottieStatus(error.message);
+                });
+            return false;
+        }
+        lottieStage.replaceChildren();
+        lottieAnimation = window.lottie.loadAnimation({
+            container: lottieStage,
+            renderer: 'svg',
+            loop: true,
+            autoplay: false,
+            animationData: SAMPLE_LOTTIE_ANIMATION
+        });
+        lottieAnimation.addEventListener('DOMLoaded', () => {
+            setLottieStatus('Sample motion loaded. Press start to play.');
+        });
+        lottieAnimation.addEventListener('data_failed', () => {
+            setLottieStatus('Sample motion failed to load.');
+        });
+        setLottieStatus('Loading sample motion...');
+        return true;
+    }
+
+    function openLottie() {
+        lottiePanel.open(lottieWindow);
+        ensureLottieAnimation();
+    }
+
+    function closeLottie() {
+        lottiePanel.close();
+    }
+
+    function toggleLottie() {
+        if (lottiePanel.isOpen()) closeLottie();
+        else openLottie();
+    }
+
+    function withLottieAnimation(action) {
+        if (ensureLottieAnimation()) {
+            action();
+            return;
+        }
+        loadVendorScript('vendor-lottie-js', 'lottie')
+            .then(() => {
+                if (ensureLottieAnimation()) action();
+            })
+            .catch(error => {
+                setLottieStatus(error.message);
+            });
+    }
+
+    function startLottie() {
+        withLottieAnimation(() => {
+            lottieAnimation.goToAndPlay(0, true);
+            setLottieStatus('Sample motion playing from start.');
+        });
+    }
+
+    function pauseLottie() {
+        withLottieAnimation(() => {
+            lottieAnimation.pause();
+            setLottieStatus('Sample motion paused.');
+        });
+    }
+
+    function resumeLottie() {
+        withLottieAnimation(() => {
+            lottieAnimation.play();
+            setLottieStatus('Sample motion playing.');
+        });
+    }
+
+    function stopLottie() {
+        withLottieAnimation(() => {
+            lottieAnimation.stop();
+            setLottieStatus('Sample motion stopped.');
+        });
+    }
 
     let visualScopeTimer = null;
     let visualScopeActive = false;
@@ -2392,7 +2784,16 @@
     }
 
     function ensureVisualSketch() {
-        if (visualSketch || !window.p5) return Boolean(visualSketch);
+        if (visualSketch) return true;
+        if (!window.p5) {
+            visualsStatus.textContent = 'Loading p5.js...';
+            loadVendorScript('vendor-p5-js', 'p5')
+                .then(() => drawVisualScope())
+                .catch(error => {
+                    visualsStatus.textContent = error.message;
+                });
+            return false;
+        }
         visualSketch = new p5(sketch => {
             sketch.setup = () => {
                 const rect = visualsCanvas.getBoundingClientRect();
@@ -2474,8 +2875,6 @@
         if (ensureVisualSketch()) {
             resizeVisualSketch();
             visualSketch.redraw();
-        } else {
-            visualsStatus.textContent = 'p5.js is unavailable.';
         }
 
         ensureVisualMeters();
@@ -2708,6 +3107,10 @@
     function openFloatingWindowForVisibility(id) {
         if (id === 'visuals') {
             openVisuals();
+            return;
+        }
+        if (id === 'lottie') {
+            openLottie();
             return;
         }
         const controller = floatingWindows[id];
@@ -3972,7 +4375,7 @@
             : floatingWindows[id].isOpen();
         return {
             format: 'ro-totem-slider-settings',
-            version: 24,
+            version: 25,
             directory: waveDirectory || null,
             portableWindowGeometry: portableWindowGeometry.checked,
             replHistory: replHistory.slice(-MAX_REPL_HISTORY),
@@ -4035,6 +4438,10 @@
                     ...geometryWithRelative(visualsPanel.getGeometry()),
                     open: windowWasOpen('visuals')
                 },
+                lottie: {
+                    ...geometryWithRelative(lottiePanel.getGeometry()),
+                    open: windowWasOpen('lottie')
+                },
                 order: windowState.order,
                 focused: windowState.focused
             },
@@ -4095,7 +4502,7 @@
 
     function applySettings(settings) {
         if (!settings || settings.format !== 'ro-totem-slider-settings' ||
-            ![1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24].includes(settings.version) ||
+            ![1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25].includes(settings.version) ||
             !Array.isArray(settings.tracks)) {
             console.log(settings);
             throw new Error('This is not a supported ro-totem settings file.');
@@ -4280,6 +4687,7 @@
                     const files = settings.uiWindows.files;
                     const help = settings.uiWindows.help;
                     const visuals = settings.uiWindows.visuals;
+                    const lottie = settings.uiWindows.lottie;
                     replPanel.setGeometry(
                         restoreGeometryForViewport(repl, usePortableGeometry));
                     if (settings.version >= 24) {
@@ -4306,6 +4714,10 @@
                 if (settings.version >= 23) {
                     visualsPanel.setGeometry(
                         restoreGeometryForViewport(visuals, usePortableGeometry));
+                }
+                if (settings.version >= 25) {
+                    lottiePanel.setGeometry(
+                        restoreGeometryForViewport(lottie, usePortableGeometry));
                 }
 
                 if (settings.version >= 11) {
@@ -4352,6 +4764,11 @@
                         visuals && typeof visuals.open === 'boolean') {
                         if (visuals.open) openVisuals();
                         else closeVisuals();
+                    }
+                    if (settings.version >= 25 &&
+                        lottie && typeof lottie.open === 'boolean') {
+                        if (lottie.open) openLottie();
+                        else closeLottie();
                     }
                 }
                 if (settings.version >= 17) {
@@ -4963,6 +5380,12 @@
             case 'toggle-visual-pair':
                 toggleVisualPair(Number(control.dataset.pair));
                 break;
+            case 'open-lottie': openLottie(); break;
+            case 'close-lottie': closeLottie(); break;
+            case 'lottie-start': startLottie(); break;
+            case 'lottie-pause': pauseLottie(); break;
+            case 'lottie-resume': resumeLottie(); break;
+            case 'lottie-stop': stopLottie(); break;
             case 'open-help': openHelp(); break;
             case 'close-help': closeHelp(); break;
             case 'set-pad-layout': setPadLayout(control.dataset.layout); break;
@@ -5159,6 +5582,12 @@
             return;
         }
 
+        if (event.ctrlKey && event.shiftKey && event.code === 'Digit5' && !event.repeat) {
+            event.preventDefault();
+            toggleLottie();
+            return;
+        }
+
         if (event.ctrlKey && event.shiftKey && event.code === 'Digit3' && !event.repeat) {
             event.preventDefault();
             toggleFiles();
@@ -5209,6 +5638,9 @@ window.addEventListener('keydown', (e) => {
     }
 });
 
+requestAnimationFrame(() => {
+    window.setTimeout(hideStartupSplash, 180);
+});
 
 </script>
 
