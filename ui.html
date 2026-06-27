@@ -915,29 +915,69 @@
 
         .visuals-meters {
             display: grid;
-            grid-template-columns: repeat(10, minmax(0, 1fr));
-            gap: 4px;
+            grid-template-columns: repeat(5, minmax(0, 1fr));
+            gap: 6px;
             align-items: end;
-            height: 46px;
+            height: 56px;
         }
 
         .visual-meter {
-            display: flex;
+            display: grid;
+            grid-template-rows: auto minmax(0, 1fr);
+            gap: 3px;
             min-width: 0;
             height: 100%;
-            align-items: end;
             border: 1px solid transparent;
             border-radius: 4px;
             background: #dcecf1;
             cursor: pointer;
+            padding: 4px;
             overflow: hidden;
         }
 
-        .visual-meter span {
+        .visual-meter-name {
+            display: block;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            color: #254b58;
+            font-size: 0.68rem;
+            font-weight: bold;
+            text-align: center;
+        }
+
+        .visual-meter-bars {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 3px;
+            min-height: 0;
+        }
+
+        .visual-meter-bar {
+            position: relative;
+            display: flex;
+            min-width: 0;
+            align-items: end;
+            border-radius: 3px;
+            background: rgba(255, 255, 255, 0.72);
+            overflow: hidden;
+        }
+
+        .visual-meter-fill {
             display: block;
             width: 100%;
             height: 0%;
             background: #2f8daa;
+        }
+
+        .visual-meter-side {
+            position: absolute;
+            inset: auto 0 1px 0;
+            color: rgba(37, 75, 88, 0.78);
+            font-size: 0.55rem;
+            font-weight: bold;
+            line-height: 1;
+            text-align: center;
         }
 
         .visual-meter.selected {
@@ -945,7 +985,7 @@
             background: #faedd7;
         }
 
-        .visual-meter.selected span {
+        .visual-meter.selected .visual-meter-fill {
             background: #c67922;
         }
 
@@ -2270,29 +2310,56 @@
         frames: 0,
         firstFrame: 0
     };
-    const visualScopePairVisible = Array(5).fill(false);
+    const VISUAL_SCOPE_BUSES = [
+        { name: 'Master', shortName: 'Master', left: 0, right: 1 },
+        { name: 'Stem 1', shortName: 'Stem 1', left: 2, right: 3 },
+        { name: 'Stem 2', shortName: 'Stem 2', left: 4, right: 5 },
+        { name: 'Stem 3', shortName: 'Stem 3', left: 6, right: 7 },
+        { name: 'Stem 4', shortName: 'Stem 4', left: 8, right: 9 }
+    ];
+    const visualScopePairVisible = Array(VISUAL_SCOPE_BUSES.length).fill(false);
     visualScopePairVisible[0] = true;
     let visualSketch = null;
 
     function ensureVisualMeters() {
-        if (visualsMeters.children.length === 10) return;
+        if (visualsMeters.children.length === VISUAL_SCOPE_BUSES.length) return;
         visualsMeters.replaceChildren();
-        for (let i = 0; i < 10; i++) {
-            const pair = i >> 1;
-            const side = i % 2 === 0 ? 'L' : 'R';
+        VISUAL_SCOPE_BUSES.forEach((bus, pair) => {
             const meter = document.createElement('div');
             meter.className = 'visual-meter';
             meter.dataset.action = 'toggle-visual-pair';
-            meter.dataset.channel = String(i);
             meter.dataset.pair = String(pair);
             meter.tabIndex = 0;
             meter.setAttribute('role', 'button');
             meter.setAttribute('aria-pressed', String(visualScopePairVisible[pair]));
-            meter.setAttribute('aria-label', `Toggle pair ${pair + 1} ${side}`);
-            meter.title = `Pair ${pair + 1} ${side}`;
-            meter.appendChild(document.createElement('span'));
+            meter.setAttribute('aria-label', `Show or hide ${bus.name}`);
+            meter.title = `Show or hide ${bus.name}`;
+
+            const label = document.createElement('span');
+            label.className = 'visual-meter-name';
+            label.textContent = bus.shortName;
+            meter.appendChild(label);
+
+            const bars = document.createElement('span');
+            bars.className = 'visual-meter-bars';
+            [['L', bus.left], ['R', bus.right]].forEach(([side, channel]) => {
+                const bar = document.createElement('span');
+                bar.className = 'visual-meter-bar';
+                bar.dataset.channel = String(channel);
+
+                const fill = document.createElement('span');
+                fill.className = 'visual-meter-fill';
+                bar.appendChild(fill);
+
+                const sideLabel = document.createElement('span');
+                sideLabel.className = 'visual-meter-side';
+                sideLabel.textContent = side;
+                bar.appendChild(sideLabel);
+                bars.appendChild(bar);
+            });
+            meter.appendChild(bars);
             visualsMeters.appendChild(meter);
-        }
+        });
         updateVisualMeterSelection();
     }
 
@@ -2303,8 +2370,8 @@
     }
 
     function updateVisualMeterSelection() {
-        Array.from(visualsMeters.children).forEach((meter, index) => {
-            const pair = index >> 1;
+        Array.from(visualsMeters.children).forEach(meter => {
+            const pair = Number(meter.dataset.pair);
             const selected = Boolean(visualScopePairVisible[pair]);
             meter.classList.toggle('selected', selected);
             meter.setAttribute('aria-pressed', String(selected));
@@ -2343,17 +2410,21 @@
                     : [];
                 const pairs = selectedVisualPairs();
                 sketch.background(7, 19, 23);
-                sketch.stroke(27, 59, 68);
-                sketch.strokeWeight(1);
-                pairs.forEach((pair, pairIndex) => {
-                    const laneTop = (sketch.height * pairIndex) / pairs.length;
-                    const laneBottom = (sketch.height * (pairIndex + 1)) / pairs.length;
+
+                function drawLaneGuide(label, laneTop, laneBottom, isFirstLane) {
                     const laneCenter = (laneTop + laneBottom) * 0.5;
+                    sketch.stroke(27, 59, 68);
+                    sketch.strokeWeight(1);
                     sketch.line(0, laneCenter, sketch.width, laneCenter);
-                    if (pairIndex > 0) {
+                    if (!isFirstLane) {
                         sketch.line(0, laneTop, sketch.width, laneTop);
                     }
-                });
+                    sketch.noStroke();
+                    sketch.fill(147, 184, 194);
+                    sketch.textSize(11);
+                    sketch.textAlign(sketch.LEFT, sketch.TOP);
+                    sketch.text(label, 8, laneTop + 5);
+                }
 
                 function drawTrace(values, color, laneTop, laneBottom) {
                     if (!Array.isArray(values) || values.length === 0) return;
@@ -2375,10 +2446,16 @@
                 }
 
                 pairs.forEach((pair, pairIndex) => {
-                    const laneTop = (sketch.height * pairIndex) / pairs.length;
-                    const laneBottom = (sketch.height * (pairIndex + 1)) / pairs.length;
-                    drawTrace(waveforms[pair * 2], '#79d9ef', laneTop, laneBottom);
-                    drawTrace(waveforms[pair * 2 + 1], '#f2c078', laneTop, laneBottom);
+                    const bus = VISUAL_SCOPE_BUSES[pair];
+                    const busTop = (sketch.height * pairIndex) / pairs.length;
+                    const busBottom = (sketch.height * (pairIndex + 1)) / pairs.length;
+                    const laneMid = (busTop + busBottom) * 0.5;
+                    const label = bus ? bus.name : `Bus ${pair + 1}`;
+                    drawLaneGuide(`${label} L`, busTop, laneMid, pairIndex === 0);
+                    drawLaneGuide(`${label} R`, laneMid, busBottom, false);
+                    if (!bus) return;
+                    drawTrace(waveforms[bus.left], '#79d9ef', busTop, laneMid);
+                    drawTrace(waveforms[bus.right], '#f2c078', laneMid, busBottom);
                 });
             };
         });
@@ -2402,10 +2479,16 @@
         }
 
         ensureVisualMeters();
-        Array.from(visualsMeters.children).forEach((meter, index) => {
-            const fill = meter.firstElementChild;
-            const peak = Math.max(0, Math.min(1, visualScopeLatest.peaks[index] || 0));
-            fill.style.height = `${Math.round(peak * 100)}%`;
+        Array.from(visualsMeters.children).forEach(meter => {
+            meter.querySelectorAll('.visual-meter-bar').forEach(bar => {
+                const fill = bar.querySelector('.visual-meter-fill');
+                const channel = Number(bar.dataset.channel);
+                const peak = Math.max(
+                    0,
+                    Math.min(1, visualScopeLatest.peaks[channel] || 0)
+                );
+                fill.style.height = `${Math.round(peak * 100)}%`;
+            });
         });
         updateVisualMeterSelection();
     }
@@ -2427,10 +2510,13 @@
             firstFrame: Number(data.firstFrame) || 0
         };
         const pairLabel = selectedVisualPairs()
-            .map(pair => pair + 1)
-            .join(',');
+            .map(pair => {
+                const bus = VISUAL_SCOPE_BUSES[pair];
+                return bus ? bus.shortName : `Bus ${pair + 1}`;
+            })
+            .join(', ');
         visualScopeStatus(
-            `Scope running: ${visualScopeLatest.frames} frames from ${visualScopeLatest.firstFrame}; pairs ${pairLabel}.`,
+            `Scope running: ${visualScopeLatest.frames} frames from ${visualScopeLatest.firstFrame}; showing ${pairLabel}.`,
             true);
         drawVisualScope();
     }
@@ -2619,18 +2705,35 @@
         target.focus({ preventScroll: true });
     }
 
+    function openFloatingWindowForVisibility(id) {
+        if (id === 'visuals') {
+            openVisuals();
+            return;
+        }
+        const controller = floatingWindows[id];
+        if (controller) controller.open();
+    }
+
+    function closeFloatingWindowForVisibility(id) {
+        if (id === 'visuals') {
+            closeVisuals();
+            return;
+        }
+        const controller = floatingWindows[id];
+        if (controller) controller.close();
+    }
+
     function toggleFloatingWindowsVisibility() {
         if (hiddenFloatingWindowState) {
             const savedState = hiddenFloatingWindowState;
             hiddenFloatingWindowState = null;
             Object.values(floatingWindows).forEach(controller => {
                 if (controller.isOpen() && !controller.id.startsWith('track-')) {
-                    controller.close();
+                    closeFloatingWindowForVisibility(controller.id);
                 }
             });
             savedState.order.forEach(id => {
-                const controller = floatingWindows[id];
-                if (controller) controller.open();
+                openFloatingWindowForVisibility(id);
             });
             requestAnimationFrame(() => restoreFloatingWindowOrder(savedState));
             return;
@@ -2640,7 +2743,7 @@
         if (savedState.order.length === 0) return;
         hiddenFloatingWindowState = savedState;
         savedState.order.forEach(id => {
-            if (!id.startsWith('track-')) floatingWindows[id].close();
+            if (!id.startsWith('track-')) closeFloatingWindowForVisibility(id);
         });
         if (document.activeElement instanceof HTMLElement) {
             document.activeElement.blur();
