@@ -19,7 +19,7 @@
 | Aries | 4 |
 | Taurus | 5 |
 | Gemini | 6 |
-| Cancer | 7 |
+| Cancer / Karkinos | 7 |
 | Leo | 8 |
 | Virgo | 9 |
 | Libra | 10 |
