@@ -285,11 +285,14 @@ static void voco_send(
 static void addLog(struct webview *w, const char *message);
 
 struct scope_ipc_reader {
+#if defined(_WIN32) || defined(_WIN64)
+  void *mapping_handle;
+#else
   int fd;
-  int pad;
-  uint64_t size;
-  void *mapping;
-  float *frames;
+#endif
+  size_t mapping_bytes;
+  const void *header;
+  const float *frames;
   char name[128];
 };
 
@@ -307,26 +310,12 @@ extern int scope_ipc_reader_latest(
 extern void scope_ipc_reader_close(
     struct scope_ipc_reader *reader) ROTOTEM_WEAK_SCOPE;
 #else
-static int scope_ipc_reader_open(
-    struct scope_ipc_reader *reader, const char *name) {
-  (void)reader;
-  (void)name;
-  return -1;
-}
-
-static int scope_ipc_reader_latest(
+extern int scope_ipc_reader_open(
+    struct scope_ipc_reader *reader, const char *name);
+extern int scope_ipc_reader_latest(
     struct scope_ipc_reader *reader, float *frames, uint32_t max_frames,
-    uint64_t *first_frame) {
-  (void)reader;
-  (void)frames;
-  (void)max_frames;
-  (void)first_frame;
-  return -1;
-}
-
-static void scope_ipc_reader_close(struct scope_ipc_reader *reader) {
-  (void)reader;
-}
+    uint64_t *first_frame);
+extern void scope_ipc_reader_close(struct scope_ipc_reader *reader);
 #endif
 
 #define VISUAL_SCOPE_NAME "skred-scope"
@@ -351,7 +340,7 @@ static int visual_scope_reader_available(void) {
   return scope_ipc_reader_open && scope_ipc_reader_latest &&
       scope_ipc_reader_close;
 #else
-  return 0;
+  return 1;
 #endif
 }
 
@@ -1118,7 +1107,7 @@ static int inspect_project_archive(
     mz_zip_archive *archive, struct project_archive_contents *contents) {
   mz_uint file_count = mz_zip_reader_get_num_files(archive);
   if (file_count == 0 ||
-      file_count > PROJECT_MAX_WAVES + PROJECT_MAX_FILES + 1) {
+      file_count > PROJECT_MAX_WAVES + PROJECT_MAX_FILES + 3) {
     return 0;
   }
 
@@ -1129,9 +1118,15 @@ static int inspect_project_archive(
   mz_uint64 total_file_size = 0;
   for (mz_uint i = 0; i < file_count; i++) {
     mz_zip_archive_file_stat stat;
-    if (!mz_zip_reader_file_stat(archive, i, &stat) ||
-        mz_zip_reader_is_file_a_directory(archive, i)) {
+    if (!mz_zip_reader_file_stat(archive, i, &stat)) {
       return 0;
+    }
+    if (mz_zip_reader_is_file_a_directory(archive, i)) {
+      if (strcmp(stat.m_filename, "waves/") != 0 &&
+          strcmp(stat.m_filename, "files/") != 0) {
+        return 0;
+      }
+      continue;
     }
 
     if (strcmp(stat.m_filename, "settings.json") == 0) {
@@ -1409,7 +1404,6 @@ static void apply_audio_device(struct webview *w, const char *arg) {
   if (!parse_audio_device(arg, &is_capture, &selection)) return;
 
   int result = skred_audio_select(is_capture, selection);
-  if (result == 0) result = skred_audio_reconnect();
   notify_audio_device_applied(
     w, is_capture, result == 0, skred_audio_status());
 }
@@ -1763,7 +1757,8 @@ int main(void) {
     }
   }
 #endif
-  skred_set_audio_device(output, input);
+  skred_audio_select(0, output);
+  skred_audio_select(1, input);
   skred_start(req, vc, -1);
   skred_logger(1);
 
