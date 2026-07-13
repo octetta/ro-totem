@@ -12,7 +12,8 @@ extern "C" {
 // Initialize the audio engine, state, and networking
 int skred_start(unsigned int req_audio_frames, unsigned int voices, int port);
 
-// Send an ASCII control protocol message to the engine
+// Send an ASCII control protocol message to the engine. Audio-device commands
+// (/als, /aout, /ain, /a?) are handled here before other text reaches Skode.
 int skred_command(char* cmd);
 
 // Safely tear down resources

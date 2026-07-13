@@ -490,23 +490,27 @@ static void stop_visual_scope(void) {
   }
 }
 
-static int handle_audio_command(const char *line) {
+/*
+ * The tracked macOS library and externally supplied Windows SDKs predate
+ * skred_command() audio routing. Keep their adapter until those artifacts
+ * are rebuilt; Linux uses the unified command boundary below.
+ */
+#if defined(__APPLE__) || defined(_WIN32)
+static int handle_legacy_audio_command(const char *line) {
   int result = skred_audio_command(line);
   if (result == 0) return 0;
   const char *message = skred_audio_message();
   if (message && message[0]) printf("%s\n", message);
   return 1;
 }
+#endif
 
 static char *skoder(const char *msg) {
-  char *log = "";
-  if (handle_audio_command(msg)) {
-    log = skred_audio_message();
-  } else {
-    skred_command((char *)msg);
-    log = skred_log();
-  }
-  return log;
+#if defined(__APPLE__) || defined(_WIN32)
+  if (handle_legacy_audio_command(msg)) return skred_audio_message();
+#endif
+  skred_command((char *)msg);
+  return skred_log();
 }
 
 static void addSkodeLog(struct webview *w, const char *log) {
