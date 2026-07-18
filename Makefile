@@ -136,18 +136,22 @@ pulp-api-all: pulp-api-linux pulp-api-macos pulp-api-windows
 
 pulp-api:
 	@set -eu; \
-	version='$(PULP_VERSION)'; \
-	if [ "$$version" = latest ]; then \
-		version="$$(curl -fsSL '$(PULP_RAW_BASE)/VERSION')"; \
-	fi; \
-	package="skred-$$version-$(SKRED_FLAVOR)"; \
-	archive="$$package.tar.gz"; \
-	url='$(PULP_RAW_BASE)/dist/$(PULP_PLATFORM)/'"$$archive"; \
-	printf 'Fetching %s\n' "$$url"; \
-	rm -rf '$(PULP_API_TMP_DIR)'; \
-	mkdir -p '$(PULP_API_TMP_DIR)' '$(PULP_API_DIST_DIR)'; \
-	curl -fL "$$url" -o '$(PULP_API_TMP_DIR)'/"$$archive"; \
-	tar -C '$(PULP_API_TMP_DIR)' -xzf '$(PULP_API_TMP_DIR)'/"$$archive"; \
+  version='$(PULP_VERSION)'; \
+  if [ "$$version" = latest ]; then \
+    version=$$(curl -fsSL https://api.github.com/repos/octetta/pulp/releases/latest | grep '"tag_name"' | cut -d'"' -f4 | sed 's/^v//'); \
+  fi; \
+  package="skred-$$version-$(SKRED_FLAVOR)"; \
+  if [ "$(PULP_PLATFORM)" = "macos-universal" ]; then \
+    archive="$$package-macos-universal.tar.gz"; \
+  else \
+    archive="$$package.tar.gz"; \
+  fi; \
+  url="https://github.com/octetta/pulp/releases/download/v$$version/$$archive"; \
+  printf 'Fetching %s\n' "$$url"; \
+  rm -rf '$(PULP_API_TMP_DIR)'; \
+  mkdir -p '$(PULP_API_TMP_DIR)' '$(PULP_API_DIST_DIR)'; \
+  curl -fL "$$url" -o '$(PULP_API_TMP_DIR)'/"$$archive"; \
+  tar -C '$(PULP_API_TMP_DIR)' -xzf '$(PULP_API_TMP_DIR)'/"$$archive"; \
 	test -f '$(PULP_API_TMP_DIR)'/"$$package/include/skred/api.h"; \
 	if [ ! -f '$(PULP_API_TMP_DIR)'/"$$package/lib64/libapi.a" ] && \
 			[ ! -f '$(PULP_API_TMP_DIR)'/"$$package/lib/libapi.a" ]; then \
