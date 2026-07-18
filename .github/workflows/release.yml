@@ -27,7 +27,7 @@ jobs:
             libwebkit2gtk-4.1-dev \
             pkg-config \
             xxd \
-            alsa-lib-devel   # for maxed Skred MIDI
+            libasound2-dev
 
       - name: Fetch latest Pulp Skred (Linux)
         run: make pulp-api-linux
