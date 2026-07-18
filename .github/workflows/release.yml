@@ -33,7 +33,7 @@ jobs:
         run: make pulp-api-linux
 
       - name: Build Linux package
-        run: make linux-package SKRED_VERSION=$$(cat VERSION)   # optional pin
+        run: make linux-package
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
