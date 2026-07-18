@@ -65,7 +65,7 @@ jobs:
         run: make macos-package
 
       - name: Sign the app (ad-hoc)
-        run: |
+        run: |2
           codesign --force --deep --sign - \
             --entitlements <(echo '<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
