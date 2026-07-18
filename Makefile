@@ -141,29 +141,37 @@ pulp-api:
     version=$$(curl -fsSL https://api.github.com/repos/octetta/pulp/releases/latest | grep '"tag_name"' | cut -d'"' -f4 | sed 's/^v//'); \
   fi; \
   package="skred-$$version-$(SKRED_FLAVOR)"; \
-  if [ "$(PULP_PLATFORM)" = "macos-universal" ]; then \
-    archive="$$package-macos-universal.tar.gz"; \
-  else \
-    archive="$$package.tar.gz"; \
-  fi; \
+  case "$(PULP_PLATFORM)" in \
+    linux-x86_64) \
+      archive="$$package-linux-x86_64.tar.gz";; \
+    macos-universal) \
+      archive="$$package-macos-universal.tar.gz";; \
+    windows-x86_64) \
+      archive="$$package-windows-x86_64.zip";; \
+    *) \
+      archive="$$package.tar.gz";; \
+  esac; \
   url="https://github.com/octetta/pulp/releases/download/v$$version/$$archive"; \
   printf 'Fetching %s\n' "$$url"; \
   rm -rf '$(PULP_API_TMP_DIR)'; \
   mkdir -p '$(PULP_API_TMP_DIR)' '$(PULP_API_DIST_DIR)'; \
   curl -fL "$$url" -o '$(PULP_API_TMP_DIR)'/"$$archive"; \
-  tar -C '$(PULP_API_TMP_DIR)' -xzf '$(PULP_API_TMP_DIR)'/"$$archive"; \
-	test -f '$(PULP_API_TMP_DIR)'/"$$package/include/skred/api.h"; \
-	if [ ! -f '$(PULP_API_TMP_DIR)'/"$$package/lib64/libapi.a" ] && \
-			[ ! -f '$(PULP_API_TMP_DIR)'/"$$package/lib/libapi.a" ]; then \
-		echo "Missing libapi.a in $$archive"; \
-		exit 1; \
-	fi; \
-	rm -rf '$(PULP_API_DIST_DIR)'/"$$package"; \
-	mv '$(PULP_API_TMP_DIR)'/"$$package" '$(PULP_API_DIST_DIR)'/; \
-	printf 'Installed %s\n' '$(PULP_API_DIST_DIR)'/"$$package"; \
-	$(MAKE) --no-print-directory skred-paths \
-		SKRED_VERSION="$$version" \
-		SKRED_DIST_ROOTS='$(SKRED_DIR) $(PULP_API_DIST_ROOT)'
+  if [[ "$$archive" == *.zip ]]; then \
+    unzip -q '$(PULP_API_TMP_DIR)'/"$$archive" -d '$(PULP_API_TMP_DIR)'; \
+  else \
+    tar -C '$(PULP_API_TMP_DIR)' -xzf '$(PULP_API_TMP_DIR)'/"$$archive"; \
+  fi; \
+  test -f '$(PULP_API_TMP_DIR)'/"$$package/include/skred/api.h"; \
+  if [ ! -f '$(PULP_API_TMP_DIR)'/"$$package/lib64/libapi.a" ] && [ ! -f '$(PULP_API_TMP_DIR)'/"$$package/lib/libapi.a" ]; then \
+    echo "Missing libapi.a in $$archive"; \
+    exit 1; \
+  fi; \
+  rm -rf '$(PULP_API_DIST_DIR)'/"$$package"; \
+  mv '$(PULP_API_TMP_DIR)'/"$$package" '$(PULP_API_DIST_DIR)'/; \
+  printf 'Installed %s\n' '$(PULP_API_DIST_DIR)'/"$$package"; \
+  $(MAKE) --no-print-directory skred-paths \
+    SKRED_VERSION="$$version" \
+    SKRED_DIST_ROOTS='$(SKRED_DIR) $(PULP_API_DIST_ROOT)'
 
 $(UI_EMBEDDED_HTML): $(UI_HTML) $(P5_JS) $(LOTTIE_JS) $(VOCO_JS)
 	mkdir -p $(dir $@)
