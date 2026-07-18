@@ -44,8 +44,12 @@ static int get_resource_path(const char *filename, char *out_path, size_t out_si
   return written >= 0 && (size_t)written < out_size;
 }
 #else
+#ifdef __linux__
 #include <sys/wait.h>
+#endif
+
 static int get_resource_path(const char *filename, char *out_path, size_t out_size) {
+#ifdef __linux__
   char path[PATH_MAX];
   ssize_t len = readlink("/proc/self/exe", path, sizeof(path) - 1);
   if (len < 0 || (size_t)len >= sizeof(path) - 1) return 0;
@@ -55,6 +59,12 @@ static int get_resource_path(const char *filename, char *out_path, size_t out_si
   *last = '\0';
   int written = snprintf(out_path, out_size, "%s/%s", path, filename);
   return written >= 0 && (size_t)written < out_size;
+#else
+// Fallback for other platforms (Windows, etc.)
+  // For now, just use current directory or return error
+  int written = snprintf(out_path, out_size, "./%s", filename);
+  return written >= 0 && (size_t)written < out_size;
+#endif
 }
 #endif
 
