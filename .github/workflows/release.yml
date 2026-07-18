@@ -79,14 +79,6 @@ jobs:
       - name: Fetch latest Pulp Skred (Windows)
         run: make pulp-api-windows SKRED_DIST_PLATFORMS=windows-x86_64
 
-      - name: Setup WebView2 files for Windows
-        run: |
-          mkdir -p vendor/webview
-          curl -L -o vendor/webview/webview-win32-edge.c \
-            https://raw.githubusercontent.com/javalikescript/webview-c/main/webview-win32-edge.c
-          curl -L -o vendor/webview/WebView2.h \
-            https://raw.githubusercontent.com/javalikescript/webview-c/main/WebView2.h
-
       - name: Build Windows package
         run: make windows-package
 
