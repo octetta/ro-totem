@@ -2,28 +2,29 @@ name: Update Pulp Skred Vendor
 
 on:
   schedule:
-    - cron: '0 0 * * 0'  # Weekly
-  workflow_dispatch:
+    - cron: '0 0 * * 0'  # Weekly on Sunday at midnight UTC
+  workflow_dispatch:     # Allows manual trigger from GitHub UI
 
 jobs:
   update:
     runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-        with: { token: ${{ secrets.GITHUB_TOKEN }} }  # For PR creation
 
-      - name: Fetch all latest Pulp APIs
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}   # Needed for creating PRs
+
+      - name: Fetch latest Pulp Skred for all platforms
         run: make pulp-api-all
 
-      - name: Commit & PR
-        run: |
-          git config user.name "github-actions"
-          git config user.email "actions@github.com"
-          git add vendor/skred/dist
-          if git diff --staged --quiet; then
-            echo "No changes"
-          else
-            git commit -m "chore: update vendored Skred from Pulp $(cat vendor/skred/dist/*/skred-*/include/skred/skred-version.h | grep VERSION | head -1)"
-            git push
-            # Or use a PR action like peter-evans/create-pull-request
-          fi
+      - name: Create Pull Request if changes exist
+        uses: peter-evans/create-pull-request@v7
+        with:
+          commit-message: "chore: update vendored Skred from Pulp"
+          title: "chore: update vendored Skred libraries"
+          body: |
+            Automated update of Pulp Skred API packages.
+            Triggered by weekly cron or manual dispatch.
+          branch: update-pulp-skred
+          delete-branch: true
