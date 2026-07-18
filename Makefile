@@ -222,7 +222,15 @@ LINUX_PACKAGE_DIR := $(DIST_DIR)/$(LINUX_PACKAGE_NAME)
 LINUX_ARCHIVE := $(DIST_DIR)/$(LINUX_PACKAGE_NAME).tar.gz
 LINUX_CFLAGS = $(shell pkg-config --cflags gtk+-3.0 webkit2gtk-4.1)
 LINUX_LIBS = $(shell pkg-config --libs gtk+-3.0 webkit2gtk-4.1)
-SKRED_STATIC_LIBS ?= -lm -lpthread -lasound
+
+# Platform-specific static libs for Skred
+ifeq ($(HOST_OS),Linux)
+  SKRED_STATIC_LIBS ?= -lasound -lm -lpthread
+else ifeq ($(HOST_OS),Darwin)
+  SKRED_STATIC_LIBS ?= -lm -lpthread
+else
+  SKRED_STATIC_LIBS ?= -lm -lpthread
+endif
 
 ALSA_CFLAGS ?= $(shell pkg-config --cflags alsa)
 ALSA_LIBS ?= $(shell pkg-config --libs alsa)
