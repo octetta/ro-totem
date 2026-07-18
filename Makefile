@@ -62,7 +62,8 @@ SKRED_LEGACY_PLATFORM := $(HOST_OS_LOWER)
 SKRED_DIST_PLATFORMS := $(HOST_OS_LOWER)-$(HOST_ARCH)
 endif
 SKRED_DIST_ROOTS ?= $(SKRED_DIR) $(SKRED_DIR)/dist
-SKRED_DIST_PREFIX_CANDIDATES := $(if $(SKRED_VERSION),$(foreach root,$(SKRED_DIST_ROOTS),$(foreach platform,$(SKRED_DIST_PLATFORMS),$(wildcard $(root)/$(platform)/$(SKRED_DIST_NAME)))))
+# SKRED_DIST_PREFIX_CANDIDATES := $(if $(SKRED_VERSION),$(foreach root,$(SKRED_DIST_ROOTS),$(foreach platform,$(SKRED_DIST_PLATFORMS),$(wildcard $(root)/$(platform)/$(SKRED_DIST_NAME)))))
+SKRED_DIST_PREFIX_CANDIDATES := $(foreach root,$(SKRED_DIST_ROOTS),$(foreach platform,$(SKRED_DIST_PLATFORMS),$(wildcard $(root)/$(platform)/$(SKRED_DIST_NAME))))
 SKRED_DIST_PREFIX ?= $(lastword $(sort $(SKRED_DIST_PREFIX_CANDIDATES)))
 ifeq ($(SKRED_DIST_PREFIX),)
 ifneq ($(SKRED_VERSION),)
