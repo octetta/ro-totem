@@ -9,6 +9,8 @@
 # Common settings
 # -----------------------------------------------------------------------------
 
+SHELL := /bin/bash
+
 APP_NAME := ro-totem
 APP_VERSION_FILE := VERSION
 APP_VERSION := $(strip $(shell cat $(APP_VERSION_FILE)))
@@ -135,21 +137,17 @@ pulp-api-all: pulp-api-linux pulp-api-macos pulp-api-windows
 	@echo "All Pulp Skred API packages updated under vendor/skred/dist/"
 
 pulp-api:
-	@set -eu; \
+	@set -euo pipefail; \
   version='$(PULP_VERSION)'; \
   if [ "$$version" = latest ]; then \
     version=$$(curl -fsSL https://api.github.com/repos/octetta/pulp/releases/latest | grep '"tag_name"' | cut -d'"' -f4 | sed 's/^v//'); \
   fi; \
   package="skred-$$version-$(SKRED_FLAVOR)"; \
   case "$(PULP_PLATFORM)" in \
-    linux-x86_64) \
-      archive="$$package-linux-x86_64.tar.gz";; \
-    macos-universal) \
-      archive="$$package-macos-universal.tar.gz";; \
-    windows-x86_64) \
-      archive="$$package-windows-x86_64.zip";; \
-    *) \
-      archive="$$package.tar.gz";; \
+    linux-x86_64) archive="$$package-linux-x86_64.tar.gz";; \
+    macos-universal) archive="$$package-macos-universal.tar.gz";; \
+    windows-x86_64) archive="$$package-windows-x86_64.zip";; \
+    *) archive="$$package.tar.gz";; \
   esac; \
   url="https://github.com/octetta/pulp/releases/download/v$$version/$$archive"; \
   printf 'Fetching %s\n' "$$url"; \
