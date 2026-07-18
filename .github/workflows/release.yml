@@ -51,7 +51,15 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Fetch latest Pulp Skred (macOS)
-        run: make pulp-api-macos
+        run: |
+          for i in {1..5}; do
+            if make pulp-api-macos; then
+              exit 0
+            fi
+            echo "Retry $i/5..."
+            sleep $((i*3))
+          done
+          exit 1
 
       - name: Build macOS package
         run: make macos-package
