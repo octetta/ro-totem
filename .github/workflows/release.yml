@@ -45,6 +45,11 @@ jobs:
   macos:
     name: macOS package
     runs-on: macos-latest
+    env:
+      MACOSX_DEPLOYMENT_TARGET: "15.0"
+      CFLAGS: "-mmacosx-version-min=15.0"
+      CXXFLAGS: "-mmacosx-version-min=15.0"
+      LDFLAGS: "-mmacosx-version-min=15.0"
 
     steps:
       - name: Check out repository
