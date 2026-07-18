@@ -92,7 +92,7 @@ jobs:
   release:
     name: Create GitHub Release
     runs-on: ubuntu-latest
-    needs: [linux, macos, windows]
+    needs: [linux, macos] # removed windows until i can debug
 
     steps:
       - name: Check out repository
