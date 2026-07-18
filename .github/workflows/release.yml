@@ -77,7 +77,7 @@ jobs:
           version: 0.13.0
 
       - name: Fetch latest Pulp Skred (Windows)
-        run: make pulp-api-windows
+        run: make pulp-api-windows SKRED_DIST_PLATFORMS=windows-x86_64
 
       - name: Build Windows package
         run: make windows-package
