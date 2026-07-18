@@ -119,6 +119,21 @@ skred-paths:
 	@printf 'SKRED_LIB_DIR=%s\n' '$(SKRED_LIB_DIR)'
 	@printf 'SKRED_API_LIB=%s\n' '$(SKRED_API_LIB)'
 
+# Near the existing pulp-api target
+.PHONY: pulp-api-all pulp-api-linux pulp-api-macos pulp-api-windows
+
+pulp-api-linux:
+	$(MAKE) pulp-api PULP_PLATFORM=linux-x86_64
+
+pulp-api-macos:
+	$(MAKE) pulp-api PULP_PLATFORM=macos-universal
+
+pulp-api-windows:
+	$(MAKE) pulp-api PULP_PLATFORM=windows-x86_64 SKRED_FLAVOR=maxed
+
+pulp-api-all: pulp-api-linux pulp-api-macos pulp-api-windows
+	@echo "All Pulp Skred API packages updated under vendor/skred/dist/"
+
 pulp-api:
 	@set -eu; \
 	version='$(PULP_VERSION)'; \
@@ -197,7 +212,10 @@ LINUX_PACKAGE_DIR := $(DIST_DIR)/$(LINUX_PACKAGE_NAME)
 LINUX_ARCHIVE := $(DIST_DIR)/$(LINUX_PACKAGE_NAME).tar.gz
 LINUX_CFLAGS = $(shell pkg-config --cflags gtk+-3.0 webkit2gtk-4.1)
 LINUX_LIBS = $(shell pkg-config --libs gtk+-3.0 webkit2gtk-4.1)
-SKRED_STATIC_LIBS ?= -lm -lpthread
+SKRED_STATIC_LIBS ?= -lm -lpthread -lasound
+
+ALSA_CFLAGS ?= $(shell pkg-config --cflags alsa)
+ALSA_LIBS ?= $(shell pkg-config --libs alsa)
 
 linux: $(LINUX_BINARY)
 
@@ -208,9 +226,9 @@ $(LINUX_BINARY): $(COMMON_SOURCES) $(UI_HTML_HEADER) $(APP_VERSION_HEADER) \
 		$(SKRED_API_LIB)
 	mkdir -p $(LINUX_BUILD_DIR)
 	$(CC) $(CPPFLAGS) $(CFLAGS) $(LINUX_CFLAGS) \
-		-I$(BUILD_DIR) -I$(SKRED_INCLUDE_DIR) \
+		-I$(BUILD_DIR) -I$(SKRED_INCLUDE_DIR) $(ALSA_CFLAGS) \
 		-DWEBVIEW_GTK=1 rototem.c $(MINIZ_SOURCE) \
-		$(SKRED_API_LIB) $(LINUX_LIBS) $(SKRED_STATIC_LIBS) \
+		$(SKRED_API_LIB) $(LINUX_LIBS) $(ALSA_LIBS) $(SKRED_STATIC_LIBS) \
 		-o $@
 
 linux-package: $(LINUX_BINARY)
