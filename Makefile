@@ -315,7 +315,7 @@ $(MACOS_BINARY): $(COMMON_SOURCES) $(UI_HTML) $(APP_VERSION_HEADER) \
 		-I$(BUILD_DIR) -I$(SKRED_INCLUDE_DIR) \
 		-DOBJC_OLD_DISPATCH_PROTOTYPES=1 -DWEBVIEW_COCOA=1 \
 		rototem.c $(MINIZ_SOURCE) \
-		-framework WebKit -framework CoreFoundation \
+		-framework WebKit -framework CoreFoundation -framework CoreMIDI \
 		$(SKRED_API_LIB) $(SKRED_STATIC_LIBS) \
 		-o $@
 
